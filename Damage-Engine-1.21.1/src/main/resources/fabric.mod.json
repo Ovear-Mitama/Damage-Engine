@@ -1,0 +1,42 @@
+{
+	"schemaVersion": 1,
+	"id": "damage-engine",
+	"version": "${version}",
+	"name": "Damage Engine",
+	"description": "Display the damage values you inflict on the UI.",
+	"authors": [
+		"mitama"
+	],
+	"contact": {
+		"homepage": "https://github.com/Ovear-Mitama/Damage-Engine",
+		"sources": "https://github.com/Ovear-Mitama/Damage-Engine",
+		"issues": "https://github.com/Ovear-Mitama/Damage-Engine/issues"
+	},
+	"license": "CC-BY-NC-SA-4.0",
+	"icon": "assets/damage-engine/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"damage.engine.DamageEngine"
+		],
+		"client": [
+			"damage.engine.DamageEngineClient"
+		],
+		"modmenu": [
+			"damage.engine.compat.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"damage-engine.mixins.json",
+		{
+			"config": "damage-engine.client.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.18.4",
+		"minecraft": "~1.21.1",
+		"java": ">=21",
+		"fabric-api": "*"
+	}
+}
