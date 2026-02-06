@@ -1,0 +1,31 @@
+{
+  "title.damage-engine.config": "Damage Engine Config",
+  "title.damage-engine.hud_editor": "HUD Editor",
+  "modmenu.description": "Display the damage values you inflict on the UI.",
+  
+  "category.damage_engine": "Damage Engine",
+  "category.damage_engine.general": "General",
+  "category.damage_engine.appearance": "Appearance",
+  "category.damage_engine.keybinds": "Keybinds",
+  "category.damage_engine.other": "Other",
+  
+  "option.damage-engine.showDamage": "Show Damage",
+  "option.damage-engine.showProgressBar": "Show Progress Bar",
+  "option.damage-engine.edit_pos_label": "HUD Position",
+  "button.damage-engine.edit_pos": "Edit Position",
+  "option.damage-engine.scale": "HUD Scale",
+  "option.damage-engine.progressBarColor": "Bar Color",
+  "option.damage-engine.resetTime": "Reset Time (s)",
+  
+  "key.damage_engine.config": "Open Config",
+  "key.damage_engine.toggle_hud": "Toggle HUD",
+  
+  "button.damage-engine.save_close": "Save & Close",
+  "text.damage-engine.preview": "Preview",
+  "text.damage-engine.drag_to_move": "Drag to move",
+  "text.damage-engine.save_exit": "Press ESC to Save & Exit",
+  
+  "options.on": "ON",
+  "options.off": "OFF",
+  "gui.cancel": "Cancel"
+}

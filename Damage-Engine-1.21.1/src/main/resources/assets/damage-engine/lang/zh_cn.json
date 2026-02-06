@@ -1,0 +1,31 @@
+{
+  "title.damage-engine.config": "伤害显示配置",
+  "modmenu.description": "在UI上显示你造成的伤害数值",
+  "title.damage-engine.hud_editor": "HUD 编辑器",
+  
+  "category.damage_engine": "Damage Engine",
+  "category.damage_engine.general": "常规设置",
+  "category.damage_engine.appearance": "外观设置",
+  "category.damage_engine.keybinds": "按键绑定",
+  "category.damage_engine.other": "其他设置",
+  
+  "option.damage-engine.showDamage": "显示伤害",
+  "option.damage-engine.showProgressBar": "显示进度条",
+  "option.damage-engine.edit_pos_label": "HUD 位置",
+  "button.damage-engine.edit_pos": "编辑位置",
+  "option.damage-engine.scale": "HUD 缩放",
+  "option.damage-engine.progressBarColor": "进度条颜色",
+  "option.damage-engine.resetTime": "重置时间 (秒)",
+  
+  "key.damage_engine.config": "打开配置菜单",
+  "key.damage_engine.toggle_hud": "切换 HUD 显示",
+  
+  "button.damage-engine.save_close": "保存并关闭",
+  "text.damage-engine.preview": "预览",
+  "text.damage-engine.drag_to_move": "拖动以移动",
+  "text.damage-engine.save_exit": "按 ESC 保存并退出",
+  
+  "options.on": "开启",
+  "options.off": "关闭",
+  "gui.cancel": "取消"
+}
