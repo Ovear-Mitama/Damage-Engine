@@ -2,6 +2,7 @@ package damage.engine;
 
 import damage.engine.network.DamagePayload;
 import net.fabricmc.api.ModInitializer;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,5 +16,8 @@ public class DamageEngine implements ModInitializer {
 		
 		// Load Config
 		DamageEngineConfig.getInstance().load();
+
+		// Register Networking
+		PayloadTypeRegistry.playS2C().register(DamagePayload.ID, DamagePayload.CODEC);
 	}
 }
