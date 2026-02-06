@@ -57,15 +57,16 @@ public class DamageEngineClient implements ClientModInitializer {
         });
 
         // Register Packet Receiver
-        ClientPlayNetworking.registerGlobalReceiver(DamagePayload.ID, (payload, context) -> {
-            context.client().execute(() -> {
-                if (context.client().world == null || context.client().player == null) return;
+        ClientPlayNetworking.registerGlobalReceiver(DamagePayload.ID, (client, handler, buf, responseSender) -> {
+            DamagePayload payload = DamagePayload.decode(buf);
+            client.execute(() -> {
+                if (client.world == null || client.player == null) return;
                 
                 // Debug Log
-                System.out.println("Damage Payload Received: Amount=" + payload.amount() + ", Attacker=" + payload.attackerId() + ", Player=" + context.client().player.getId());
+                System.out.println("Damage Payload Received: Amount=" + payload.amount() + ", Attacker=" + payload.attackerId() + ", Player=" + client.player.getId());
 
                 // Filter: Only show damage caused by the player
-                if (payload.attackerId() != context.client().player.getId()) {
+                if (payload.attackerId() != client.player.getId()) {
                     return;
                 }
                 
