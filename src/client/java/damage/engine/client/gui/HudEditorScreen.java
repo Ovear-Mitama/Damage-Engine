@@ -57,7 +57,13 @@ public class HudEditorScreen extends Screen {
         int boxX = x - w / 2 + 20; 
         int boxY = y - 10 - 20; 
         
-        context.drawBorder(boxX, boxY, w, h, 0xFFFFFFFF);
+        // Draw Border
+        int color = 0xFFFFFFFF;
+        context.fill(boxX, boxY, boxX + w, boxY + 1, color); // Top
+        context.fill(boxX, boxY + h - 1, boxX + w, boxY + h, color); // Bottom
+        context.fill(boxX, boxY + 1, boxX + 1, boxY + h - 1, color); // Left
+        context.fill(boxX + w - 1, boxY + 1, boxX + w, boxY + h - 1, color); // Right
+
         // White text on dark background
         Text dragText = Text.translatable("text.damage-engine.drag_to_move");
         context.drawText(this.textRenderer, dragText, boxX + w/2 - this.textRenderer.getWidth(dragText)/2, boxY - 15, 0xFFFFFFFF, false);

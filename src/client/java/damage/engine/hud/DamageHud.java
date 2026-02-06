@@ -5,7 +5,6 @@ import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.font.TextRenderer;
 import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.render.RenderTickCounter;
 import net.minecraft.util.math.MathHelper;
 
 import java.util.List;
@@ -16,7 +15,7 @@ public class DamageHud implements HudRenderCallback {
     private int lastComboCount = 0;
 
     @Override
-    public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
+    public void onHudRender(DrawContext context, float tickDelta) {
         if (!DamageEngineConfig.getInstance().showDamage) return;
         
         DamageSessionManager session = DamageSessionManager.getInstance();
@@ -54,7 +53,7 @@ public class DamageHud implements HudRenderCallback {
         
         if (globalAlpha > 0.01f) {
             renderContent(context, session.getTotalDamage(), session.getComboCount(), 
-                session.getRemainingTimeProgress(), session.getDamageHistory(), false, globalAlpha);
+                session.getRemainingTimeProgress(), session.getDamageHistory(), false, globalAlpha, tickDelta);
         }
     }
     
@@ -71,10 +70,10 @@ public class DamageHud implements HudRenderCallback {
             new DamageSessionManager.DamageEntry(2.5f, false, 0)
         );
         
-        renderContent(context, total, combo, progress, history, true, 1.0f);
+        renderContent(context, total, combo, progress, history, true, 1.0f, 1.0f);
     }
 
-    private void renderContent(DrawContext context, float total, int combo, float targetProgress, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha) {
+    private void renderContent(DrawContext context, float total, int combo, float targetProgress, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha, float tickDelta) {
         MinecraftClient client = MinecraftClient.getInstance();
         TextRenderer tr = client.textRenderer;
         
@@ -121,7 +120,7 @@ public class DamageHud implements HudRenderCallback {
             if (isPreview) {
                 smoothProgress = targetProgress;
             } else {
-                float delta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
+                float delta = tickDelta;
                 
                 // Logic:
                 // If target > current, we are refilling (Combo extended)

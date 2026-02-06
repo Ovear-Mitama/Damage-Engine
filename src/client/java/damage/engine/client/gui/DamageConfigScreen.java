@@ -23,6 +23,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
+import net.minecraft.text.Style;
+
 public class DamageConfigScreen extends Screen {
     private final Screen parent;
     private final DamageEngineConfig config;
@@ -58,12 +60,13 @@ public class DamageConfigScreen extends Screen {
         int listHeight = footerY; 
         
         // 1. Left Side: Category List
-        categoryList = new CategoryListWidget(this.client, leftWidth, listHeight, headerHeight, 25);
+        // Pass this.height as total height, and footerY as bottom
+        categoryList = new CategoryListWidget(this.client, leftWidth, this.height, headerHeight, footerY, 25);
         categoryList.setLeftPos(0);
         
         // 2. Right Side: Option List
         // Start from leftWidth (120) and take remaining width
-        optionList = new ConfigOptionListWidget(this.client, this.width - leftWidth, listHeight, 0, 30);
+        optionList = new ConfigOptionListWidget(this.client, this.width - leftWidth, this.height, 0, footerY, 30);
         optionList.setLeftPos(leftWidth);
         
         initOptions();
@@ -76,7 +79,7 @@ public class DamageConfigScreen extends Screen {
         int buttonY = footerY + 5; // Centered vertically in the 30px footer
         
         // Save
-        ButtonWidget saveBtn = ButtonWidget.builder(Text.translatable("button.damage-engine.save_close").withColor(0xFFB7F3C8), b -> {
+        ButtonWidget saveBtn = ButtonWidget.builder(Text.translatable("button.damage-engine.save_close").setStyle(Style.EMPTY.withColor(0xFFB7F3C8)), b -> {
             config.save();
             this.client.setScreen(parent);
         }).dimensions(this.width - buttonWidth - 10, buttonY, buttonWidth, 20).build();
@@ -92,9 +95,9 @@ public class DamageConfigScreen extends Screen {
         this.addSelectableChild(cancelBtn);
         
         // Preview Toggle
-        ButtonWidget previewBtn = ButtonWidget.builder(Text.translatable("text.damage-engine.preview").append(Text.literal(": " + (previewEnabled ? "ON" : "OFF")).withColor(previewEnabled ? 0xFFB5F0C6 : 0xFFFFFFFF)), b -> {
+        ButtonWidget previewBtn = ButtonWidget.builder(Text.translatable("text.damage-engine.preview").append(Text.literal(": " + (previewEnabled ? "ON" : "OFF")).setStyle(Style.EMPTY.withColor(previewEnabled ? 0xFFB5F0C6 : 0xFFFFFFFF))), b -> {
             previewEnabled = !previewEnabled;
-            b.setMessage(Text.translatable("text.damage-engine.preview").append(Text.literal(": " + (previewEnabled ? "ON" : "OFF")).withColor(previewEnabled ? 0xFFB5F0C6 : 0xFFFFFFFF)));
+            b.setMessage(Text.translatable("text.damage-engine.preview").append(Text.literal(": " + (previewEnabled ? "ON" : "OFF")).setStyle(Style.EMPTY.withColor(previewEnabled ? 0xFFB5F0C6 : 0xFFFFFFFF))));
         }).dimensions(10, buttonY, 80, 20).build();
         footerButtons.add(previewBtn);
         this.addSelectableChild(previewBtn);
@@ -219,7 +222,7 @@ public class DamageConfigScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         // 1. Draw main background with blur if enabled in options
         // renderBackground calls renderInGameBackground if world != null
-        this.renderBackground(context, mouseX, mouseY, delta);
+        this.renderBackground(context);
         
         // Update smooth scroll
         optionList.updateSmoothScroll(delta);
@@ -298,13 +301,18 @@ public class DamageConfigScreen extends Screen {
     }
     
     private class CategoryListWidget extends ElementListWidget<CategoryEntry> {
-        public CategoryListWidget(MinecraftClient client, int width, int height, int y, int itemHeight) {
-            super(client, width, height, y, 25);
+        public CategoryListWidget(MinecraftClient client, int width, int height, int top, int bottom, int itemHeight) {
+            super(client, width, height, top, bottom, itemHeight);
             this.centerListVertically = false;
         }
         
         @Override
-        public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+        public boolean isMouseOver(double mouseX, double mouseY) {
+            return mouseX >= this.left && mouseX <= this.right && mouseY >= this.top && mouseY <= this.bottom;
+        }
+
+        @Override
+        public void render(DrawContext context, int mouseX, int mouseY, float delta) {
              // Removed solid background fill to fix "Left side background still there"
              // context.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0x40000000);
              
@@ -313,10 +321,28 @@ public class DamageConfigScreen extends Screen {
              context.disableScissor();
         }
 
-        @Override public int getRowWidth() { return 100; }
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            if (isMouseOver(mouseX, mouseY)) {
+                double relativeY = mouseY - this.top + this.getScrollAmount();
+                int index = (int)(relativeY / this.itemHeight);
+                if (index >= 0 && index < this.children().size()) {
+                    this.children().get(index).mouseClicked(mouseX, mouseY, button);
+                    return true;
+                }
+            }
+            return super.mouseClicked(mouseX, mouseY, button);
+        }
+
+        @Override public int getRowWidth() { return this.width; } // Full width
         public void addEntryPublic(CategoryEntry entry) { this.addEntry(entry); }
-        public void setLeftPos(int x) { }
-        @Override public int getRowLeft() { return 0; }
+        
+        public void setLeftPos(int x) { 
+            this.left = x;
+            this.right = x + this.width;
+        }
+        
+        @Override public int getRowLeft() { return this.left; }
         public int getScrollbarPositionX() { return -10; } 
     }
     
@@ -326,40 +352,41 @@ public class DamageConfigScreen extends Screen {
         private double targetScroll = 0;
         private boolean isSmoothScrolling = false;
 
-        public ConfigOptionListWidget(MinecraftClient client, int width, int height, int y, int itemHeight) {
-            super(client, width, height, y, 30);
+        public ConfigOptionListWidget(MinecraftClient client, int width, int height, int top, int bottom, int itemHeight) {
+            super(client, width, height, top, bottom, itemHeight);
             this.centerListVertically = false;
         }
         @Override public int getRowWidth() { return this.width - 20; } 
         public void addEntryPublic(OptionEntry entry) { this.addEntry(entry); }
         public void setLeftPos(int x) { 
-            this.setX(x);
+            this.left = x;
+            this.right = x + this.width;
         }
-        @Override public int getRowLeft() { return this.getX() + 10; }
+        @Override public int getRowLeft() { return this.left + 10; }
         public int getScrollbarPositionX() { return this.client.getWindow().getScaledWidth() - 6; }
         
         // Since render() is final in ClickableWidget (which ElementListWidget inherits from),
         // we must override renderWidget().
         
         @Override
-        public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+        public void render(DrawContext context, int mouseX, int mouseY, float delta) {
              this.enableScissor(context);
              this.renderList(context, mouseX, mouseY, delta);
              context.disableScissor();
              
              // Scrollbar
              int scrollbarX = this.getScrollbarPositionX();
-             int scrollbarY = this.getY();
-             int scrollbarHeight = this.getHeight();
-             int contentHeight = this.getMaxScroll() + this.getHeight();
+             int scrollbarY = this.top;
+             int scrollbarHeight = this.bottom - this.top;
+             int contentHeight = this.getMaxScroll() + scrollbarHeight;
              
-             if (contentHeight > this.getHeight()) {
-                 int barHeight = (int)((float)(this.getHeight() * this.getHeight()) / (float)contentHeight);
+             if (contentHeight > scrollbarHeight) {
+                 int barHeight = (int)((float)(scrollbarHeight * scrollbarHeight) / (float)contentHeight);
                  barHeight = Math.max(32, barHeight);
-                 if (barHeight > this.getHeight()) barHeight = this.getHeight();
+                 if (barHeight > scrollbarHeight) barHeight = scrollbarHeight;
                  
-                 int barTop = (int)this.getScrollAmount() * (this.getHeight() - barHeight) / (this.getMaxScroll()) + this.getY();
-                 if (barTop < this.getY()) barTop = this.getY();
+                 int barTop = (int)this.getScrollAmount() * (scrollbarHeight - barHeight) / (this.getMaxScroll()) + this.top;
+                 if (barTop < this.top) barTop = this.top;
                  
                  // Draw Track (Dark background)
                 context.fill(scrollbarX, scrollbarY, scrollbarX + 6, scrollbarY + scrollbarHeight, 0x80000000);
@@ -369,7 +396,7 @@ public class DamageConfigScreen extends Screen {
             }
        }
         
-        @Override
+        // Removed @Override because this method does not exist in 1.20.1
         protected void drawHeaderAndFooterSeparators(DrawContext context) {}
         
         @Override
@@ -386,10 +413,10 @@ public class DamageConfigScreen extends Screen {
         }
 
         @Override
-        public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+        public boolean mouseScrolled(double mouseX, double mouseY, double amount) {
             // Do NOT call super.mouseScrolled() to avoid immediate scrolling snap
             // We implement our own logic entirely
-            this.targetScroll = this.getScrollAmount() - verticalAmount * 40.0; // Increased speed
+            this.targetScroll = this.getScrollAmount() - amount * 40.0; // Increased speed
             this.targetScroll = Math.max(0, Math.min(this.targetScroll, this.getMaxScroll()));
             this.isSmoothScrolling = true;
             return true;
@@ -399,8 +426,8 @@ public class DamageConfigScreen extends Screen {
         public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
             // Check if dragging scrollbar
             // Only if scrollbar is visible
-            int contentHeight = this.getMaxScroll() + this.getHeight();
-            if (contentHeight > this.getHeight()) {
+            int contentHeight = this.getMaxScroll() + this.height;
+            if (contentHeight > this.height) {
                  int scrollbarX = this.getScrollbarPositionX();
                  // Expand hit area slightly
                  // Check if mouseX is within a reasonable range of the scrollbar (e.g., within 20px) to allow easier grabbing
@@ -409,11 +436,11 @@ public class DamageConfigScreen extends Screen {
                  if (draggingScrollbar || (mouseX >= scrollbarX - 10)) {
                      draggingScrollbar = true;
                      // Calculate new scroll amount based on mouse movement
-                     double scrollFactor = (double)this.getMaxScroll() / (double)(this.getHeight() - 30); // Approximate bar height factor
+                     double scrollFactor = (double)this.getMaxScroll() / (double)(this.height - 30); // Approximate bar height factor
                      
-                     double barHeight = (double)(this.getHeight() * this.getHeight()) / (double)contentHeight;
+                     double barHeight = (double)(this.height * this.height) / (double)contentHeight;
                      barHeight = Math.max(32, barHeight);
-                     double trackHeight = this.getHeight() - barHeight;
+                     double trackHeight = this.height - barHeight;
                      
                      if (trackHeight > 0) {
                          // We need to calculate how much the scroll changes per pixel of mouse movement
@@ -485,9 +512,9 @@ public class DamageConfigScreen extends Screen {
             this.state = initial;
             this.label = Text.translatable(key, "");
             // Use user requested #B5F0C6 for ON
-            this.button = ButtonWidget.builder(Text.translatable(state ? "options.on" : "options.off").withColor(state ? 0xFFB5F0C6 : 0xFFFFFFFF), b -> {
+            this.button = ButtonWidget.builder(Text.translatable(state ? "options.on" : "options.off").setStyle(Style.EMPTY.withColor(state ? 0xFFB5F0C6 : 0xFFFFFFFF)), b -> {
                 state = !state;
-                b.setMessage(Text.translatable(state ? "options.on" : "options.off").withColor(state ? 0xFFB5F0C6 : 0xFFFFFFFF));
+                b.setMessage(Text.translatable(state ? "options.on" : "options.off").setStyle(Style.EMPTY.withColor(state ? 0xFFB5F0C6 : 0xFFFFFFFF)));
                 onToggle.accept(state);
             }).dimensions(0, 0, 100, 20).build();
         }
@@ -502,6 +529,8 @@ public class DamageConfigScreen extends Screen {
         @Override public List<? extends Element> children() { return Collections.singletonList(button); }
         @Override public List<? extends Selectable> selectableChildren() { return Collections.singletonList(button); }
     }
+    
+    // ... (其他类没有变化，省略以节省空间，但我必须写入完整文件)
     
     private static class SliderEntry extends OptionEntry {
         private final SliderWidget slider;
@@ -729,8 +758,8 @@ public class DamageConfigScreen extends Screen {
         }
         
         private Text getBindingText() {
-            if (binding) return Text.literal("> <").withColor(0xFFFFFF55);
-            if (keyBinding.isUnbound()) return Text.literal("<Unbound>").withColor(0xFFAAAAAA);
+            if (binding) return Text.literal("> <").setStyle(Style.EMPTY.withColor(0xFFFFFF55));
+            if (keyBinding.isUnbound()) return Text.literal("<Unbound>").setStyle(Style.EMPTY.withColor(0xFFAAAAAA));
             return keyBinding.getBoundKeyLocalizedText();
         }
         
