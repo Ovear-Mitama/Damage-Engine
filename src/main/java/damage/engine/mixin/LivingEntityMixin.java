@@ -1,12 +1,14 @@
 package damage.engine.mixin;
 
 import damage.engine.network.DamagePayload;
+import net.fabricmc.fabric.api.networking.v1.PacketByteBufs;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.PacketByteBuf;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -77,12 +79,16 @@ public abstract class LivingEntityMixin extends Entity {
             
             // Send to tracking players
             for (ServerPlayerEntity player : PlayerLookup.tracking(this)) {
-                ServerPlayNetworking.send(player, payload);
+                PacketByteBuf buf = PacketByteBufs.create();
+                payload.encode(buf);
+                ServerPlayNetworking.send(player, DamagePayload.ID, buf);
             }
             
             // Send to self if player
             if ((Object)this instanceof ServerPlayerEntity selfPlayer) {
-                ServerPlayNetworking.send(selfPlayer, payload);
+                PacketByteBuf buf = PacketByteBufs.create();
+                payload.encode(buf);
+                ServerPlayNetworking.send(selfPlayer, DamagePayload.ID, buf);
             }
         }
     }
