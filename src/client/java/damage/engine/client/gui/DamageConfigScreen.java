@@ -489,13 +489,13 @@ public class DamageConfigScreen extends Screen {
                 state = !state;
                 b.setMessage(Text.translatable(state ? "options.on" : "options.off").withColor(state ? 0xFFB5F0C6 : 0xFFFFFFFF));
                 onToggle.accept(state);
-            }).dimensions(0, 0, 60, 20).build();
+            }).dimensions(0, 0, 100, 20).build();
         }
         @Override
         public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
             // Draw text without shadow for cleaner look with dark colors if requested, but label is white here
             context.drawTextWithShadow(client.textRenderer, label, x, y + 6, 0xFFFFFF);
-            button.setX(x + entryWidth - 70);
+            button.setX(x + entryWidth - 110);
             button.setY(y + 2);
             button.render(context, mouseX, mouseY, tickDelta);
         }
@@ -564,14 +564,14 @@ public class DamageConfigScreen extends Screen {
         private final MinecraftClient client = MinecraftClient.getInstance();
         public NumericEntry(String key, float initial, Consumer<Float> onChange) {
             this.label = Text.translatable(key);
-            this.field = new TextFieldWidget(client.textRenderer, 0, 0, 50, 20, Text.empty());
+            this.field = new TextFieldWidget(client.textRenderer, 0, 0, 100, 20, Text.empty());
             this.field.setText(String.valueOf(initial));
             this.field.setChangedListener(s -> { try { onChange.accept(Float.parseFloat(s)); } catch(Exception ignored){} });
         }
         @Override
         public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
             context.drawTextWithShadow(client.textRenderer, label, x, y + 6, 0xFFFFFF);
-            field.setX(x + entryWidth - 60);
+            field.setX(x + entryWidth - 110);
             field.setY(y + 2);
             field.render(context, mouseX, mouseY, tickDelta);
         }
@@ -583,23 +583,60 @@ public class DamageConfigScreen extends Screen {
         private final TextFieldWidget field;
         private final Text label;
         private final MinecraftClient client = MinecraftClient.getInstance();
+        private int currentColor;
+
         public HexColorEntry(String key, int initial, Consumer<Integer> onChange) {
             this.label = Text.translatable(key);
-            this.field = new TextFieldWidget(client.textRenderer, 0, 0, 60, 20, Text.empty());
+            this.currentColor = initial;
+            // Width 75. 75 + 5 + 20 = 100
+            this.field = new TextFieldWidget(client.textRenderer, 0, 0, 75, 20, Text.empty());
             this.field.setMaxLength(6); // Limit to 6 chars
             this.field.setText(String.format("%06X", initial & 0xFFFFFF)); // Ensure 6 digit hex
             this.field.setChangedListener(s -> { 
                 try { 
-                    onChange.accept((int)Long.parseLong(s, 16)); 
+                    int val = (int)Long.parseLong(s, 16);
+                    this.currentColor = val;
+                    onChange.accept(val); 
                 } catch(Exception ignored){} 
             });
         }
         @Override
         public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
             context.drawTextWithShadow(client.textRenderer, label, x, y + 6, 0xFFFFFF);
-            field.setX(x + entryWidth - 70);
+            
+            // Layout: [Input Field (75)] [Spacing (5)] [Preview Box (20)]
+            // Total Width: 100
+            // Start X: x + entryWidth - 110
+            
+            int startX = x + entryWidth - 110;
+            
+            field.setX(startX);
             field.setY(y + 2);
             field.render(context, mouseX, mouseY, tickDelta);
+            
+            // Render Preview Box
+            // Reduced by 3px total size (20 -> 17) as requested ("Too big by 3px")
+            // Actually, if "Too big by 3px", maybe they mean height?
+            // Assuming requested size is 17x17 (20-3) to fit nicely?
+            // Or maybe 20px is physically larger than the text field visual height?
+            // TextFieldWidget height is 20, but internal rendering might be smaller visually.
+            // Let's reduce size to 17px and center it.
+            
+            int previewSize = 17;
+            int previewX = startX + 80; // 75 + 5
+            
+            // Center vertically: (20 - 17) / 2 = 1.5 -> 1 or 2 offset
+            int previewY = y + 2 + 1; 
+            
+            // Draw border (Black outer, White inner?) or just White border
+            // User asked for "Add border for better visibility"
+            // Let's do a 1px White border around the color.
+            
+            // Outer Border (White)
+            context.fill(previewX - 1, previewY - 1, previewX + previewSize + 1, previewY + previewSize + 1, 0xFFFFFFFF);
+            
+            // Inner Color
+            context.fill(previewX, previewY, previewX + previewSize, previewY + previewSize, 0xFF000000 | (currentColor & 0xFFFFFF));
         }
         @Override public List<? extends Element> children() { return Collections.singletonList(field); }
         @Override public List<? extends Selectable> selectableChildren() { return Collections.singletonList(field); }
