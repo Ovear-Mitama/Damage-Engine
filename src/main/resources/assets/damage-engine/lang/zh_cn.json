@@ -1,9 +1,10 @@
 {
-  "title.damage-engine.config": "伤害显示配置",
-  "modmenu.description": "在UI上显示你造成的伤害数值",
+  "title.damage-engine.config": "伤害引擎",
+  "modmenu.nameTranslation.damage-engine": "伤害引擎",
+  "modmenu.descriptionTranslation.damage-engine": "在你的界面上显示伤害",
   "title.damage-engine.hud_editor": "HUD 编辑器",
   
-  "category.damage_engine": "Damage Engine",
+  "category.damage_engine": "伤害引擎",
   "category.damage_engine.general": "常规设置",
   "category.damage_engine.appearance": "外观设置",
   "category.damage_engine.keybinds": "按键绑定",
@@ -15,17 +16,27 @@
   "button.damage-engine.edit_pos": "编辑位置",
   "option.damage-engine.scale": "HUD 缩放",
   "option.damage-engine.progressBarColor": "进度条颜色",
+  "option.damage-engine.colors": "总伤害指标颜色",
+  "text.damage-engine.damage_reach": "伤害达到指定数时的颜色",
   "option.damage-engine.resetTime": "重置时间 (秒)",
+  "option.damage-engine.historyLimit": "历史记录上限",
+  "option.damage-engine.reset": "重置设置",
   
   "key.damage_engine.config": "打开配置菜单",
-  "key.damage_engine.toggle_hud": "切换 HUD 显示",
+  "key.damage_engine.toggle_hud": "显示/隐藏 HUD",
   
   "button.damage-engine.save_close": "保存并关闭",
+  "button.damage-engine.add_color": "添加",
   "text.damage-engine.preview": "预览",
   "text.damage-engine.drag_to_move": "拖动以移动",
   "text.damage-engine.save_exit": "按 ESC 保存并退出",
   
   "options.on": "开启",
   "options.off": "关闭",
-  "gui.cancel": "取消"
+  "options.add": "添加",
+  "gui.cancel": "取消",
+  "gui.reset": "重置",
+  "gui.confirm": "确认",
+  "text.damage-engine.reset_done": "已重置!",
+  "key.damage_engine.not_bound": "未指定"
 }

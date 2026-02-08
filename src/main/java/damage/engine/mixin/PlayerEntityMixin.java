@@ -60,19 +60,19 @@ public abstract class PlayerEntityMixin {
         float absorptionLost = this.damageEngine$previousAbsorption - currentAbsorption;
         float actualDamage = healthLost + absorptionLost;
         
-        // Debug Log
+        // 调试日志
         LOGGER.info("Player: {}, Raw Amount: {}, Actual Damage: {} (HealthLost: {}, AbsLost: {})", 
             self.getName().getString(), amount, actualDamage, healthLost, absorptionLost);
 
         if (actualDamage > 0) {
             DamagePayload payload = new DamagePayload(self.getId(), actualDamage, this.damageEngine$wasCrit, this.damageEngine$attackerId);
             
-            // Send to tracking players
+            // 发送给追踪的玩家
             for (ServerPlayerEntity player : PlayerLookup.tracking(self)) {
                 ServerPlayNetworking.send(player, payload);
             }
             
-            // Send to self (the victim)
+            // 发送给自己（受害者）
             if (self instanceof ServerPlayerEntity selfPlayer) {
                 ServerPlayNetworking.send(selfPlayer, payload);
             }

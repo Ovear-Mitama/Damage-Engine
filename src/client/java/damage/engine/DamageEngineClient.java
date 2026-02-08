@@ -20,10 +20,10 @@ public class DamageEngineClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        // Register HUD
+        // 注册 HUD
         HudRenderCallback.EVENT.register(new DamageHud());
 
-        // Register KeyBindings
+        // 注册按键绑定
         configKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.damage_engine.config",
             InputUtil.Type.KEYSYM,
@@ -34,11 +34,11 @@ public class DamageEngineClient implements ClientModInitializer {
         toggleHudKeyBinding = KeyBindingHelper.registerKeyBinding(new KeyBinding(
             "key.damage_engine.toggle_hud",
             InputUtil.Type.KEYSYM,
-            GLFW.GLFW_KEY_UNKNOWN, // Unbound by default
+            GLFW.GLFW_KEY_UNKNOWN, // 默认未绑定
             "category.damage_engine"
         ));
 
-        // Register Tick
+        // 注册 Tick 事件
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player != null) {
                 while (configKeyBinding.wasPressed()) {
@@ -56,20 +56,20 @@ public class DamageEngineClient implements ClientModInitializer {
             }
         });
 
-        // Register Packet Receiver
+        // 注册数据包接收器
         ClientPlayNetworking.registerGlobalReceiver(DamagePayload.ID, (payload, context) -> {
             context.client().execute(() -> {
                 if (context.client().world == null || context.client().player == null) return;
                 
-                // Debug Log
+                // 调试日志
                 System.out.println("Damage Payload Received: Amount=" + payload.amount() + ", Attacker=" + payload.attackerId() + ", Player=" + context.client().player.getId());
 
-                // Filter: Only show damage caused by the player
+                // 过滤：仅显示玩家造成的伤害
                 if (payload.attackerId() != context.client().player.getId()) {
                     return;
                 }
                 
-                // Add to HUD
+                // 添加到 HUD
                 DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit());
             });
         });

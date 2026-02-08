@@ -68,19 +68,19 @@ public abstract class LivingEntityMixin extends Entity {
         float absorptionLost = this.damageEngine$previousAbsorption - currentAbsorption;
         float actualDamage = healthLost + absorptionLost;
         
-        // Debug Log
+        // 调试日志
         LOGGER.info("Entity: {}, Raw Amount: {}, Actual Damage: {} (HealthLost: {}, AbsLost: {})", 
             self.getName().getString(), amount, actualDamage, healthLost, absorptionLost);
 
         if (actualDamage > 0) {
             DamagePayload payload = new DamagePayload(this.getId(), actualDamage, this.damageEngine$wasCrit, this.damageEngine$attackerId);
             
-            // Send to tracking players
+            // 发送给追踪的玩家
             for (ServerPlayerEntity player : PlayerLookup.tracking(this)) {
                 ServerPlayNetworking.send(player, payload);
             }
             
-            // Send to self if player
+            // 如果是玩家则发送给自己
             if ((Object)this instanceof ServerPlayerEntity selfPlayer) {
                 ServerPlayNetworking.send(selfPlayer, payload);
             }

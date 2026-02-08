@@ -15,17 +15,27 @@
   "button.damage-engine.edit_pos": "Edit Position",
   "option.damage-engine.scale": "HUD Scale",
   "option.damage-engine.progressBarColor": "Bar Color",
+  "option.damage-engine.colors": "Total Damage Indicator Color",
+  "text.damage-engine.damage_reach": "Damage Reaches",
   "option.damage-engine.resetTime": "Reset Time (s)",
+  "option.damage-engine.historyLimit": "History Limit",
+  "option.damage-engine.reset": "Reset Settings",
   
   "key.damage_engine.config": "Open Config",
   "key.damage_engine.toggle_hud": "Toggle HUD",
   
   "button.damage-engine.save_close": "Save & Close",
+  "button.damage-engine.add_color": "Add New",
   "text.damage-engine.preview": "Preview",
   "text.damage-engine.drag_to_move": "Drag to move",
   "text.damage-engine.save_exit": "Press ESC to Save & Exit",
   
   "options.on": "ON",
   "options.off": "OFF",
-  "gui.cancel": "Cancel"
+  "options.add": "Add New",
+  "gui.cancel": "Cancel",
+  "gui.reset": "Reset",
+  "gui.confirm": "Confirm",
+  "text.damage-engine.reset_done": "Successful!",
+  "key.damage_engine.not_bound": "Not Bound"
 }

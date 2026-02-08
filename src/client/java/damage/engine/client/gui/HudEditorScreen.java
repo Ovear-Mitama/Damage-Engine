@@ -21,44 +21,44 @@ public class HudEditorScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // Render parent screen first to show config screen behind
+        // 先渲染父屏幕以在后面显示配置屏幕
         this.parent.render(context, -1, -1, delta);
         
-        // Ensure this screen draws ON TOP of the parent screen's footer buttons (Z=200)
+        // 确保此屏幕绘制在父屏幕页脚按钮之上 (Z=200)
         context.getMatrices().push();
-        context.getMatrices().translate(0, 0, 300); // Bump Z-index above parent
+        context.getMatrices().translate(0, 0, 300); // 将 Z 索引提高到父级之上
         
-        // Draw dark transparent background for visibility of white text
+        // 绘制深色透明背景以显示白色文本
         context.fill(0, 0, this.width, this.height, 0xAA000000);
         
         int x = config.hudX == -1.0f ? this.width / 2 : (int)(config.hudX * this.width);
         int y = config.hudY == -1.0f ? this.height / 2 + 20 : (int)(config.hudY * this.height);
         
-        // Clamp to screen bounds
+        // 限制在屏幕范围内
         if (x < 0) x = 0;
         if (y < 0) y = 0;
         if (x > this.width) x = this.width - 50;
         if (y > this.height) y = this.height - 50;
         
-        // Preview HUD content
+        // 预览 HUD 内容
         new damage.engine.hud.DamageHud().renderPreview(context, x, y);
         
-        // Draw Box around HUD (Approximate based on preview size)
+        // 围绕 HUD 绘制框（基于预览大小的近似值）
         
         int w = (int)(180 * config.hudScale); 
         int h = (int)(100 * config.hudScale);
-        // Shift more to right and up as requested (+60, -70)
-        // Previous logic was x - w/2 + 70, y - 10 - 80.
-        // User update: "shifted too much, should go left and down".
-        // Let's try halfway: +35, -40?
-        // User said: "shifted too much, should move left, then move down".
-        // Let's revert closer to center but keep some offset.
-        // Try +20, -20.
+        // 根据请求向右和向上移动 (+60, -70)
+        // 以前的逻辑是 x - w/2 + 70, y - 10 - 80.
+        // 用户更新："偏移太多，应该向左走，再向下走"。
+        // 让我们尝试中间值：+35, -40?
+        // 用户说："偏移太多，应该向左移动，然后向下移动"。
+        // 让我们回到中心附近但保持一些偏移。
+        // 尝试 +20, -20.
         int boxX = x - w / 2 + 20; 
         int boxY = y - 10 - 20; 
         
         context.drawBorder(boxX, boxY, w, h, 0xFFFFFFFF);
-        // White text on dark background
+        // 深色背景上的白色文本
         Text dragText = Text.translatable("text.damage-engine.drag_to_move");
         context.drawText(this.textRenderer, dragText, boxX + w/2 - this.textRenderer.getWidth(dragText)/2, boxY - 15, 0xFFFFFFFF, false);
         
@@ -76,7 +76,7 @@ public class HudEditorScreen extends Screen {
             
             int w = (int)(180 * config.hudScale);
             int h = (int)(100 * config.hudScale);
-            // Match render logic
+            // 匹配渲染逻辑
             int boxX = x - w / 2 + 20;
             int boxY = y - 10 - 20;
             
@@ -102,7 +102,7 @@ public class HudEditorScreen extends Screen {
             int newX = (int)mouseX - dragOffsetX;
             int newY = (int)mouseY - dragOffsetY;
             
-            // Save as relative
+            // 保存为相对坐标
             config.hudX = (float)newX / (float)this.width;
             config.hudY = (float)newY / (float)this.height;
             return true;
