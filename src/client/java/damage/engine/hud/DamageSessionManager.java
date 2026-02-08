@@ -21,11 +21,11 @@ public class DamageSessionManager {
     }
 
     public void addDamage(float amount, boolean isCrit) {
-        // Removed hudEnabled check here to decouple logic from rendering if needed later, 
-        // but generally we can keep tracking even if hidden.
+        // 此处移除了 hudEnabled 检查，以便在需要时将逻辑与渲染解耦，
+        // 但通常即使隐藏，我们也可以保持跟踪。
         
         long now = System.currentTimeMillis();
-        // Check if session expired before adding new damage
+        // 在添加新伤害之前检查会话是否过期
         if (isActive && (now - lastHitTime) > DamageEngineConfig.getInstance().resetTime * 1000) {
             reset();
         }
@@ -47,19 +47,19 @@ public class DamageSessionManager {
         long now = System.currentTimeMillis();
         long resetTimeMs = (long)(DamageEngineConfig.getInstance().resetTime * 1000);
         
-        // Don't reset immediately if we want fade out.
-        // Let HUD handle visual fade out, then we reset when fully faded?
-        // Or we introduce a "fading" state.
-        // Simpler: Extend active time by fade duration (e.g. 1s), but stop updating progress bar?
+        // 如果我们想要淡出，不要立即重置。
+        // 让 HUD 处理视觉淡出，然后在完全淡出时重置？
+        // 或者我们引入一个'正在淡出'的状态。
+        // 更简单：将会话时间延长淡出持续时间（例如 1 秒），但停止更新进度条？
         
-        // Let's just expose "time since last hit" and let HUD decide when to stop rendering.
-        // We only reset data when time > resetTime + fadeTime.
+        // 让我们只暴露'自上次攻击以来的时间'，让 HUD 决定何时停止渲染。
+        // 我们仅在时间 > 重置时间 + 淡出时间时重置数据。
         
-        if ((now - lastHitTime) > (resetTimeMs + 1000)) { // 1s buffer for fade
+        if ((now - lastHitTime) > (resetTimeMs + 1000)) { // 1秒淡出缓冲
             reset();
         }
         
-        // Cleanup history (remove entries older than 5s)
+        // 清理历史记录（删除超过 5 秒的条目）
         damageHistory.removeIf(entry -> (now - entry.timestamp) > 5000);
     }
     

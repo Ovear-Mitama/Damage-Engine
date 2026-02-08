@@ -14,10 +14,10 @@ public class DamageEngine implements ModInitializer {
 	public void onInitialize() {
 		LOGGER.info("Initializing Damage Engine...");
 		
-		// Load Config
+		// 加载配置
 		DamageEngineConfig.getInstance().load();
 
-		// Register Networking
+		// 注册网络
 		PayloadTypeRegistry.playS2C().register(DamagePayload.ID, DamagePayload.CODEC);
 	}
 }
