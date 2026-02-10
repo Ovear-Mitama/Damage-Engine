@@ -23,6 +23,10 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
 
+/**
+ * 伤害引擎配置屏幕
+ * 提供对模组所有设置的图形化管理
+ */
 public class DamageConfigScreen extends Screen {
     private final Screen parent;
     private final DamageEngineConfig config;
@@ -58,6 +62,23 @@ public class DamageConfigScreen extends Screen {
     }
 
     private final List<ButtonWidget> footerButtons = new ArrayList<>();
+
+    private static class TextButtonWidget extends ButtonWidget {
+        private final int defaultColor;
+        private final int hoverColor;
+
+        public TextButtonWidget(int x, int y, int width, int height, Text message, PressAction onPress, int defaultColor, int hoverColor) {
+            super(x, y, width, height, message, onPress, DEFAULT_NARRATION_SUPPLIER);
+            this.defaultColor = defaultColor;
+            this.hoverColor = hoverColor;
+        }
+
+        @Override
+        public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+            int color = this.isHovered() ? hoverColor : defaultColor;
+            context.drawCenteredTextWithShadow(MinecraftClient.getInstance().textRenderer, this.getMessage(), this.getX() + this.width / 2, this.getY() + (this.height - 8) / 2, color);
+        }
+    }
 
     @Override
     protected void init() {
@@ -119,7 +140,6 @@ public class DamageConfigScreen extends Screen {
             this.addSelectableChild(cancelBtn);
             
             // 预览切换
-            // 使用用户请求的 #B5F0C6 (开), #FC887E (关)
             int onColor = 0xFFB5F0C6;
             int offColor = 0xFFFC887E;
             ButtonWidget previewBtn = ButtonWidget.builder(Text.translatable("text.damage-engine.preview").append(": ").append(Text.literal(previewEnabled ? "ON" : "OFF").withColor(previewEnabled ? onColor : offColor)), b -> {
@@ -154,8 +174,9 @@ public class DamageConfigScreen extends Screen {
     private void initOptionEntries() {
         // --- General ---
         addHeader("category.damage_engine.general");
-        addOption(new BooleanOptionEntry("option.damage-engine.showDamage", config.showDamage, v -> config.showDamage = v));
+        // Removed "Show Damage" option as requested
         addOption(new BooleanOptionEntry("option.damage-engine.showProgressBar", config.showProgressBar, v -> config.showProgressBar = v));
+        addOption(new BooleanOptionEntry("option.damage-engine.showDamageHistory", config.showDamageHistory, v -> config.showDamageHistory = v));
         
         // --- Appearance ---
         addHeader("category.damage_engine.appearance");
@@ -199,22 +220,18 @@ public class DamageConfigScreen extends Screen {
         addOption(new KeybindEntry("key.damage_engine.config", DamageEngineClient.configKeyBinding));
         addOption(new KeybindEntry("key.damage_engine.toggle_hud", DamageEngineClient.toggleHudKeyBinding));
         
-        // 打开完整 MC 按键绑定屏幕的按钮（可选，也许保留作为额外选项？）
-        // 用户要求'在那里做按键绑定'，意味着行内编辑。
-        // 我们可以移除跳转按钮或将其保留在底部。
-        // 让我们移除它以保持整洁（根据请求）。
         
         // --- Other ---
         addHeader("category.damage_engine.other");
         addOption(new NumericEntry("option.damage-engine.resetTime", config.resetTime, v -> config.resetTime = v));
+        addOption(new NumericEntry("option.damage-engine.historyDisappearanceTime", config.historyDisappearanceTime, v -> config.historyDisappearanceTime = v));
         addOption(new IntegerSliderEntry("option.damage-engine.historyLimit", config.historyLimit, 1, 50, v -> config.historyLimit = v));
+        addOption(new BooleanOptionEntry(Text.translatable("option.damage-engine.debugMode").withColor(0xFFFBFB54), config.debugMode, v -> config.debugMode = v));
         
         // 重置按钮
         addOption(new ResetButtonEntry("option.damage-engine.reset", () -> {
             config.resetToDefaults();
-            // 同时也重置按键绑定为默认？
-            // 用户抱怨：'我点击重置，按键绑定没有重置'。
-            // 所以我们也应该重置按键绑定。
+
             DamageEngineClient.configKeyBinding.setBoundKey(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_UNKNOWN)); // 默认为 UNKNOWN
             DamageEngineClient.toggleHudKeyBinding.setBoundKey(InputUtil.Type.KEYSYM.createFromCode(GLFW.GLFW_KEY_UNKNOWN)); // 默认为 UNKNOWN
             KeyBinding.updateKeysByCode();
@@ -230,13 +247,6 @@ public class DamageConfigScreen extends Screen {
     }
     
     private void addCategory(String key, int id) {
-        // 根据当前 optionList 大小计算 targetIndex？
-        // 等等，initCategories 现在在 initOptionEntries 之前调用。
-        // 所以我们还不知道 targetIndex。
-        // 我们需要要么：
-        // 1. 在 initOptionEntries 期间动态计算索引（并更新分类）
-        // 2. 或者保留旧结构但只是分开调用。
-        // 因为我们线性构建选项，我们可以在添加标题时记录索引。
         
         CategoryEntry cat = new CategoryEntry(this, Text.translatable(key), id, 0); // 暂时为索引 0
         categoryList.addEntryPublic(cat);
@@ -362,7 +372,7 @@ public class DamageConfigScreen extends Screen {
             // 更新滚动监听
             if (optionList != null) {
                 // 如果没有在导航（自动滚动），检查鼠标悬停
-                // 用户请求：只根据我在右侧悬停的设置项调整
+                // 只根据我在右侧悬停的设置项调整
                 if (!isNavigating) {
                     int hoveredIndex = optionList.getHoveredEntryIndex(mouseX, mouseY);
                     if (hoveredIndex != -1) {
@@ -382,7 +392,7 @@ public class DamageConfigScreen extends Screen {
                     }
                 }
                 
-                // 用户请求：不用根据我处在哪一页动态调整
+                // 不用根据我处在哪一页动态调整
                 // 所以我们移除了 updateActiveCategory() 的后备调用
             }
             
@@ -401,24 +411,17 @@ public class DamageConfigScreen extends Screen {
             
             // 水平线（页脚上方）
             context.fill(0, footerY - 1, this.width, footerY, 0xFF555555);
-            
-            // 'Damage Engine' 标题下方的分隔符
+
             context.fill(0, 25, leftWidth, 26, 0xFF555555);
             
-            // 4. 绘制页脚背景（透明但由于列表高度限制而遮罩列表）
             context.getMatrices().push();
             context.getMatrices().translate(0, 0, 200); // 提高 Z 轴索引
             
-            // 5. 手动渲染页脚按钮
             for (ButtonWidget btn : footerButtons) {
                 btn.render(context, mouseX, mouseY, delta);
             }
             context.getMatrices().pop();
             
-            // 6. 标题
-            // 将 'Damage Engine' 标题与分类列表项对齐（相对于列表 x=10）
-            // 分类列表从 x=0 开始。项目文本在 x+10。
-            // 所以标题应该在 x=10。
             context.drawTextWithShadow(this.textRenderer, Text.translatable("category.damage_engine"), 10, 10, 0xFFFFFF);
             
             if (previewEnabled) {
@@ -429,12 +432,11 @@ public class DamageConfigScreen extends Screen {
         }
     }
     
-    // ================= WIDGETS =================
     
     private static class CategoryEntry extends ElementListWidget.Entry<CategoryEntry> {
         private final Text text;
         private final int id;
-        private int targetIndex; // 移除了 final
+        private int targetIndex;
         private final MinecraftClient client = MinecraftClient.getInstance();
         private final DamageConfigScreen screen;
         
@@ -447,22 +449,15 @@ public class DamageConfigScreen extends Screen {
         
         @Override
         public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            // 用户请求：左侧哪里悬停不用做高亮
-            // if (hovered) {
-            //    context.fill(x, y, x + entryWidth, y + entryHeight, 0x15FFFFFF);
-            // }
+
             
             boolean isSelected = screen.selectedCategoryIndex == id;
             if (isSelected) {
-                // 如果不想要白色选择条，移除它，或者保留它。
-                // 用户说'不要让左边变成灰色，用白色'。
-                // 假设他们指的是文本颜色。
-                // 选择条是白色的 (0xFFFFFFFF)。
-                // 让我们保留选择指示器，但也许更细？
+
                 context.fill(x, y + 2, x + 2, y + entryHeight - 2, 0xFFFFFFFF);
             }
-            int color = 0xFFFFFFFF; // 按要求始终为白色
-            // 左对齐文本：x + 10
+            int color = 0xFFFFFFFF;
+
             context.drawTextWithShadow(client.textRenderer, text, x + 10, y + 8, color);
         }
         
@@ -485,8 +480,7 @@ public class DamageConfigScreen extends Screen {
         
         @Override
         public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
-             // 移除了纯色背景填充以修复'左侧背景仍然存在'
-             // context.fill(this.getX(), this.getY(), this.getX() + this.width, this.getY() + this.height, 0x40000000);
+
              
              this.enableScissor(context);
              this.renderList(context, mouseX, mouseY, delta);
@@ -507,8 +501,7 @@ public class DamageConfigScreen extends Screen {
             boolean isHovered = hovered || (mouseX >= x && mouseX <= x + entryWidth && mouseY >= y && mouseY <= y + entryHeight);
             
             if (isHovered && shouldHighlight()) {
-                // 使用较大的水平范围以填满整个列表区域（依靠剪裁）
-                // 底部减去 2px 以修复视觉上的溢出
+
                 context.fill(x - 200, y, x + entryWidth + 200, y + entryHeight - 2, 0x30FFFFFF);
             }
             renderContent(context, index, y, x, entryWidth, entryHeight, mouseX, mouseY, hovered, tickDelta);
@@ -529,21 +522,13 @@ public class DamageConfigScreen extends Screen {
         }
         
         public int getHoveredEntryIndex(double mouseX, double mouseY) {
-             // ElementListWidget 没有直接暴露 getEntryAtPosition (通常是 protected)
-             // 但我们可以根据 mouseY 计算
-             // 参考 ElementListWidget.getEntryAtPosition
-             // 检查是否在边界内
+
              if (mouseX < this.getX() || mouseX > this.getRight() || mouseY < this.getY() || mouseY > this.getBottom()) {
                  return -1;
              }
              
              int i = MathHelper.floor(mouseY - (double)this.getY() - this.headerHeight + this.getScrollAmount() - 4.0D);
-             // 这里的 4.0D 是内边距？或者 headerHeight？
-             // 在 super.getEntryAtPosition 中：
-             // int i = MathHelper.floor(mouseY - (double)this.getY() - (double)this.headerHeight + this.getScrollAmount() - 4.0D);
-             // 然后 i / itemHeight
-             
-             // 我们的 itemHeight 是 30
+
              int index = i / 30;
              if (index >= 0 && index < this.getEntryCount()) {
                  return index;
@@ -560,8 +545,6 @@ public class DamageConfigScreen extends Screen {
         @Override public int getRowLeft() { return this.getX() + 10; }
         public int getScrollbarPositionX() { return this.client.getWindow().getScaledWidth() - 6; }
         
-        // 因为 render() 在 ClickableWidget（ElementListWidget 继承自它）中是 final 的，
-        // 我们必须重写 renderWidget()。
         
         @Override
         public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
@@ -601,8 +584,6 @@ public class DamageConfigScreen extends Screen {
             // 扩大的点击区域
             if (mouseX >= scrollbarX - 10) {
                 DamageConfigScreen.this.isNavigating = false;
-                // 如果我们点击这里，我们想要开始拖动，即使我们错过了滑块本身（跳转到位置？）
-                // 默认行为处理滑块点击。我们想要确保我们捕获焦点/拖动。
                 return true;
             }
             return super.mouseClicked(mouseX, mouseY, button);
@@ -611,8 +592,6 @@ public class DamageConfigScreen extends Screen {
         @Override
         public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
             DamageConfigScreen.this.isNavigating = false;
-            // 不要调用 super.mouseScrolled() 以避免立即滚动吸附
-            // 我们完全实现自己的逻辑
             this.targetScroll = this.getScrollAmount() - verticalAmount * 80.0; // 增加速度 (幅度更大)
             this.targetScroll = Math.max(0, Math.min(this.targetScroll, this.getMaxScroll()));
             this.isSmoothScrolling = true;
@@ -621,15 +600,9 @@ public class DamageConfigScreen extends Screen {
         
         @Override
         public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-            // 检查是否拖动滚动条
-            // 仅当滚动条可见时
             int contentHeight = this.getMaxScroll() + this.getHeight();
             if (contentHeight > this.getHeight()) {
                  int scrollbarX = this.getScrollbarPositionX();
-                 // 稍微扩大点击区域
-                 // 检查 mouseX 是否在滚动条的合理范围内（例如，20px 以内）以允许更容易抓取
-                 // 因为 getScrollbarPositionX 在最右边 (this.width - 6)，并且滑块宽度为 6。
-                 // 如果 mouseX > scrollbarX - 10，我们要抓取。
                  if (draggingScrollbar || (mouseX >= scrollbarX - 10)) {
                      DamageConfigScreen.this.isNavigating = false;
                      draggingScrollbar = true;
@@ -641,9 +614,6 @@ public class DamageConfigScreen extends Screen {
                      double trackHeight = this.getHeight() - barHeight;
                      
                      if (trackHeight > 0) {
-                         // 我们需要计算每像素鼠标移动滚动变化多少
-                         // 滑块移动 trackHeight 像素对应 getMaxScroll() 内容移动
-                         // 所以 1 像素的滑块移动 = getMaxScroll() / trackHeight 像素的内容移动
                          double scrollPerPixel = this.getMaxScroll() / trackHeight;
                          
                          double newScroll = this.getScrollAmount() + deltaY * scrollPerPixel;
@@ -687,7 +657,6 @@ public class DamageConfigScreen extends Screen {
         }
     }
     
-    // --- Option Widgets ---
     
     private static class HeaderEntry extends OptionEntry {
         private final Text text;
@@ -697,12 +666,7 @@ public class DamageConfigScreen extends Screen {
         protected boolean shouldHighlight() { return false; }
         @Override
         public void renderContent(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            // 将标题与选项对齐（x 而不是 x+15 或居中？）
-            // 选项通常在 x 处渲染标签。
-            // 标题文本应该在 x。
-            // 但我们想要它与 'Damage Engine' 标题对齐，其位于 x=6（绝对）。
-            // 这在列表中，所以 x 是相对于列表左侧（位于 leftWidth=120）。
-            // 让我们坚持用 x。
+
             context.drawTextWithShadow(client.textRenderer, text, x, y + 15, 0xFFFFFF);
             context.fill(x, y + 25, x + entryWidth, y + 26, 0xFF888888);
         }
@@ -717,9 +681,12 @@ public class DamageConfigScreen extends Screen {
         private final MinecraftClient client = MinecraftClient.getInstance();
         
         public BooleanOptionEntry(String key, boolean initial, Consumer<Boolean> onToggle) {
+            this(Text.translatable(key), initial, onToggle);
+        }
+
+        public BooleanOptionEntry(Text label, boolean initial, Consumer<Boolean> onToggle) {
             this.state = initial;
-            this.label = Text.translatable(key, "");
-            // 使用用户请求的 #B5F0C6 (开), #FC887E (关)
+            this.label = label;
             int onColor = 0xFFB5F0C6;
             int offColor = 0xFFFC887E;
             
@@ -806,8 +773,7 @@ public class DamageConfigScreen extends Screen {
         public ResetButtonEntry(String key, Runnable onReset) {
             this.label = Text.translatable(key);
             this.onReset = onReset;
-            // 基于外部类的初始状态
-            int color = 0xFFFC887E; // 红色
+            int color = 0xFFFC887E; 
             Text btnText = Text.translatable("gui.reset");
             
             if (resetButtonState == 1) {
@@ -840,17 +806,19 @@ public class DamageConfigScreen extends Screen {
             if (resetButtonState == 2) {
                 if (System.currentTimeMillis() - resetButtonActionTime > 3000) {
                     resetButtonState = 0;
-                    button.setMessage(Text.translatable("gui.reset").withColor(0xFFFC887E));
+                    button.setMessage(Text.translatable("gui.reset").withColor(0xFFFC887E)); // 重置为 #FC887E
                 }
             } else if (resetButtonState == 1) {
                  // 5秒后自动取消确认
                  if (System.currentTimeMillis() - resetButtonActionTime > 5000) {
                      resetButtonState = 0;
-                     button.setMessage(Text.translatable("gui.reset").withColor(0xFFFC887E));
+                     button.setMessage(Text.translatable("gui.reset").withColor(0xFFFC887E)); // 重置为 #FC887E
                  }
             }
             
-            context.drawTextWithShadow(client.textRenderer, label, x, y + 8, 0xFFFFFF);
+            // 左侧标签文字也显示为 #FC887E
+            context.drawTextWithShadow(client.textRenderer, label, x, y + 8, 0xFFFC887E);
+            
             button.setX(x + entryWidth - 110);
             button.setY(y + 2);
             button.render(context, mouseX, mouseY, tickDelta);
@@ -878,32 +846,31 @@ public class DamageConfigScreen extends Screen {
         
         @Override
         public void renderContent(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            context.drawTextWithShadow(client.textRenderer, label, x, y + 8, 0xFFFFFF);
+            // 整行响应：只要悬停，文字和符号都变色
+            // 使用更可靠的悬停检测
+            boolean isHovered = hovered || (mouseX >= x && mouseX <= x + entryWidth && mouseY >= y && mouseY <= y + entryHeight);
+            int color = isHovered ? 0xFFFBFB54 : 0xFFFFFFFF;
+            
+            context.drawTextWithShadow(client.textRenderer, label, x, y + 8, color);
             
             button.setX(x + entryWidth - 25);
             button.setY(y + 2);
             // 不渲染按钮背景
-            // button.render(context, mouseX, mouseY, tickDelta); 
             
-            // 手动渲染符号：如果展开则为 ▼ (下)，如果折叠则为 ▲ (上)？
-            // 通常 ▼ 意味着 '下方展开内容'，▶ 意味着 '已折叠'。
-            // 用户请求 '上下符号'。
-            // 让我们使用：展开 = ▲ (点击折叠), 折叠 = ▼ (点击展开)？
-            // 或者：展开 = ▼ (显示内容), 折叠 = ▶ (隐藏)
-            // 用户说：'展开收起用∧∨表示'。
-            // 展开 (打开) -> ∧ (点击关闭/上)
-            // 折叠 (关闭) -> ∨ (点击打开/下)
-            
-            String symbol = expanded ? "^" : "v";
+            // 手动渲染符号：如果展开则为 - (收起)，如果折叠则为 + (展开)
+            String symbol = expanded ? "-" : "+";
             int symWidth = client.textRenderer.getWidth(symbol);
-            context.drawTextWithShadow(client.textRenderer, symbol, button.getX() + 10 - symWidth/2, button.getY() + 6, 0xFFFFFF);
+            
+            // 确保符号也使用相同的悬停颜色
+            context.drawTextWithShadow(client.textRenderer, symbol, button.getX() + 10 - symWidth/2, button.getY() + 6, color);
         }
         
         @Override 
         public boolean mouseClicked(double mouseX, double mouseY, int button) {
+            // 整行响应点击
             if (button == 0) {
+                this.onToggle.accept(!expanded);
                 client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.master(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK, 1.0F));
-                onToggle.accept(!expanded);
                 return true;
             }
             return false;
@@ -941,8 +908,7 @@ public class DamageConfigScreen extends Screen {
                 } catch(Exception ignored){}
             });
             
-            this.delBtn = ButtonWidget.builder(Text.literal("x").withColor(0xFFFF5555), b -> onDelete.run())
-                .dimensions(0, 0, 20, 20).build();
+            this.delBtn = new TextButtonWidget(0, 0, 20, 20, Text.literal("-"), b -> onDelete.run(), 0xFFFFFFFF, 0xFFFBFB54);
         }
         
         @Override
@@ -964,7 +930,11 @@ public class DamageConfigScreen extends Screen {
             valField.setY(y + 2);
             
             Text label = Text.translatable("text.damage-engine.damage_reach");
-            context.drawTextWithShadow(client.textRenderer, label, x + 10, y + 8, 0xFFFFFF); // 稍微缩进
+            
+            // 整行响应：只要鼠标在这一行范围内 (hovered 为 true)，标签就变色
+            int labelColor = hovered ? 0xFFFBFB54 : 0xFFFFFFFF; // Yellow if hovered, White otherwise
+            
+            context.drawTextWithShadow(client.textRenderer, label, x + 10, y + 8, labelColor); // 稍微缩进
             
             valField.render(context, mouseX, mouseY, tickDelta);
             colField.render(context, mouseX, mouseY, tickDelta);
@@ -980,25 +950,48 @@ public class DamageConfigScreen extends Screen {
     private static class AddButtonEntry extends OptionEntry {
         private final ButtonWidget button;
         private final MinecraftClient client = MinecraftClient.getInstance();
+        private final Runnable action;
         
         public AddButtonEntry(Runnable action) {
-            // 带有 '+' 符号的小按钮，绿色 #B5F0C6
-            this.button = ButtonWidget.builder(Text.literal("+").withColor(0xFFB5F0C6), b -> action.run())
-                .dimensions(0, 0, 20, 20).build();
+            this.action = action;
+            // 按钮设为全宽，不可见（只用于处理点击）
+            // 或者是保留小按钮，但 mouseClicked 覆盖全行
+            this.button = new TextButtonWidget(0, 0, 20, 20, Text.literal("+"), b -> action.run(), 0xFFFFFFFF, 0xFFFBFB54);
         }
         
         @Override
         public void renderContent(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            // 在右侧渲染，类似于删除按钮，但也许居中或对齐？
-            // 用户说 'Add new不要按钮，做成一个+号'。
-            // 让我们将其向右对齐，与删除按钮一致。
             int rightX = x + entryWidth;
-            button.setX(rightX - 25); // 与删除按钮相同的 X 位置
+            button.setX(rightX - 25);
             button.setY(y + 2);
-            button.render(context, mouseX, mouseY, tickDelta);
+            
+            // 整行响应：只要悬停在这一行，+ 号就变黄
+            // 使用更可靠的悬停检测
+            boolean isHovered = hovered || (mouseX >= x && mouseX <= x + entryWidth && mouseY >= y && mouseY <= y + entryHeight);
+            int color = isHovered ? 0xFFFBFB54 : 0xFFFFFFFF;
+            
+            // 手动绘制 + 号
+            String symbol = "+";
+            int symWidth = client.textRenderer.getWidth(symbol);
+            // 确保 + 号也使用悬停颜色
+            context.drawTextWithShadow(client.textRenderer, symbol, button.getX() + 10 - symWidth/2, button.getY() + 6, color);
+            
+            // 不调用 button.render，完全接管绘制
         }
-        @Override public List<? extends Element> children() { return Collections.singletonList(button); }
-        @Override public List<? extends Selectable> selectableChildren() { return Collections.singletonList(button); }
+        
+        @Override
+        public boolean mouseClicked(double mouseX, double mouseY, int button) {
+             // 允许整行点击
+             if (button == 0) { // 左键
+                 this.action.run();
+                 client.getSoundManager().play(net.minecraft.client.sound.PositionedSoundInstance.master(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK, 1.0F));
+                 return true;
+             }
+             return false;
+        }
+        
+        @Override public List<? extends Element> children() { return Collections.emptyList(); } // 不返回 button，避免双重处理
+        @Override public List<? extends Selectable> selectableChildren() { return Collections.emptyList(); }
     }
 
     private static class ButtonActionEntry extends OptionEntry {

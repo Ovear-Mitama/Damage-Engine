@@ -21,6 +21,7 @@ public class DamageEngineConfig {
     // 通用设置
     public boolean showDamage = true;
     public boolean showProgressBar = true;
+    public boolean showDamageHistory = true;
 
     // 外观设置
     public float hudScale = 0.95652175f;
@@ -44,6 +45,8 @@ public class DamageEngineConfig {
     // 其他
     public float resetTime = 5.0f;
     public int historyLimit = 5;
+    public float historyDisappearanceTime = 5.0f;
+    public boolean debugMode = false;
 
     private DamageEngineConfig() {
         // 默认值
@@ -73,6 +76,7 @@ public class DamageEngineConfig {
                 if (loaded != null) {
                     this.showDamage = loaded.showDamage;
                     this.showProgressBar = loaded.showProgressBar;
+                    this.showDamageHistory = loaded.showDamageHistory;
                     this.hudScale = loaded.hudScale;
                     this.hudX = loaded.hudX;
                     this.hudY = loaded.hudY;
@@ -82,6 +86,8 @@ public class DamageEngineConfig {
                     }
                     this.resetTime = loaded.resetTime;
                     this.historyLimit = loaded.historyLimit;
+                    this.historyDisappearanceTime = loaded.historyDisappearanceTime;
+                    this.debugMode = loaded.debugMode;
                     
                     // 验证
                     if (Math.abs(hudX) > 2.0f) hudX = -1.0f;
@@ -109,6 +115,7 @@ public class DamageEngineConfig {
     public void resetToDefaults() {
         showDamage = true;
         showProgressBar = true;
+        showDamageHistory = true;
         hudScale = 0.95652175f;
         hudX = 0.8328125f;
         hudY = 0.2611276f;
@@ -122,6 +129,8 @@ public class DamageEngineConfig {
         
         resetTime = 5.0f;
         historyLimit = 5;
+        historyDisappearanceTime = 5.0f;
+        debugMode = false;
         save();
     }
 }

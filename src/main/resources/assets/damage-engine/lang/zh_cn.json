@@ -12,6 +12,7 @@
   
   "option.damage-engine.showDamage": "显示伤害",
   "option.damage-engine.showProgressBar": "显示进度条",
+  "option.damage-engine.showDamageHistory": "显示历史伤害记录",
   "option.damage-engine.edit_pos_label": "HUD 位置",
   "button.damage-engine.edit_pos": "编辑位置",
   "option.damage-engine.scale": "HUD 缩放",
@@ -20,6 +21,8 @@
   "text.damage-engine.damage_reach": "伤害达到指定数时的颜色",
   "option.damage-engine.resetTime": "重置时间 (秒)",
   "option.damage-engine.historyLimit": "历史记录上限",
+  "option.damage-engine.historyDisappearanceTime": "历史记录显示时间（秒）",
+  "option.damage-engine.debugMode": "调试模式",
   "option.damage-engine.reset": "重置设置",
   
   "key.damage_engine.config": "打开配置菜单",
