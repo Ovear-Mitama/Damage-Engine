@@ -11,6 +11,7 @@
   
   "option.damage-engine.showDamage": "Show Damage",
   "option.damage-engine.showProgressBar": "Show Progress Bar",
+  "option.damage-engine.showDamageHistory": "Show Damage History",
   "option.damage-engine.edit_pos_label": "HUD Position",
   "button.damage-engine.edit_pos": "Edit Position",
   "option.damage-engine.scale": "HUD Scale",
@@ -18,7 +19,9 @@
   "option.damage-engine.colors": "Total Damage Indicator Color",
   "text.damage-engine.damage_reach": "Damage Reaches",
   "option.damage-engine.resetTime": "Reset Time (s)",
+  "option.damage-engine.historyDisappearanceTime": "History Disappear Time (s)",
   "option.damage-engine.historyLimit": "History Limit",
+  "option.damage-engine.debugMode": "Debug Mode",
   "option.damage-engine.reset": "Reset Settings",
   
   "key.damage_engine.config": "Open Config",

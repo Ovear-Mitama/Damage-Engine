@@ -3,6 +3,7 @@ package damage.engine.hud;
 import damage.engine.DamageEngineConfig;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 public class DamageSessionManager {
     private static final DamageSessionManager INSTANCE = new DamageSessionManager();
@@ -12,7 +13,7 @@ public class DamageSessionManager {
     private long lastHitTime = 0;
     
     public record DamageEntry(float damage, boolean isCrit, long timestamp) {}
-    private final List<DamageEntry> damageHistory = new ArrayList<>();
+    private final List<DamageEntry> damageHistory = new CopyOnWriteArrayList<>();
     
     private boolean isActive = false;
 

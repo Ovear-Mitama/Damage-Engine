@@ -28,8 +28,7 @@ public class DamageHud implements HudRenderCallback {
             
             // 防止空会话闪烁
             if (session.getTotalDamage() <= 0 && !session.getDamageHistory().isEmpty()) {
-                 // 这可能在会话重置但历史记录残留时发生？
-                 // 只是一个安全检查。
+
             }
     
             long now = System.currentTimeMillis();
@@ -107,6 +106,9 @@ public class DamageHud implements HudRenderCallback {
             
             // 应用 alpha 的辅助工具
             int baseAlpha = (int)(255 * globalAlpha);
+
+            // 类似修复列表闪烁：如果 baseAlpha 太低，直接不渲染文字
+            if (baseAlpha < 5) return;
             
             // 1. 渲染总伤害（大）
             String totalText = String.format("%.1f", total);
@@ -210,8 +212,12 @@ public class DamageHud implements HudRenderCallback {
             int listStartX = (int)(textWidth * damageScale / 2) + 40;
             int listStartY = -20;
             
-            List<DamageSessionManager.DamageEntry> renderList = history;
-            if (renderList == null) renderList = java.util.Collections.emptyList();
+            List<DamageSessionManager.DamageEntry> renderList;
+            if (history != null) {
+                renderList = new java.util.ArrayList<>(history);
+            } else {
+                renderList = java.util.Collections.emptyList();
+            }
             
             // 向后迭代
             int renderIndex = 0;
@@ -237,11 +243,11 @@ public class DamageHud implements HudRenderCallback {
                     if (fadeStartMs < 0) fadeStartMs = 0;
                     
                     if (timeAlive > fadeStartMs) {
-                         finalItemAlpha = (disappearTimeMs - timeAlive) / 1000f;
-                    }
+                     finalItemAlpha = (disappearTimeMs - timeAlive) / 1000f;
                 }
-                
-                // 乘以全局 alpha
+            }
+            
+            // 乘以全局 alpha
                 finalItemAlpha *= globalAlpha;
                 
                 if (finalItemAlpha <= 0) continue;
@@ -250,6 +256,10 @@ public class DamageHud implements HudRenderCallback {
                 finalItemAlpha = MathHelper.clamp(finalItemAlpha, 0.0f, 1.0f);
                 
                 int itemAlpha = (int)(255 * finalItemAlpha);
+                
+                // 如果 alpha 很低但仍 >0，在最后一帧可能会闪烁？
+                // 强制如果 alpha < 5/255 则隐藏
+                if (itemAlpha < 5) continue;
                 
                 int entryColor = entry.isCrit() ? 0xFFD700 : 0xFFFFFF;
                 int itemColorWithAlpha = (entryColor & 0x00FFFFFF) | (itemAlpha << 24);
