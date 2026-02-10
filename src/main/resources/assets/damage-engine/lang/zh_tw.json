@@ -1,0 +1,45 @@
+{
+  "title.damage-engine.config": "傷害引擎",
+  "modmenu.nameTranslation.damage-engine": "傷害引擎",
+  "modmenu.descriptionTranslation.damage-engine": "在你的界面上顯示傷害",
+  "title.damage-engine.hud_editor": "HUD 編輯器",
+  
+  "category.damage_engine": "傷害引擎",
+  "category.damage_engine.general": "一般設定",
+  "category.damage_engine.appearance": "外觀設定",
+  "category.damage_engine.keybinds": "按鍵綁定",
+  "category.damage_engine.other": "其他設定",
+  
+  "option.damage-engine.showDamage": "顯示傷害",
+  "option.damage-engine.showProgressBar": "顯示進度條",
+  "option.damage-engine.showDamageHistory": "顯示歷史傷害記錄",
+  "option.damage-engine.edit_pos_label": "HUD 位置",
+  "button.damage-engine.edit_pos": "編輯位置",
+  "option.damage-engine.scale": "HUD 縮放",
+  "option.damage-engine.progressBarColor": "進度條顏色",
+  "option.damage-engine.colors": "總傷害指標顏色",
+  "text.damage-engine.damage_reach": "傷害達到指定數時的顏色",
+  "option.damage-engine.resetTime": "重置時間 (秒)",
+  "option.damage-engine.historyLimit": "歷史記錄上限",
+  "option.damage-engine.historyDisappearanceTime": "歷史記錄顯示時間（秒）",
+  "option.damage-engine.debugMode": "除錯模式",
+  "option.damage-engine.reset": "重置設定",
+  
+  "key.damage_engine.config": "打開配置選單",
+  "key.damage_engine.toggle_hud": "顯示/隱藏 HUD",
+  
+  "button.damage-engine.save_close": "保存並關閉",
+  "button.damage-engine.add_color": "新增",
+  "text.damage-engine.preview": "預覽",
+  "text.damage-engine.drag_to_move": "拖動以移動",
+  "text.damage-engine.save_exit": "按 ESC 保存並退出",
+  
+  "options.on": "開啟",
+  "options.off": "關閉",
+  "options.add": "新增",
+  "gui.cancel": "取消",
+  "gui.reset": "重置",
+  "gui.confirm": "確認",
+  "text.damage-engine.reset_done": "已重置!",
+  "key.damage_engine.not_bound": "未指定"
+}

@@ -5,7 +5,9 @@ import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.entity.Ownable;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import org.slf4j.Logger;
@@ -50,8 +52,33 @@ public abstract class LivingEntityMixin extends Entity {
         }
         
         this.damageEngine$attackerId = -1;
-        if (source.getAttacker() != null) {
-            this.damageEngine$attackerId = source.getAttacker().getId();
+        Entity attacker = source.getAttacker();
+        
+        // 1. 直接攻击者
+        if (attacker == null) {
+            // 2. 间接来源 (如 TNT, 投掷物, 水晶)
+            Entity directSource = source.getSource();
+            if (directSource instanceof Ownable ownable) {
+                attacker = ownable.getOwner();
+            } else if (directSource instanceof net.minecraft.entity.TntEntity tnt) {
+                attacker = tnt.getOwner();
+            } else if (directSource instanceof net.minecraft.entity.decoration.EndCrystalEntity crystal) {
+
+                try {
+                    java.lang.reflect.Method m = crystal.getClass().getMethod("damageEngine$getAttacker");
+                    attacker = (Entity) m.invoke(crystal);
+                } catch (Exception e) {
+                }
+            }
+        }
+        
+        // 3. 火焰伤害回溯
+        if (attacker == null && (source.isOf(DamageTypes.ON_FIRE) || source.isOf(DamageTypes.IN_FIRE))) {
+            attacker = ((LivingEntity)(Object)this).getAttacker();
+        }
+
+        if (attacker != null) {
+            this.damageEngine$attackerId = attacker.getId();
         }
     }
 
@@ -69,11 +96,17 @@ public abstract class LivingEntityMixin extends Entity {
         float actualDamage = healthLost + absorptionLost;
         
         // 调试日志
-        LOGGER.info("Entity: {}, Raw Amount: {}, Actual Damage: {} (HealthLost: {}, AbsLost: {})", 
-            self.getName().getString(), amount, actualDamage, healthLost, absorptionLost);
+        String debugInfo = "";
+        // 移除非玩家实体的调试日志输出，避免刷屏
+        
+        if (damage.engine.DamageEngineConfig.getInstance().debugMode) {
+            debugInfo = String.format("%s造成伤害%.1f，对象：%s", source.getName(), actualDamage, self.getName().getString());
+            LOGGER.info(debugInfo);
+        }
+        
 
         if (actualDamage > 0) {
-            DamagePayload payload = new DamagePayload(this.getId(), actualDamage, this.damageEngine$wasCrit, this.damageEngine$attackerId);
+            DamagePayload payload = new DamagePayload(this.getId(), actualDamage, this.damageEngine$wasCrit, this.damageEngine$attackerId, debugInfo);
             
             // 发送给追踪的玩家
             for (ServerPlayerEntity player : PlayerLookup.tracking(this)) {

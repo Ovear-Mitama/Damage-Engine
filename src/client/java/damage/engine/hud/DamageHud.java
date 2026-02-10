@@ -79,6 +79,7 @@ public class DamageHud implements HudRenderCallback {
     }
 
     private void renderContent(DrawContext context, float total, int combo, float targetProgress, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha) {
+        
         try {
             MinecraftClient client = MinecraftClient.getInstance();
             TextRenderer tr = client.textRenderer;
@@ -153,9 +154,6 @@ public class DamageHud implements HudRenderCallback {
                 } else {
                     float delta = MinecraftClient.getInstance().getRenderTickCounter().getTickDelta(true);
                     
-                    // 逻辑：
-                    // 如果目标 > 当前，我们在重新填充（连击延长）
-                    // 如果目标 <= 当前，我们在消耗（时间流逝）
                     
                     // 检测连击变化
                     if (combo > lastComboCount) {
@@ -179,8 +177,6 @@ public class DamageHud implements HudRenderCallback {
                              isRefilling = false; // 填充完成，切换到消耗模式
                          }
                     } else {
-                        // 消耗：直接映射到目标（基于线性时间）
-                        // 使用系统时间进行平滑线性插值，而不是基于会话 tick 的进度
                         
                         if (resetTimeMs > 0) {
                             float realProgress = 1.0f - (float)timeSinceLast / (float)resetTimeMs;
@@ -210,6 +206,7 @@ public class DamageHud implements HudRenderCallback {
             }
             
             // 4. 伤害列表
+            if (DamageEngineConfig.getInstance().showDamageHistory) {
             int listStartX = (int)(textWidth * damageScale / 2) + 40;
             int listStartY = -20;
             
@@ -233,9 +230,14 @@ public class DamageHud implements HudRenderCallback {
                 float finalItemAlpha = 1.0f;
                 
                 if (!isPreview) {
-                    // 项目自然淡出（4秒后）
-                    if (timeAlive > 4000) {
-                         finalItemAlpha = (5000 - timeAlive) / 1000f;
+                    // 项目自然淡出
+                    float disappearTime = DamageEngineConfig.getInstance().historyDisappearanceTime;
+                    long disappearTimeMs = (long)(disappearTime * 1000);
+                    long fadeStartMs = disappearTimeMs - 1000;
+                    if (fadeStartMs < 0) fadeStartMs = 0;
+                    
+                    if (timeAlive > fadeStartMs) {
+                         finalItemAlpha = (disappearTimeMs - timeAlive) / 1000f;
                     }
                 }
                 
@@ -255,6 +257,7 @@ public class DamageHud implements HudRenderCallback {
                 String valText = String.format("%.1f", entry.damage());
                 context.drawTextWithShadow(tr, valText, listStartX, listStartY + renderIndex * 10, itemColorWithAlpha);
                 renderIndex++;
+            }
             }
             
             context.getMatrices().pop();

@@ -4,7 +4,8 @@
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
 		"LivingEntityMixin",
-		"PlayerEntityMixin"
+		"PlayerEntityMixin",
+		"EndCrystalEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -13,6 +13,7 @@ import org.lwjgl.glfw.GLFW;
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageSessionManager;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.minecraft.text.Text;
 
 public class DamageEngineClient implements ClientModInitializer {
     public static KeyBinding configKeyBinding;
@@ -62,7 +63,11 @@ public class DamageEngineClient implements ClientModInitializer {
                 if (context.client().world == null || context.client().player == null) return;
                 
                 // 调试日志
-                System.out.println("Damage Payload Received: Amount=" + payload.amount() + ", Attacker=" + payload.attackerId() + ", Player=" + context.client().player.getId());
+                if (DamageEngineConfig.getInstance().debugMode) {
+                    if (payload.debugInfo() != null && !payload.debugInfo().isEmpty()) {
+                        context.client().player.sendMessage(Text.literal("[调试] ").withColor(0xFBFB54).append(Text.literal(payload.debugInfo()).withColor(0xFFFFFF)), false);
+                    }
+                }
 
                 // 过滤：仅显示玩家造成的伤害
                 if (payload.attackerId() != context.client().player.getId()) {
