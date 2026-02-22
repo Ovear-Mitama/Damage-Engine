@@ -8,11 +8,11 @@
 		"mitama"
 	],
 	"contact": {
-		"homepage": "https://github.com/Ovear-Mitama/Damage-Engine",
+		"homepage": "https://modrinth.com/mod/damage-engine",
 		"sources": "https://github.com/Ovear-Mitama/Damage-Engine",
 		"issues": "https://github.com/Ovear-Mitama/Damage-Engine/issues"
 	},
-	"license": "CC-BY-NC-SA-4.0",
+	"license": "MIT",
 	"icon": "assets/damage-engine/icon.png",
 	"environment": "*",
 	"entrypoints": {
@@ -35,7 +35,7 @@
 	],
 	"depends": {
 		"fabricloader": ">=0.18.4",
-		"minecraft": "~1.21.1",
+		"minecraft": ">=1.21 <=1.21.1",
 		"java": ">=21",
 		"fabric-api": "*"
 	}

@@ -1,7 +1,6 @@
 package damage.engine.hud;
 
 import damage.engine.DamageEngineConfig;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
