@@ -6,11 +6,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class DamageEngineConfig {
-    // 通过 GSON 使用 JSON 结构？
-    // 用户请求："创建一个文件夹，然后创建一个 json 文件来存储数据"
-    // 我们需要从 Properties 切换到 JSON。
-    // 我们可以使用 Google Gson（通常包含在 Minecraft/Fabric 中）或者如果很简单则只需简单的字符串操作。
-    // Fabric 提供了 Gson。
     
     private static final Path CONFIG_DIR = FabricLoader.getInstance().getConfigDir().resolve("damage-engine");
     private static final Path CONFIG_PATH = CONFIG_DIR.resolve("config.json");
@@ -18,23 +13,45 @@ public class DamageEngineConfig {
     
     private static final com.google.gson.Gson GSON = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
 
-    // 通用设置
     public boolean showDamage = true;
     public boolean showProgressBar = true;
     public boolean showDamageHistory = true;
 
-    // 外观设置
-    public float hudScale = 0.95652175f;
-    public float hudX = 0.8328125f; // -1.0f 意味着居中（相对 0.0-1.0）
-    public float hudY = 0.2611276f; // -1.0f 意味着居中（相对 0.0-1.0）
-    public int progressBarColor = 0xFFFFFFFF; // 白色 (-1)
+    public ModuleConfig totalDamageConfig = new ModuleConfig(0.8177083f, 0.26013651f, 0.95652175f);
+    public ModuleConfig comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
+    public ModuleConfig historyConfig = new ModuleConfig(0.9364584f, 0.2611276f, 0.95652175f);
     
-    // 伤害颜色
+    public int progressBarColor = 0xFFFFFFFF;
+    public int comboColor = 0xFFAA00;
+    public int historyColor = 0xFFFFFFFF;
+    public int critColor = 0xFFD700;
+    
     public java.util.List<DamageThreshold> damageThresholds = new java.util.ArrayList<>();
+
+    public static class ModuleConfig {
+        public float x;
+        public float y;
+        public float scale;
+        public boolean enabled;
+
+        public ModuleConfig() {
+            this.enabled = true;
+        }
+
+        public ModuleConfig(float x, float y, float scale) {
+            this.x = x;
+            this.y = y;
+            this.scale = scale;
+            this.enabled = true;
+        }
+    }
 
     public static class DamageThreshold {
         public float threshold;
         public int color;
+        
+        public DamageThreshold() {
+        }
         
         public DamageThreshold(float threshold, int color) {
             this.threshold = threshold;
@@ -42,14 +59,12 @@ public class DamageEngineConfig {
         }
     }
 
-    // 其他
     public float resetTime = 5.0f;
     public int historyLimit = 5;
     public float historyDisappearanceTime = 5.0f;
     public boolean debugMode = false;
 
     private DamageEngineConfig() {
-        // 默认值
         damageThresholds.add(new DamageThreshold(0f, 0xFFFFFFFF));
         damageThresholds.add(new DamageThreshold(25f, 0x3FA9F0));
         damageThresholds.add(new DamageThreshold(50f, 0xFC54FC));
@@ -77,10 +92,16 @@ public class DamageEngineConfig {
                     this.showDamage = loaded.showDamage;
                     this.showProgressBar = loaded.showProgressBar;
                     this.showDamageHistory = loaded.showDamageHistory;
-                    this.hudScale = loaded.hudScale;
-                    this.hudX = loaded.hudX;
-                    this.hudY = loaded.hudY;
+                    
+                    if (loaded.totalDamageConfig != null) this.totalDamageConfig = loaded.totalDamageConfig;
+                    if (loaded.comboConfig != null) this.comboConfig = loaded.comboConfig;
+                    if (loaded.historyConfig != null) this.historyConfig = loaded.historyConfig;
+                    
                     this.progressBarColor = loaded.progressBarColor;
+                    this.comboColor = loaded.comboColor;
+                    this.historyColor = loaded.historyColor;
+                    this.critColor = loaded.critColor;
+                    
                     if (loaded.damageThresholds != null) {
                         this.damageThresholds = loaded.damageThresholds;
                     }
@@ -88,10 +109,6 @@ public class DamageEngineConfig {
                     this.historyLimit = loaded.historyLimit;
                     this.historyDisappearanceTime = loaded.historyDisappearanceTime;
                     this.debugMode = loaded.debugMode;
-                    
-                    // 验证
-                    if (Math.abs(hudX) > 2.0f) hudX = -1.0f;
-                    if (Math.abs(hudY) > 2.0f) hudY = -1.0f;
                 }
             }
         } catch (Exception e) {
@@ -116,10 +133,15 @@ public class DamageEngineConfig {
         showDamage = true;
         showProgressBar = true;
         showDamageHistory = true;
-        hudScale = 0.95652175f;
-        hudX = 0.8328125f;
-        hudY = 0.2611276f;
+        
+        totalDamageConfig = new ModuleConfig(0.8177083f, 0.26013651f, 0.95652175f);
+        comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
+        historyConfig = new ModuleConfig(0.9364584f, 0.2611276f, 0.95652175f);
+        
         progressBarColor = 0xFFFFFFFF;
+        comboColor = 0xFFAA00;
+        historyColor = 0xFFFFFFFF;
+        critColor = 0xFFD700;
         
         damageThresholds.clear();
         damageThresholds.add(new DamageThreshold(0f, 0xFFFFFFFF));
