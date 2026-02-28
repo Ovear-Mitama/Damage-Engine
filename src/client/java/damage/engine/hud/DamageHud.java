@@ -18,7 +18,11 @@ public class DamageHud implements HudRenderCallback {
     @Override
     public void onHudRender(DrawContext context, RenderTickCounter tickCounter) {
         try {
-            if (!DamageEngineConfig.getInstance().showDamage) return;
+            MinecraftClient client = MinecraftClient.getInstance();
+            DamageEngineConfig config = DamageEngineConfig.getInstance();
+            
+            if (config.hideOnF1 && client.options.hudHidden) return;
+            if (!config.showDamage) return;
             
             DamageSessionManager session = DamageSessionManager.getInstance();
             if (!session.isActive()) {
@@ -199,7 +203,12 @@ public class DamageHud implements HudRenderCallback {
             int barAlpha = (int)(255 * globalAlpha);
             int barColorWithAlpha = (barColor & 0x00FFFFFF) | (barAlpha << 24);
             
-            context.fill(barX, barY, barX + (int)(barWidth * smoothProgress), barY + barHeight, barColorWithAlpha);
+            // Use matrix scaling for smooth sub-pixel rendering of the progress bar
+            context.getMatrices().push();
+            context.getMatrices().translate(barX, barY, 0);
+            context.getMatrices().scale(barWidth * smoothProgress, (float)barHeight, 1.0f);
+            context.fill(0, 0, 1, 1, barColorWithAlpha);
+            context.getMatrices().pop();
         }
     }
     

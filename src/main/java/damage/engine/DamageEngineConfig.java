@@ -63,6 +63,7 @@ public class DamageEngineConfig {
     public int historyLimit = 5;
     public float historyDisappearanceTime = 5.0f;
     public boolean debugMode = false;
+    public boolean hideOnF1 = true;
 
     private DamageEngineConfig() {
         damageThresholds.add(new DamageThreshold(0f, 0xFFFFFFFF));

@@ -16,22 +16,24 @@
   "option.damage-engine.colors": "Damage Colors",
   "option.damage-engine.damage_reach": "Reach",
   "option.damage-engine.resetTime": "Reset Time (s)",
-  "option.damage-engine.historyDisappearanceTime": "History Fade Time (s)",
+  "option.damage-engine.historyDisappearanceTime": "History Record Time (s)",
   "option.damage-engine.historyLimit": "History Limit",
   "option.damage-engine.debugMode": "Debug Mode",
+  "option.damage-engine.hideOnF1": "Hide HUD on F1",
   "option.damage-engine.reset": "Reset Config",
   
-  "button.damage-engine.save_close": "Save & Close",
-  "button.damage-engine.edit_pos": "Edit Position",
+  "key.damage_engine.not_bound": "Not Bound",
+  "text.damage-engine.key_conflict": "This key is also used for:",
+  "key.damage_engine.conflict": "Conflict",
+   "button.damage-engine.save_close": "Save & Close",
+   "button.damage-engine.edit_pos": "Edit Position",
   "button.damage-engine.adjust": "Adjust",
   
   "text.damage-engine.preview": "Preview",
   "text.damage-engine.reset_done": "Done!",
-  "text.damage-engine.save_exit": "Press ESC to Save & Exit",
   
   "key.damage_engine.config": "Open Config",
   "key.damage_engine.toggle_hud": "Toggle HUD",
-  "key.damage_engine.not_bound": "Not Bound",
   
   "title.damage-engine.config": "Damage Engine",
   "title.damage-engine.hud_editor": "HUD Editor",
@@ -44,5 +46,9 @@
   
   "hud.editor.undo": "Undo",
   "hud.editor.redo": "Redo",
-  "hud.editor.reset": "Reset"
+  "hud.editor.reset": "Reset",
+  
+  "modmenu.nameTranslation.damage-engine": "Damage Engine",
+  "modmenu.descriptionTranslation.damage-engine": "Display the damage values you inflict on the UI.",
+  "modmenu.summaryTranslation.damage-engine": "Display the damage values you inflict on the UI."
 }
