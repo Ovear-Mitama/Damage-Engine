@@ -1,5 +1,5 @@
 {
-  "category.damage_engine": "傷害顯示引擎",
+  "category.damage_engine": "傷害引擎",
   "category.damage_engine.general": "一般設定",
   "category.damage_engine.appearance": "外觀設定",
   "category.damage_engine.keybinds": "按鍵綁定",
@@ -16,22 +16,24 @@
   "option.damage-engine.colors": "傷害顏色閾值",
   "text.damage-engine.damage_reach": "達到傷害",
   "option.damage-engine.resetTime": "重置時間 (秒)",
-  "option.damage-engine.historyDisappearanceTime": "歷史消失時間 (秒)",
+  "option.damage-engine.historyDisappearanceTime": "歷史記錄時間 (秒)",
   "option.damage-engine.historyLimit": "歷史記錄上限",
   "option.damage-engine.debugMode": "除錯模式",
+  "option.damage-engine.hideOnF1": "F1狀態下隱藏HUD",
   "option.damage-engine.reset": "重置所有設定",
   
-  "button.damage-engine.save_close": "儲存並關閉",
-  "button.damage-engine.edit_pos": "修改位置",
+  "key.damage_engine.not_bound": "未指定",
+  "text.damage-engine.key_conflict": "該按鍵也用於：",
+  "key.damage_engine.conflict": "衝突",
+   "button.damage-engine.save_close": "儲存並關閉",
+   "button.damage-engine.edit_pos": "修改位置",
   "button.damage-engine.adjust": "調整",
   
   "text.damage-engine.preview": "預覽",
   "text.damage-engine.reset_done": "已重置!",
-  "text.damage-engine.save_exit": "按 ESC 儲存並離開",
   
   "key.damage_engine.config": "開啟設定",
   "key.damage_engine.toggle_hud": "顯示/隱藏 HUD",
-  "key.damage_engine.not_bound": "未綁定",
   
   "title.damage-engine.config": "傷害引擎",
   "title.damage-engine.hud_editor": "介面編輯器",
@@ -44,5 +46,9 @@
   
   "hud.editor.undo": "復原",
   "hud.editor.redo": "重做",
-  "hud.editor.reset": "重設"
+  "hud.editor.reset": "重設",
+  
+  "modmenu.nameTranslation.damage-engine": "傷害引擎",
+  "modmenu.descriptionTranslation.damage-engine": "在UI上顯示你造成的傷害數值。",
+  "modmenu.summaryTranslation.damage-engine": "在UI上顯示你造成的傷害數值。"
 }

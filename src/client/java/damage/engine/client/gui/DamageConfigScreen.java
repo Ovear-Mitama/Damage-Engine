@@ -12,6 +12,7 @@ import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.ElementListWidget;
 import net.minecraft.client.gui.widget.SliderWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.gui.tooltip.Tooltip;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import net.minecraft.text.Text;
@@ -22,6 +23,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.Consumer;
+
+import net.minecraft.text.MutableText;
+import net.minecraft.util.Formatting;
 
 public class DamageConfigScreen extends Screen {
     private final Screen parent;
@@ -66,7 +70,7 @@ public class DamageConfigScreen extends Screen {
 
         @Override
         public void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
-            int color = this.isHovered() ? hoverColor : defaultColor;
+            int color = (this.isHovered() || this.isSelected()) ? hoverColor : defaultColor;
             context.drawCenteredTextWithShadow(MinecraftClient.getInstance().textRenderer, this.getMessage(), this.getX() + this.width / 2, this.getY() + (this.height - 8) / 2, color);
         }
     }
@@ -91,7 +95,7 @@ public class DamageConfigScreen extends Screen {
             categoryList = new CategoryListWidget(this.client, leftWidth, listHeight, headerHeight, 25);
             categoryList.setLeftPos(0);
             
-            optionList = new ConfigOptionListWidget(this.client, this.width - leftWidth, listHeight, 0, 30);
+            optionList = new ConfigOptionListWidget(this.client, this.width - leftWidth, listHeight, 0, 26);
             optionList.setLeftPos(leftWidth);
             
             initCategories();
@@ -155,6 +159,9 @@ public class DamageConfigScreen extends Screen {
         addHeader("category.damage_engine.general");
         addOption(new BooleanOptionEntry("option.damage-engine.showProgressBar", config.showProgressBar, v -> config.showProgressBar = v));
         addOption(new BooleanOptionEntry("option.damage-engine.showDamageHistory", config.showDamageHistory, v -> config.showDamageHistory = v));
+        addOption(new NumericEntry("option.damage-engine.resetTime", config.resetTime, v -> config.resetTime = v));
+        addOption(new NumericEntry("option.damage-engine.historyDisappearanceTime", config.historyDisappearanceTime, v -> config.historyDisappearanceTime = v));
+        addOption(new IntegerSliderEntry("option.damage-engine.historyLimit", config.historyLimit, 1, 50, v -> config.historyLimit = v));
         
         addHeader("category.damage_engine.appearance");
         addOption(new ButtonActionEntry("option.damage-engine.edit_pos_label", "button.damage-engine.adjust", () -> {
@@ -198,9 +205,7 @@ public class DamageConfigScreen extends Screen {
         
         
         addHeader("category.damage_engine.other");
-        addOption(new NumericEntry("option.damage-engine.resetTime", config.resetTime, v -> config.resetTime = v));
-        addOption(new NumericEntry("option.damage-engine.historyDisappearanceTime", config.historyDisappearanceTime, v -> config.historyDisappearanceTime = v));
-        addOption(new IntegerSliderEntry("option.damage-engine.historyLimit", config.historyLimit, 1, 50, v -> config.historyLimit = v));
+        addOption(new BooleanOptionEntry("option.damage-engine.hideOnF1", config.hideOnF1, v -> config.hideOnF1 = v));
         addOption(new BooleanOptionEntry(Text.translatable("option.damage-engine.debugMode").withColor(0xFFFBFB54), config.debugMode, v -> config.debugMode = v));
         
         addOption(new ResetButtonEntry("option.damage-engine.reset", () -> {
@@ -249,7 +254,7 @@ public class DamageConfigScreen extends Screen {
             CategoryEntry cat = categories.get(index);
             double y = 0;
             for (int i = 0; i < cat.targetIndex; i++) {
-                y += 30;
+                y += 26;
             }
             isNavigating = true;
             optionList.setTargetScroll(y);
@@ -265,7 +270,7 @@ public class DamageConfigScreen extends Screen {
         int currentBest = 0;
         for (int i = 0; i < categories.size(); i++) {
             CategoryEntry cat = categories.get(i);
-            double catY = cat.targetIndex * 30;
+            double catY = cat.targetIndex * 26;
             
             if (scroll >= catY - 10) {
                 currentBest = i;
@@ -299,11 +304,6 @@ public class DamageConfigScreen extends Screen {
             return true;
         }
         
-        if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-            config.save();
-            this.client.setScreen(parent);
-            return true;
-        }
         return false;
     }
 
@@ -429,11 +429,10 @@ public class DamageConfigScreen extends Screen {
     private abstract static class OptionEntry extends ElementListWidget.Entry<OptionEntry> {
         @Override
         public void render(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            boolean isHovered = hovered || (mouseX >= x && mouseX <= x + entryWidth && mouseY >= y && mouseY <= y + entryHeight);
+            boolean isHovered = mouseX >= x && mouseX <= x + entryWidth && mouseY >= y - 1 && mouseY <= y + entryHeight + 2;
             
             if (isHovered && shouldHighlight()) {
-
-                context.fill(x - 200, y, x + entryWidth + 200, y + entryHeight - 2, 0x30FFFFFF);
+                context.fill(x - 200, y - 1, x + entryWidth + 200, y + entryHeight + 2, 0x30FFFFFF);
             }
             renderContent(context, index, y, x, entryWidth, entryHeight, mouseX, mouseY, hovered, tickDelta);
         }
@@ -448,7 +447,7 @@ public class DamageConfigScreen extends Screen {
         private boolean isSmoothScrolling = false;
 
         public ConfigOptionListWidget(MinecraftClient client, int width, int height, int y, int itemHeight) {
-            super(client, width, height, y, 30);
+            super(client, width, height, y, 26);
             this.centerListVertically = false;
         }
         
@@ -460,7 +459,7 @@ public class DamageConfigScreen extends Screen {
              
              int i = MathHelper.floor(mouseY - (double)this.getY() - this.headerHeight + this.getScrollAmount() - 4.0D);
 
-             int index = i / 30;
+             int index = i / 26;
              if (index >= 0 && index < this.getEntryCount()) {
                  return index;
              }
@@ -532,7 +531,7 @@ public class DamageConfigScreen extends Screen {
                  if (draggingScrollbar || (mouseX >= scrollbarX - 10)) {
                      DamageConfigScreen.this.isNavigating = false;
                      draggingScrollbar = true;
-                     double scrollFactor = (double)this.getMaxScroll() / (double)(this.getHeight() - 30);
+                     double scrollFactor = (double)this.getMaxScroll() / (double)(this.getHeight() - 26);
                      
                      double barHeight = (double)(this.getHeight() * this.getHeight()) / (double)contentHeight;
                      barHeight = Math.max(32, barHeight);
@@ -591,9 +590,7 @@ public class DamageConfigScreen extends Screen {
         protected boolean shouldHighlight() { return false; }
         @Override
         public void renderContent(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-
-            context.drawTextWithShadow(client.textRenderer, text, x, y + 15, 0xFFFFFF);
-            context.fill(x, y + 25, x + entryWidth, y + 26, 0xFF888888);
+            context.drawCenteredTextWithShadow(client.textRenderer, text, x + entryWidth / 2, y + 9, 0xFFFFFF);
         }
         @Override public List<? extends Element> children() { return Collections.emptyList(); }
         @Override public List<? extends Selectable> selectableChildren() { return Collections.emptyList(); }
@@ -626,6 +623,7 @@ public class DamageConfigScreen extends Screen {
             context.drawTextWithShadow(client.textRenderer, label, x, y + 8, 0xFFFFFF);
             button.setX(x + entryWidth - 110);
             button.setY(y + 2);
+            button.setFocused(false); 
             button.render(context, mouseX, mouseY, tickDelta);
         }
         @Override public List<? extends Element> children() { return Collections.singletonList(button); }
@@ -742,6 +740,7 @@ public class DamageConfigScreen extends Screen {
             
             button.setX(x + entryWidth - 110);
             button.setY(y + 2);
+            button.setFocused(false);
             button.render(context, mouseX, mouseY, tickDelta);
         }
         @Override public List<? extends Element> children() { return Collections.singletonList(button); }
@@ -773,6 +772,7 @@ public class DamageConfigScreen extends Screen {
             
             button.setX(x + entryWidth - 25);
             button.setY(y + 2);
+            button.setFocused(false);
             
             String symbol = expanded ? "-" : "+";
             int symWidth = client.textRenderer.getWidth(symbol);
@@ -911,6 +911,7 @@ public class DamageConfigScreen extends Screen {
             context.drawTextWithShadow(client.textRenderer, label, x, y + 8, 0xFFFFFF);
             button.setX(x + entryWidth - 110);
             button.setY(y + 2);
+            button.setFocused(false);
             button.render(context, mouseX, mouseY, tickDelta);
         }
         @Override public List<? extends Element> children() { return Collections.singletonList(button); }
@@ -1055,9 +1056,10 @@ public class DamageConfigScreen extends Screen {
             this.label = Text.translatable(keyName);
             this.keyBinding = keyBinding;
             
-            this.button = new BindingButton(0, 0, 100, 20, getBindingText(), b -> {
+            this.button = new BindingButton(0, 0, 100, 20, Text.empty(), b -> {
                 setBinding(true);
             });
+            updateMessage();
         }
         
         private void setBinding(boolean val) {
@@ -1076,14 +1078,48 @@ public class DamageConfigScreen extends Screen {
             KeyBinding.updateKeysByCode();
         }
         
-        private Text getBindingText() {
-            if (binding) return Text.literal("> <").withColor(0xFFFFFF55);
-            if (keyBinding.isUnbound()) return Text.translatable("key.damage_engine.not_bound").withColor(0xFFFFFFFF);
-            return keyBinding.getBoundKeyLocalizedText();
-        }
-        
         private void updateMessage() {
-            button.setMessage(getBindingText());
+            Text text;
+            KeyBinding conflict = null;
+            
+            if (binding) {
+                MutableText boundText = keyBinding.isUnbound() 
+                    ? Text.translatable("key.damage_engine.not_bound") 
+                    : keyBinding.getBoundKeyLocalizedText().copy();
+                text = Text.literal("> ").withColor(0xFFFFFF55).append(boundText.formatted(Formatting.UNDERLINE).withColor(0xFFFFFFFF)).append(Text.literal(" <").withColor(0xFFFFFF55));
+            } else {
+                if (keyBinding.isUnbound()) {
+                    text = Text.translatable("key.damage_engine.not_bound").withColor(0xFFFFFFFF);
+                } else {
+                    MutableText keyText = keyBinding.getBoundKeyLocalizedText().copy();
+                    
+                    // Check for conflicts
+                    for (KeyBinding kb : MinecraftClient.getInstance().options.allKeys) {
+                        if (kb != keyBinding && kb.equals(keyBinding)) {
+                            conflict = kb;
+                            break;
+                        }
+                    }
+                    
+                    if (conflict != null) {
+                        text = Text.literal("[ ").withColor(0xFFFC887E).append(keyText.withColor(0xFFFFFFFF)).append(Text.literal(" ]").withColor(0xFFFC887E));
+                    } else {
+                        text = keyText;
+                    }
+                }
+            }
+            
+            button.setMessage(text);
+            
+            if (conflict != null) {
+                MutableText conflictName = Text.translatable(conflict.getTranslationKey());
+                Text tooltipText = Text.translatable("text.damage-engine.key_conflict")
+                    .append(Text.literal("\n"))
+                    .append(conflictName);
+                button.setTooltip(Tooltip.of(tooltipText));
+            } else {
+                button.setTooltip(null);
+            }
         }
         
         @Override
@@ -1091,6 +1127,7 @@ public class DamageConfigScreen extends Screen {
             context.drawTextWithShadow(MinecraftClient.getInstance().textRenderer, label, x, y + 8, 0xFFFFFF);
             button.setX(x + entryWidth - 110);
             button.setY(y + 2);
+            button.setFocused(false);
             button.render(context, mouseX, mouseY, tickDelta);
         }
         

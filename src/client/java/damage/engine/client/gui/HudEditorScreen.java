@@ -238,8 +238,8 @@ public class HudEditorScreen extends Screen {
             case TOTAL:
                 w = (int)(100 * s); h = (int)(40 * s);
                 
-                ox = -w/2 + 2;
-                oy = -h/2 + 10;
+                ox = (int)(-w/2 + 2 * s);
+                oy = (int)(-h/2 + 10 * s);
                 break;
             case COMBO:
                 w = (int)(50 * s); h = (int)(20 * s);
