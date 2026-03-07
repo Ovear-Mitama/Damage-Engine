@@ -92,13 +92,13 @@ public class DamageHud implements HudRenderCallback {
         int x = moduleConfig.x == -1.0f ? client.getWindow().getScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getScaledWidth());
         int y = moduleConfig.y == -1.0f ? client.getWindow().getScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getScaledHeight());
         
-        context.getMatrices().push();
-        context.getMatrices().translate(x, y, 0);
-        context.getMatrices().scale(moduleConfig.scale, moduleConfig.scale, 1.0f);
+        context.getMatrices().pushMatrix();
+        context.getMatrices().translate(x, y);
+        context.getMatrices().scale(moduleConfig.scale, moduleConfig.scale);
         
         renderAction.run();
         
-        context.getMatrices().pop();
+        context.getMatrices().popMatrix();
     }
     
     public void renderTotalDamage(DrawContext context, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, MinecraftClient client) {
@@ -126,8 +126,8 @@ public class DamageHud implements HudRenderCallback {
         int colorWithAlpha = (color & 0x00FFFFFF) | (baseAlpha << 24);
         
         float damageScale = 1.5f;
-        context.getMatrices().push();
-        context.getMatrices().scale(damageScale, damageScale, 1.0f);
+        context.getMatrices().pushMatrix();
+        context.getMatrices().scale(damageScale, damageScale);
         int textWidth = tr.getWidth(totalText);
         context.drawTextWithShadow(tr, totalText, -textWidth / 2, 0, colorWithAlpha);
         
@@ -136,26 +136,26 @@ public class DamageHud implements HudRenderCallback {
             int comboColorCfg = DamageEngineConfig.getInstance().comboColor;
             int comboColor = (comboColorCfg & 0x00FFFFFF) | (baseAlpha << 24);
             
-            context.getMatrices().push();
+            context.getMatrices().pushMatrix();
             
             float comboScale = 0.8f;
             
-            context.getMatrices().translate(textWidth / 2.0f + 3, 0, 0); 
+            context.getMatrices().translate(textWidth / 2.0f + 3, 0);
             
-            context.getMatrices().scale(comboScale, comboScale, 1.0f);
+            context.getMatrices().scale(comboScale, comboScale);
             
             context.drawTextWithShadow(tr, comboText, 0, 3, comboColor);
             
-            context.getMatrices().pop();
+            context.getMatrices().popMatrix();
         }
         
-        context.getMatrices().pop();
+        context.getMatrices().popMatrix();
         
         if (DamageEngineConfig.getInstance().showProgressBar) {
             if (isPreview) {
                 smoothProgress = targetProgress;
             } else {
-                float delta = client.getRenderTickCounter().getTickDelta(true);
+                float delta = 1.0f; // client.getRenderTickCounter().getTickDelta(true); // TODO: Fix RenderTickCounter
                 
                 if (combo > lastComboCount) {
                     if (combo == 1) {
@@ -204,11 +204,13 @@ public class DamageHud implements HudRenderCallback {
             int barColorWithAlpha = (barColor & 0x00FFFFFF) | (barAlpha << 24);
             
             // Use matrix scaling for smooth sub-pixel rendering of the progress bar
-            context.getMatrices().push();
-            context.getMatrices().translate(barX, barY, 0);
-            context.getMatrices().scale(barWidth * smoothProgress, (float)barHeight, 1.0f);
-            context.fill(0, 0, 1, 1, barColorWithAlpha);
-            context.getMatrices().pop();
+            context.getMatrices().pushMatrix();
+            context.getMatrices().translate(barX, barY);
+            context.getMatrices().scale(barWidth * smoothProgress, (float)barHeight);
+            
+            context.fill(0, 0, 1, 1, barColor);
+            
+            context.getMatrices().popMatrix();
         }
     }
     

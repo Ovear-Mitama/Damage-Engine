@@ -4,6 +4,10 @@ import net.fabricmc.loader.api.FabricLoader;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 public class DamageEngineConfig {
     
@@ -11,22 +15,22 @@ public class DamageEngineConfig {
     private static final Path CONFIG_PATH = CONFIG_DIR.resolve("config.json");
     private static final DamageEngineConfig INSTANCE = new DamageEngineConfig();
     
-    private static final com.google.gson.Gson GSON = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
+    private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public boolean showDamage = true;
     public boolean showProgressBar = true;
     public boolean showDamageHistory = true;
 
-    public ModuleConfig totalDamageConfig = new ModuleConfig(0.8177083f, 0.26013651f, 0.95652175f);
+    public ModuleConfig totalDamageConfig = new ModuleConfig(0.8203125f, 0.3602415f, 0.95652175f);
     public ModuleConfig comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
-    public ModuleConfig historyConfig = new ModuleConfig(0.9364584f, 0.2611276f, 0.95652175f);
+    public ModuleConfig historyConfig = new ModuleConfig(0.9359375f, 0.3305973f, 0.95652175f);
     
     public int progressBarColor = 0xFFFFFFFF;
     public int comboColor = 0xFFAA00;
     public int historyColor = 0xFFFFFFFF;
     public int critColor = 0xFFD700;
     
-    public java.util.List<DamageThreshold> damageThresholds = new java.util.ArrayList<>();
+    public List<DamageThreshold> damageThresholds = new ArrayList<>();
 
     public static class ModuleConfig {
         public float x;
@@ -110,6 +114,7 @@ public class DamageEngineConfig {
                     this.historyLimit = loaded.historyLimit;
                     this.historyDisappearanceTime = loaded.historyDisappearanceTime;
                     this.debugMode = loaded.debugMode;
+                    this.hideOnF1 = loaded.hideOnF1;
                 }
             }
         } catch (Exception e) {
@@ -135,9 +140,9 @@ public class DamageEngineConfig {
         showProgressBar = true;
         showDamageHistory = true;
         
-        totalDamageConfig = new ModuleConfig(0.8177083f, 0.26013651f, 0.95652175f);
+        totalDamageConfig = new ModuleConfig(0.8203125f, 0.3602415f, 0.95652175f);
         comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
-        historyConfig = new ModuleConfig(0.9364584f, 0.2611276f, 0.95652175f);
+        historyConfig = new ModuleConfig(0.9359375f, 0.3305973f, 0.95652175f);
         
         progressBarColor = 0xFFFFFFFF;
         comboColor = 0xFFAA00;
@@ -154,6 +159,7 @@ public class DamageEngineConfig {
         historyLimit = 5;
         historyDisappearanceTime = 5.0f;
         debugMode = false;
+        hideOnF1 = true;
         save();
     }
 }

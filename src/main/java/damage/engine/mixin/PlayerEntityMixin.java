@@ -1,6 +1,7 @@
 package damage.engine.mixin;
 
 import damage.engine.network.DamagePayload;
+import damage.engine.util.AttackerAccessor;
 import net.fabricmc.fabric.api.networking.v1.PlayerLookup;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
@@ -10,6 +11,7 @@ import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.spongepowered.asm.mixin.Mixin;
@@ -32,9 +34,9 @@ public abstract class PlayerEntityMixin {
     private int damageEngine$attackerId;
 
     @Inject(method = "applyDamage", at = @At("HEAD"))
-    private void onApplyDamageHead(DamageSource source, float amount, CallbackInfo ci) {
+    private void onApplyDamageHead(ServerWorld world, DamageSource source, float amount, CallbackInfo ci) {
         PlayerEntity self = (PlayerEntity) (Object) this;
-        if (self.getWorld().isClient) return;
+        if (self.getEntityWorld().isClient()) return;
         
         this.damageEngine$previousHealth = self.getHealth();
         this.damageEngine$previousAbsorption = self.getAbsorptionAmount();
@@ -49,25 +51,17 @@ public abstract class PlayerEntityMixin {
         this.damageEngine$attackerId = -1;
         Entity attacker = source.getAttacker();
         
-        // 1. 直接攻击者
         if (attacker == null) {
-            // 2. 间接来源 (如 TNT, 投掷物, 水晶)
             Entity directSource = source.getSource();
             if (directSource instanceof Ownable ownable) {
                 attacker = ownable.getOwner();
-            } else if (directSource instanceof net.minecraft.entity.TntEntity tnt) {
-                attacker = tnt.getOwner();
             } else if (directSource instanceof net.minecraft.entity.decoration.EndCrystalEntity crystal) {
-                try {
-                    java.lang.reflect.Method m = crystal.getClass().getMethod("damageEngine$getAttacker");
-                    attacker = (Entity) m.invoke(crystal);
-                } catch (Exception e) {
-                    // Ignore
+                if (crystal instanceof AttackerAccessor accessor) {
+                    attacker = accessor.damageEngine$getAttacker();
                 }
             }
         }
         
-        // 3. 火焰伤害回溯
         if (attacker == null && (source.isOf(DamageTypes.ON_FIRE) || source.isOf(DamageTypes.IN_FIRE))) {
             attacker = ((LivingEntity)(Object)this).getAttacker();
         }
@@ -78,9 +72,9 @@ public abstract class PlayerEntityMixin {
     }
 
     @Inject(method = "applyDamage", at = @At("RETURN"))
-    private void onApplyDamageReturn(DamageSource source, float amount, CallbackInfo ci) {
+    private void onApplyDamageReturn(ServerWorld world, DamageSource source, float amount, CallbackInfo ci) {
         PlayerEntity self = (PlayerEntity) (Object) this;
-        if (self.getWorld().isClient) return;
+        if (self.getEntityWorld().isClient()) return;
 
         float currentHealth = self.getHealth();
         float currentAbsorption = self.getAbsorptionAmount();
@@ -89,7 +83,6 @@ public abstract class PlayerEntityMixin {
         float absorptionLost = this.damageEngine$previousAbsorption - currentAbsorption;
         float actualDamage = healthLost + absorptionLost;
         
-        // 调试日志
         String debugInfo = "";
         if (damage.engine.DamageEngineConfig.getInstance().debugMode) {
             debugInfo = String.format("%s造成伤害%.1f，对象：%s", source.getName(), actualDamage, self.getName().getString());
@@ -99,12 +92,10 @@ public abstract class PlayerEntityMixin {
         if (actualDamage > 0) {
             DamagePayload payload = new DamagePayload(self.getId(), actualDamage, this.damageEngine$wasCrit, this.damageEngine$attackerId, debugInfo);
             
-            // 发送给追踪的玩家
             for (ServerPlayerEntity player : PlayerLookup.tracking(self)) {
                 ServerPlayNetworking.send(player, payload);
             }
             
-            // 发送给自己（受害者）
             if (self instanceof ServerPlayerEntity selfPlayer) {
                 ServerPlayNetworking.send(selfPlayer, payload);
             }
