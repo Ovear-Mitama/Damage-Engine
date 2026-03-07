@@ -5,6 +5,8 @@
   "category.damage_engine.keybinds": "按键绑定",
   "category.damage_engine.other": "其他设置",
   
+  "key.category.damage-engine.general": "伤害引擎",
+
   "option.damage-engine.showProgressBar": "显示进度条",
   "option.damage-engine.showDamageHistory": "显示历史记录",
   "option.damage-engine.edit_pos_label": "调整HUD",
@@ -23,7 +25,7 @@
   "option.damage-engine.reset": "重置所有设置",
   
   "key.damage_engine.not_bound": "未指定",
-  "text.damage-engine.key_conflict": "该按键也用于：",
+  "text.damage-engine.key_conflict": "该按键与某功能按键冲突",
   "key.damage_engine.conflict": "冲突",
    "button.damage-engine.save_close": "保存并关闭",
    "button.damage-engine.edit_pos": "修改位置",

@@ -4,6 +4,8 @@
   "category.damage_engine.appearance": "Appearance",
   "category.damage_engine.keybinds": "Keybinds",
   "category.damage_engine.other": "Other",
+
+  "key.category.damage-engine.general": "Damage Engine",
   
   "option.damage-engine.showProgressBar": "Show Progress Bar",
   "option.damage-engine.showDamageHistory": "Show History",
@@ -23,7 +25,7 @@
   "option.damage-engine.reset": "Reset Config",
   
   "key.damage_engine.not_bound": "Not Bound",
-  "text.damage-engine.key_conflict": "This key is also used for:",
+  "text.damage-engine.key_conflict": "This key conflicts with another key",
   "key.damage_engine.conflict": "Conflict",
    "button.damage-engine.save_close": "Save & Close",
    "button.damage-engine.edit_pos": "Edit Position",

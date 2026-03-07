@@ -4,9 +4,11 @@ import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageSessionManager;
 import net.minecraft.client.gui.DrawContext;
+import net.minecraft.client.gui.Click;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.gui.widget.ButtonWidget;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -31,9 +33,15 @@ public class HudEditorScreen extends Screen {
     private int resetButtonState = 0;
     private long resetButtonActionTime = 0;
     
-    private ButtonWidget undoBtn;
-    private ButtonWidget redoBtn;
-    private ButtonWidget resetBtn;
+    private DamageConfigScreen.StyledButton undoBtn;
+    private DamageConfigScreen.StyledButton redoBtn;
+    private DamageConfigScreen.StyledButton resetBtn;
+
+    private static long handCursor = 0;
+    private static long arrowCursor = 0;
+    private static long moveCursor = 0;
+    private static long resizeCursor = 0;
+    private static long diagResizeCursor = 0;
 
     public HudEditorScreen(Screen parent) {
         super(Text.translatable("title.damage-engine.hud_editor"));
@@ -44,6 +52,21 @@ public class HudEditorScreen extends Screen {
         modules.add(new EditorModule(config.totalDamageConfig, ModuleType.TOTAL));
         modules.add(new EditorModule(config.historyConfig, ModuleType.HISTORY));
     }
+    
+    public void playClickSound() {
+        try {
+             net.minecraft.client.sound.PositionedSoundInstance sound = net.minecraft.client.sound.PositionedSoundInstance.ambient(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK.value());
+             
+             try {
+                 java.lang.reflect.Field volField = net.minecraft.client.sound.AbstractSoundInstance.class.getDeclaredField("volume");
+                 volField.setAccessible(true);
+                 volField.setFloat(sound, 0.25F);
+             } catch (Exception ignored) {}
+             
+             MinecraftClient.getInstance().getSoundManager().play(sound);
+        } catch (Exception e) {
+        }
+    }
 
     @Override
     public boolean shouldPause() {
@@ -52,18 +75,30 @@ public class HudEditorScreen extends Screen {
     
     @Override
     protected void init() {
+        if (handCursor == 0) handCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HAND_CURSOR);
+        if (arrowCursor == 0) arrowCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_ARROW_CURSOR);
+        
+        if (moveCursor == 0) {
+             moveCursor = GLFW.glfwCreateStandardCursor(0x00036009); 
+             if (moveCursor == 0) moveCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_CROSSHAIR_CURSOR);
+        }
+        
+        if (resizeCursor == 0) resizeCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HRESIZE_CURSOR); 
+        
+        if (diagResizeCursor == 0) {
+            diagResizeCursor = GLFW.glfwCreateStandardCursor(0x00036007); 
+            if (diagResizeCursor == 0) diagResizeCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HAND_CURSOR);
+        }
+
         int btnY = 10;
         int btnX = 10;
         int spacing = 5;
         
-        undoBtn = ButtonWidget.builder(Text.translatable("hud.editor.undo"), b -> undo())
-            .dimensions(btnX, btnY, 40, 20).build();
+        undoBtn = new DamageConfigScreen.StyledButton(btnX, btnY, 40, 20, Text.translatable("hud.editor.undo"), this::undo);
         
-        redoBtn = ButtonWidget.builder(Text.translatable("hud.editor.redo"), b -> redo())
-            .dimensions(btnX + 40 + spacing, btnY, 40, 20).build();
+        redoBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing, btnY, 40, 20, Text.translatable("hud.editor.redo"), this::redo);
             
-        resetBtn = ButtonWidget.builder(Text.translatable("hud.editor.reset").withColor(0xFFFC887E), b -> handleResetClick())
-            .dimensions(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20).build();
+        resetBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, Text.translatable("hud.editor.reset").withColor(0xFFFC887E), this::handleResetClick);
             
         this.addDrawableChild(undoBtn);
         this.addDrawableChild(redoBtn);
@@ -151,23 +186,23 @@ public class HudEditorScreen extends Screen {
     private void resetAllModules() {
         saveStateForUndo();
         
-        modules.get(0).config.x = 0.8177083f;
-        modules.get(0).config.y = 0.26013651f;
+        modules.get(0).config.x = 0.8203125f;
+        modules.get(0).config.y = 0.3602415f;
         modules.get(0).config.scale = 0.95652175f;
         
         config.comboConfig.x = 0.8828125f;
         config.comboConfig.y = 0.2611276f;
         config.comboConfig.scale = 0.95652175f;
         
-        modules.get(1).config.x = 0.9364584f;
-        modules.get(1).config.y = 0.2611276f;
+        modules.get(1).config.x = 0.9359375f;
+        modules.get(1).config.y = 0.3305973f;
         modules.get(1).config.scale = 0.95652175f;
     }
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         if (this.client.world == null) {
-            this.renderBackground(context, mouseX, mouseY, delta);
+            context.fill(0, 0, this.width, this.height, 0xC0101010);
         }
         
         for (EditorModule m : modules) {
@@ -183,6 +218,41 @@ public class HudEditorScreen extends Screen {
                 ((net.minecraft.client.gui.Drawable) element).render(context, mouseX, mouseY, delta);
             }
         }
+        
+        updateCursor(mouseX, mouseY);
+    }
+    
+    private boolean isMouseOverButton(net.minecraft.client.gui.widget.ClickableWidget button, double mouseX, double mouseY) {
+        return button.visible && mouseX >= button.getX() && mouseY >= button.getY() && mouseX < button.getX() + button.getWidth() && mouseY < button.getHeight() + button.getY();
+    }
+    
+    private void updateCursor(double mouseX, double mouseY) {
+        if (client == null) return;
+        long windowHandle = client.getWindow().getHandle();
+        long cursor = arrowCursor;
+        
+        if (isMouseOverButton(undoBtn, mouseX, mouseY) || isMouseOverButton(redoBtn, mouseX, mouseY) || isMouseOverButton(resetBtn, mouseX, mouseY)) {
+            cursor = handCursor;
+        } else {
+            if (selectedModule != null && isOverHandle(mouseX, mouseY, selectedModule)) {
+                cursor = diagResizeCursor;
+            } else {
+                boolean foundModule = false;
+                for (EditorModule m : modules) {
+                    if (isOverModule(mouseX, mouseY, m)) {
+                        if (m == selectedModule) {
+                            cursor = moveCursor;
+                        } else {
+                            cursor = handCursor;
+                        }
+                        foundModule = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        GLFW.glfwSetCursor(windowHandle, cursor);
     }
     
     private void renderModule(DrawContext context, EditorModule m) {
@@ -267,74 +337,90 @@ public class HudEditorScreen extends Screen {
     }
     
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (super.mouseClicked(mouseX, mouseY, button)) {
-            this.setFocused(null);
-            return true;
-        }
+    public boolean mouseClicked(Click click, boolean modifiers) {
+        if (super.mouseClicked(click, modifiers)) return true;
+        
+        double mouseX = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
+        double mouseY = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
+        int button = 0; 
         
         this.setFocused(null);
         
         if (button == 0) {
-            if (selectedModule != null && isOverHandle(mouseX, mouseY, selectedModule)) {
+            double mx = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
+            double my = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
+            
+            if (selectedModule != null && isOverHandle(mx, my, selectedModule)) {
                 saveStateForUndo();
                 resizing = true;
-                dragOffsetX = (float)mouseX;
-                dragOffsetY = (float)mouseY;
+                dragOffsetX = (float)mx;
+                dragOffsetY = (float)my;
                 return true;
             }
             
             for (EditorModule m : modules) {
-                if (isOverModule(mouseX, mouseY, m)) {
+                if (isOverModule(mx, my, m)) {
                     if (selectedModule != m) {
                          selectedModule = m;
                          updateButtons();
                     }
                     saveStateForUndo();
                     dragging = true;
-                    int cx = m.config.x == -1.0f ? width / 2 : (int)(m.config.x * width);
-                    int cy = m.config.y == -1.0f ? height / 2 : (int)(m.config.y * height);
-                    dragOffsetX = (float)mouseX - cx;
-                    dragOffsetY = (float)mouseY - cy;
+                    
+                    int cx = m.config.x == -1.0f ? this.width / 2 : (int)(m.config.x * this.width);
+                    int cy = m.config.y == -1.0f ? this.height / 2 : (int)(m.config.y * this.height);
+                    
+                    dragOffsetX = (float)mx - cx;
+                    dragOffsetY = (float)my - cy;
                     return true;
                 }
             }
             
-            selectedModule = null;
-            updateButtons();
+            if (selectedModule != null) {
+                selectedModule = null;
+                updateButtons();
+                return true;
+            }
         }
+        return false;
+    }
+
+    @Override
+    public boolean mouseReleased(Click click) {
+        if (super.mouseReleased(click)) return true;
+        
+        dragging = false;
+        resizing = false;
         return false;
     }
     
     @Override
-    public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        dragging = false;
-        resizing = false;
-        return super.mouseReleased(mouseX, mouseY, button);
-    }
-    
-    @Override
-    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
         if (resizing && selectedModule != null) {
             float sensitivity = 0.01f;
-            selectedModule.config.scale += (deltaX + deltaY) * sensitivity;
+            selectedModule.config.scale += (float)(deltaX + deltaY) * sensitivity; 
             if (selectedModule.config.scale < 0.1f) selectedModule.config.scale = 0.1f;
             if (selectedModule.config.scale > 5.0f) selectedModule.config.scale = 5.0f;
             return true;
         }
         
         if (dragging && selectedModule != null) {
-            float newX = ((float)mouseX - dragOffsetX) / width;
-            float newY = ((float)mouseY - dragOffsetY) / height;
+            double mouseX = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
+            double mouseY = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
+            
+            float newX = ((float)mouseX - dragOffsetX) / (float)width;
+            float newY = ((float)mouseY - dragOffsetY) / (float)height;
+            
             selectedModule.config.x = newX;
             selectedModule.config.y = newY;
             return true;
         }
-        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+        return super.mouseDragged(click, deltaX, deltaY); 
     }
     
     @Override
     public void close() {
+        GLFW.glfwSetCursor(client.getWindow().getHandle(), arrowCursor);
         config.save();
         client.setScreen(parent);
     }

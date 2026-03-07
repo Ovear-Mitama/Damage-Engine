@@ -26,6 +26,14 @@ repositories {
             includeGroup "maven.modrinth"
         }
     }
+    
+    // CurseMaven
+    maven {
+        url "https://www.cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
 }
 
 loom {
@@ -53,7 +61,7 @@ dependencies {
     modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
 
     // Jade (from Modrinth)
-    modImplementation "maven.modrinth:jade:${project.jade_version}"
+    modImplementation "curse.maven:jade-324717:${project.jade_version}"
 }
 
 processResources {
@@ -76,6 +84,10 @@ java {
 
 	sourceCompatibility = JavaVersion.VERSION_21
 	targetCompatibility = JavaVersion.VERSION_21
+	
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
 }
 
 jar {

@@ -4,6 +4,8 @@
   "category.damage_engine.appearance": "外觀設定",
   "category.damage_engine.keybinds": "按鍵綁定",
   "category.damage_engine.other": "其他設定",
+
+  "key.category.damage-engine.general": "傷害引擎",
   
   "option.damage-engine.showProgressBar": "顯示進度條",
   "option.damage-engine.showDamageHistory": "顯示歷史記錄",
@@ -23,10 +25,10 @@
   "option.damage-engine.reset": "重置所有設定",
   
   "key.damage_engine.not_bound": "未指定",
-  "text.damage-engine.key_conflict": "該按鍵也用於：",
+  "text.damage-engine.key_conflict": "該按鍵與某功能按鍵衝突",
   "key.damage_engine.conflict": "衝突",
-   "button.damage-engine.save_close": "儲存並關閉",
-   "button.damage-engine.edit_pos": "修改位置",
+  "button.damage-engine.save_close": "儲存並關閉",
+  "button.damage-engine.edit_pos": "修改位置",
   "button.damage-engine.adjust": "調整",
   
   "text.damage-engine.preview": "預覽",

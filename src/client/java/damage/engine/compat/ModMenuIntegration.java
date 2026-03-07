@@ -7,6 +7,6 @@ import damage.engine.client.gui.DamageConfigScreen;
 public class ModMenuIntegration implements ModMenuApi {
     @Override
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
-        return DamageConfigScreen::new;
+        return parent -> new DamageConfigScreen(parent);
     }
 }

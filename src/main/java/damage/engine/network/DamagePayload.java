@@ -12,7 +12,7 @@ public record DamagePayload(int entityId, float amount, boolean isCrit, int atta
     public static final PacketCodec<RegistryByteBuf, DamagePayload> CODEC = PacketCodec.tuple(
         PacketCodecs.VAR_INT, DamagePayload::entityId,
         PacketCodecs.FLOAT, DamagePayload::amount,
-        PacketCodecs.BOOL, DamagePayload::isCrit,
+        PacketCodecs.BOOLEAN, DamagePayload::isCrit,
         PacketCodecs.VAR_INT, DamagePayload::attackerId,
         PacketCodecs.STRING, DamagePayload::debugInfo,
         DamagePayload::new
