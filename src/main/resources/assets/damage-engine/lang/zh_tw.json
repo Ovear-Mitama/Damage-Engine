@@ -9,12 +9,23 @@
   
   "option.damage-engine.showProgressBar": "顯示進度條",
   "option.damage-engine.showDamageHistory": "顯示歷史記錄",
+  "option.damage-engine.showInfo": "開啟資訊顯示",
+  "option.damage-engine.resetEnabled": "開啟重置",
   "option.damage-engine.edit_pos_label": "調整HUD",
+  "hint.damage-engine.showInfo": "在介面上顯示實體生命值等資訊",
+  "option.damage-engine.infoTrackTime": "資訊跟蹤時間 (秒)",
+  "option.damage-engine.infoBarColor": "血條顏色",
+  "option.damage-engine.info_config": "資訊配置",
+  "option.damage-engine.damage_display_config": "傷害顯示配置",
+  "option.damage-engine.damage_display_appearance": "傷害顯示外觀",
+  "option.damage-engine.info_appearance": "資訊外觀",
   "option.damage-engine.scale": "HUD大小",
   "option.damage-engine.progressBarColor": "進度條顏色",
   "option.damage-engine.comboColor": "連擊顏色",
   "option.damage-engine.historyColor": "歷史記錄顏色",
   "option.damage-engine.critColor": "爆擊顏色",
+  "option.damage-engine.infoBackgroundColor": "背景顏色",
+  "option.damage-engine.infoBackgroundOpacity": "背景透明度 (0-100)",
   "option.damage-engine.colors": "傷害顏色閾值",
   "text.damage-engine.damage_reach": "達到傷害",
   "option.damage-engine.resetTime": "重置時間 (秒)",
@@ -33,9 +44,11 @@
   
   "text.damage-engine.preview": "預覽",
   "text.damage-engine.reset_done": "已重置!",
+  "text.damage-engine.cleared": "已清除傷害",
   
   "key.damage_engine.config": "開啟設定",
   "key.damage_engine.toggle_hud": "顯示/隱藏 HUD",
+  "key.damage_engine.clear_damage": "清除傷害",
   
   "title.damage-engine.config": "傷害引擎",
   "title.damage-engine.hud_editor": "介面編輯器",
@@ -51,6 +64,6 @@
   "hud.editor.reset": "重設",
   
   "modmenu.nameTranslation.damage-engine": "傷害引擎",
-  "modmenu.descriptionTranslation.damage-engine": "在UI上顯示你造成的傷害數值。",
-  "modmenu.summaryTranslation.damage-engine": "在UI上顯示你造成的傷害數值。"
+  "modmenu.descriptionTranslation.damage-engine": "在UI上顯示傷害資訊。",
+  "modmenu.summaryTranslation.damage-engine": "在UI上顯示傷害資訊。"
 }

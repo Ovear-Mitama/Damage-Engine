@@ -92,7 +92,14 @@ public abstract class LivingEntityMixin extends Entity {
         String debugInfo = "";
         
         if (damage.engine.DamageEngineConfig.getInstance().debugMode) {
-            debugInfo = String.format("%s造成伤害%.1f，对象：%s", source.getName(), actualDamage, self.getName().getString());
+            String attackerName = source.getName();
+            if (this.damageEngine$attackerId != 0) {
+                Entity attacker = world.getEntityById(this.damageEngine$attackerId);
+                if (attacker != null) {
+                    attackerName = attacker.getName().getString();
+                }
+            }
+            debugInfo = String.format("%s 造成伤害%.1f 伤害对象 %s", attackerName, actualDamage, self.getName().getString());
             LOGGER.info(debugInfo);
         }
         

@@ -3,7 +3,7 @@
 	"id": "damage-engine",
 	"version": "${version}",
 	"name": "Damage Engine",
-	"description": "Display the damage values you inflict on the UI.",
+	"description": "Display damage info on the UI.",
 	"authors": [
 		"mitama"
 	],

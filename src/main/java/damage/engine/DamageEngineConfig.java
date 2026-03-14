@@ -20,15 +20,21 @@ public class DamageEngineConfig {
     public boolean showDamage = true;
     public boolean showProgressBar = true;
     public boolean showDamageHistory = true;
+    public boolean resetEnabled = true;
+    public boolean showInfo = true;
 
     public ModuleConfig totalDamageConfig = new ModuleConfig(0.8203125f, 0.3602415f, 0.95652175f);
     public ModuleConfig comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
     public ModuleConfig historyConfig = new ModuleConfig(0.9359375f, 0.3305973f, 0.95652175f);
+    public ModuleConfig infoConfig = new ModuleConfig(0.8817709f, 0.25621924f, 0.95652175f);
     
     public int progressBarColor = 0xFFFFFFFF;
     public int comboColor = 0xFFAA00;
     public int historyColor = 0xFFFFFFFF;
     public int critColor = 0xFFD700;
+    public int infoBarColor = 0xFFB1EAC2;
+    public int infoBackgroundColor = 0xFF000000;
+    public int infoBackgroundOpacity = 25;
     
     public List<DamageThreshold> damageThresholds = new ArrayList<>();
 
@@ -66,6 +72,7 @@ public class DamageEngineConfig {
     public float resetTime = 5.0f;
     public int historyLimit = 5;
     public float historyDisappearanceTime = 5.0f;
+    public float infoTrackTime = 15.0f;
     public boolean debugMode = false;
     public boolean hideOnF1 = true;
 
@@ -97,15 +104,21 @@ public class DamageEngineConfig {
                     this.showDamage = loaded.showDamage;
                     this.showProgressBar = loaded.showProgressBar;
                     this.showDamageHistory = loaded.showDamageHistory;
+                    this.resetEnabled = loaded.resetEnabled;
+                    this.showInfo = loaded.showInfo;
                     
                     if (loaded.totalDamageConfig != null) this.totalDamageConfig = loaded.totalDamageConfig;
                     if (loaded.comboConfig != null) this.comboConfig = loaded.comboConfig;
                     if (loaded.historyConfig != null) this.historyConfig = loaded.historyConfig;
+                    if (loaded.infoConfig != null) this.infoConfig = loaded.infoConfig;
                     
                     this.progressBarColor = loaded.progressBarColor;
                     this.comboColor = loaded.comboColor;
                     this.historyColor = loaded.historyColor;
                     this.critColor = loaded.critColor;
+                    this.infoBarColor = loaded.infoBarColor;
+                    this.infoBackgroundColor = loaded.infoBackgroundColor;
+                    this.infoBackgroundOpacity = loaded.infoBackgroundOpacity;
                     
                     if (loaded.damageThresholds != null) {
                         this.damageThresholds = loaded.damageThresholds;
@@ -113,6 +126,7 @@ public class DamageEngineConfig {
                     this.resetTime = loaded.resetTime;
                     this.historyLimit = loaded.historyLimit;
                     this.historyDisappearanceTime = loaded.historyDisappearanceTime;
+                    this.infoTrackTime = loaded.infoTrackTime;
                     this.debugMode = loaded.debugMode;
                     this.hideOnF1 = loaded.hideOnF1;
                 }
@@ -136,18 +150,29 @@ public class DamageEngineConfig {
     }
     
     public void resetToDefaults() {
+        applyHardcodedDefaults();
+        save();
+    }
+    
+    private void applyHardcodedDefaults() {
         showDamage = true;
         showProgressBar = true;
         showDamageHistory = true;
+        resetEnabled = true;
+        showInfo = true;
         
         totalDamageConfig = new ModuleConfig(0.8203125f, 0.3602415f, 0.95652175f);
         comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
         historyConfig = new ModuleConfig(0.9359375f, 0.3305973f, 0.95652175f);
+        infoConfig = new ModuleConfig(0.8817709f, 0.25621924f, 0.95652175f);
         
         progressBarColor = 0xFFFFFFFF;
         comboColor = 0xFFAA00;
         historyColor = 0xFFFFFFFF;
         critColor = 0xFFD700;
+        infoBarColor = 0xFFB1EAC2;
+        infoBackgroundColor = 0xFF000000;
+        infoBackgroundOpacity = 25;
         
         damageThresholds.clear();
         damageThresholds.add(new DamageThreshold(0f, 0xFFFFFFFF));
@@ -158,8 +183,8 @@ public class DamageEngineConfig {
         resetTime = 5.0f;
         historyLimit = 5;
         historyDisappearanceTime = 5.0f;
+        infoTrackTime = 15.0f;
         debugMode = false;
         hideOnF1 = true;
-        save();
     }
 }
