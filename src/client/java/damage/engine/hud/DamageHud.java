@@ -342,9 +342,11 @@ public class DamageHud implements HudRenderCallback {
         dt = MathHelper.clamp(dt, 0.0f, 0.1f);
         infoLastUpdateMs = now;
         
+        int candidateTargetId = session.isInfoActive() ? session.getLastTargetEntityId() : infoLastTargetId;
+        
         LivingEntity target = null;
-        if (session.isInfoActive() && client.world != null) {
-            Entity e = client.world.getEntityById(session.getLastTargetEntityId());
+        if (candidateTargetId != -1 && client.world != null) {
+            Entity e = client.world.getEntityById(candidateTargetId);
             if (e instanceof LivingEntity le) {
                 target = le;
             }
@@ -394,8 +396,16 @@ public class DamageHud implements HudRenderCallback {
             return;
         }
         
-        if (session.isInfoActive() && target != null && !target.isAlive()) {
-            captureInfoSnapshot(target);
+        if (!infoDeathDrain && !infoFading && candidateTargetId != -1 && (target == null || !target.isAlive()) && (session.isInfoActive() || infoHasSnapshot)) {
+            if (target != null) {
+                captureInfoSnapshot(target);
+            } else if (!infoHasSnapshot) {
+                infoHasSnapshot = true;
+                infoName = "";
+                infoIsPlayer = false;
+                infoPlayerSkin = null;
+                infoMaxHealth = 1f;
+            }
             infoHealth = 0f;
             infoAbsorption = 0f;
             infoDeathDrain = true;
@@ -405,17 +415,14 @@ public class DamageHud implements HudRenderCallback {
             return;
         }
         
-        if (session.isInfoActive()) {
-            session.clearInfo();
-        }
-        
         if (infoDeathDrain) {
-            float eps = 0.02f;
+            float eps = 0.0025f;
             if (infoSmoothRatio >= 0 && infoLagRatio >= 0 && infoHealRatio >= 0
                 && infoSmoothRatio <= eps && infoLagRatio <= eps && infoHealRatio <= eps) {
                 infoDeathDrain = false;
                 infoFading = true;
                 infoFadeStartMs = now;
+                infoLastTargetId = -1;
             } else {
                 infoFading = false;
                 infoAlpha = 1.0f;
@@ -450,6 +457,8 @@ public class DamageHud implements HudRenderCallback {
                 infoPrevDamageTailActive = false;
                 infoHealthLastUpdateMs = 0;
             }
+        } else if (infoDeathDrain) {
+            infoAlpha = 1.0f;
         } else {
             infoAlpha = 0.0f;
         }

@@ -8,3 +8,7 @@ pluginManagement {
 		gradlePluginPortal()
 	}
 }
+
+if (JavaVersion.current() < JavaVersion.VERSION_21) {
+	throw new GradleException("Damage-Engine 1.21.11 requires Java 21+. Current JVM: ${JavaVersion.current()}. Configure JAVA_HOME to a JDK 21 and re-run ./gradlew.")
+}
