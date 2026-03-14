@@ -51,6 +51,7 @@ public class HudEditorScreen extends Screen {
         
         modules.add(new EditorModule(config.totalDamageConfig, ModuleType.TOTAL));
         modules.add(new EditorModule(config.historyConfig, ModuleType.HISTORY));
+        modules.add(new EditorModule(config.infoConfig, ModuleType.INFO));
     }
     
     public void playClickSound() {
@@ -185,18 +186,18 @@ public class HudEditorScreen extends Screen {
 
     private void resetAllModules() {
         saveStateForUndo();
+        config.totalDamageConfig.x = 0.8203125f;
+        config.totalDamageConfig.y = 0.3602415f;
+        config.totalDamageConfig.scale = 0.95652175f;
         
-        modules.get(0).config.x = 0.8203125f;
-        modules.get(0).config.y = 0.3602415f;
-        modules.get(0).config.scale = 0.95652175f;
+        config.historyConfig.x = 0.9359375f;
+        config.historyConfig.y = 0.3305973f;
+        config.historyConfig.scale = 0.95652175f;
         
-        config.comboConfig.x = 0.8828125f;
-        config.comboConfig.y = 0.2611276f;
-        config.comboConfig.scale = 0.95652175f;
-        
-        modules.get(1).config.x = 0.9359375f;
-        modules.get(1).config.y = 0.3305973f;
-        modules.get(1).config.scale = 0.95652175f;
+        config.infoConfig.x = 0.8817709f;
+        config.infoConfig.y = 0.25621924f;
+        config.infoConfig.scale = 0.95652175f;
+        config.save();
     }
 
     @Override
@@ -273,6 +274,9 @@ public class HudEditorScreen extends Screen {
                     );
                     damageHud.renderHistory(context, history, true, 1.0f, this.client);
                     break;
+                case INFO:
+                    damageHud.renderInfo(context, null, true, 1.0f, this.client);
+                    break;
             }
         });
     }
@@ -318,6 +322,10 @@ public class HudEditorScreen extends Screen {
             case HISTORY:
                 w = (int)(60 * s); h = (int)(10 * config.historyLimit * s);
                 ox = -w/2; oy = 0;
+                break;
+            case INFO:
+                w = (int)(106 * s); h = (int)(34 * s);
+                ox = (int)(-65 * s); oy = (int)(-17 * s);
                 break;
         }
         return new int[]{cx + ox - 2, cy + oy - 2, w + 4, h + 4};
@@ -391,6 +399,7 @@ public class HudEditorScreen extends Screen {
         
         dragging = false;
         resizing = false;
+        config.save();
         return false;
     }
     
@@ -431,7 +440,7 @@ public class HudEditorScreen extends Screen {
         public EditorModule(DamageEngineConfig.ModuleConfig c, ModuleType t) { this.config = c; this.type = t; }
     }
     
-    private enum ModuleType { TOTAL, COMBO, HISTORY }
+    private enum ModuleType { TOTAL, COMBO, HISTORY, INFO }
     
     private record ModuleSnapshot(float x, float y, float scale, boolean enabled) {
         public ModuleSnapshot(DamageEngineConfig.ModuleConfig c) { this(c.x, c.y, c.scale, c.enabled); }

@@ -3,9 +3,11 @@ package damage.engine;
 import damage.engine.client.gui.DamageConfigScreen;
 import damage.engine.network.DamagePayload;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
@@ -22,6 +24,7 @@ import org.slf4j.LoggerFactory;
 public class DamageEngineClient implements ClientModInitializer {
     public static KeyBinding configKeyBinding;
     public static KeyBinding toggleHudKeyBinding;
+    public static KeyBinding clearDamageKeyBinding;
     
     public static final Logger LOGGER = LoggerFactory.getLogger("damage-engine");
     
@@ -187,8 +190,12 @@ public class DamageEngineClient implements ClientModInitializer {
                 args[0] = "key.damage_engine.toggle_hud";
                 toggleHudKeyBinding = (KeyBinding) targetCtor.newInstance(args);
                 
+                args[0] = "key.damage_engine.clear_damage";
+                clearDamageKeyBinding = (KeyBinding) targetCtor.newInstance(args);
+                
                 KeyBindingHelper.registerKeyBinding(configKeyBinding);
                 KeyBindingHelper.registerKeyBinding(toggleHudKeyBinding);
+                KeyBindingHelper.registerKeyBinding(clearDamageKeyBinding);
                 LOGGER.info("Successfully registered keybindings via reflection.");
             } else {
                 LOGGER.error("Could not find suitable KeyBinding constructor.");
@@ -212,11 +219,39 @@ public class DamageEngineClient implements ClientModInitializer {
                         config.save();
                     }
                 }
+                if (clearDamageKeyBinding != null) {
+                    while (clearDamageKeyBinding.wasPressed()) {
+                        DamageSessionManager.getInstance().reset();
+                    }
+                }
             }
 
             if (!client.isPaused()) {
                 DamageSessionManager.getInstance().tick();
             }
+        });
+        
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
+            dispatcher.register(ClientCommandManager.literal("damage_engine")
+                .then(ClientCommandManager.literal("clear")
+                    .executes(ctx -> {
+                        DamageSessionManager.getInstance().reset();
+                        if (ctx.getSource().getPlayer() != null) {
+                            ctx.getSource().getPlayer().sendMessage(
+                                Text.literal("[Damage Engine] ").withColor(0xB3EDC4).append(Text.translatable("text.damage-engine.cleared").withColor(0xFFFFFF)),
+                                false
+                            );
+                        }
+                        return 1;
+                    }))
+                .then(ClientCommandManager.literal("option")
+                    .executes(ctx -> {
+                        if (ctx.getSource().getClient() != null) {
+                            ctx.getSource().getClient().execute(() -> ctx.getSource().getClient().setScreen(new DamageConfigScreen(ctx.getSource().getClient().currentScreen)));
+                        }
+                        return 1;
+                    }))
+            );
         });
 
         ClientPlayNetworking.registerGlobalReceiver(DamagePayload.ID, (payload, context) -> {
@@ -225,7 +260,10 @@ public class DamageEngineClient implements ClientModInitializer {
                 
                 if (DamageEngineConfig.getInstance().debugMode) {
                     if (payload.debugInfo() != null && !payload.debugInfo().isEmpty()) {
-                        context.client().player.sendMessage(Text.literal("[调试] ").withColor(0xFBFB54).append(Text.literal(payload.debugInfo()).withColor(0xFFFFFF)), false);
+                        context.client().player.sendMessage(
+                            Text.literal("[DE Debug] ").withColor(0xB3EDC4).append(Text.literal(payload.debugInfo()).withColor(0xFFFFFF)),
+                            false
+                        );
                     }
                 }
 
@@ -233,7 +271,15 @@ public class DamageEngineClient implements ClientModInitializer {
                     return;
                 }
                 
-                DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit());
+                boolean preferSwitchTarget = false;
+                try {
+                    if (context.client().crosshairTarget instanceof net.minecraft.util.hit.EntityHitResult ehr) {
+                        preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
+                    }
+                } catch (Exception ignored) {
+                }
+                
+                DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
             });
         });
         // Print PositionedSoundInstance methods for debugging

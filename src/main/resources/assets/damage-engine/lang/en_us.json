@@ -9,6 +9,18 @@
   
   "option.damage-engine.showProgressBar": "Show Progress Bar",
   "option.damage-engine.showDamageHistory": "Show History",
+  "option.damage-engine.resetEnabled": "Enable Reset",
+  "hint.damage-engine.resetEnabled": "Enable/Disable combo reset timer",
+  "option.damage-engine.showInfo": "Show Info",
+  "hint.damage-engine.showInfo": "Show entity HP and related info on HUD",
+  "option.damage-engine.infoTrackTime": "Info Track Time (s)",
+  "option.damage-engine.infoBarColor": "Health Bar Color",
+  "option.damage-engine.infoBackgroundColor": "Background Color",
+  "option.damage-engine.infoBackgroundOpacity": "Background Opacity (0-100)",
+  "option.damage-engine.info_config": "Info Config",
+  "option.damage-engine.damage_display_config": "Damage Display Config",
+  "option.damage-engine.damage_display_appearance": "Damage Display Appearance",
+  "option.damage-engine.info_appearance": "Info Appearance",
   "option.damage-engine.edit_pos_label": "Adjust HUD",
   "option.damage-engine.scale": "HUD Scale",
   "option.damage-engine.progressBarColor": "Progress Bar Color",
@@ -33,9 +45,11 @@
   
   "text.damage-engine.preview": "Preview",
   "text.damage-engine.reset_done": "Done!",
+  "text.damage-engine.cleared": "Damage cleared",
   
   "key.damage_engine.config": "Open Config",
   "key.damage_engine.toggle_hud": "Toggle HUD",
+  "key.damage_engine.clear_damage": "Clear Damage",
   
   "title.damage-engine.config": "Damage Engine",
   "title.damage-engine.hud_editor": "HUD Editor",
@@ -51,6 +65,6 @@
   "hud.editor.reset": "Reset",
   
   "modmenu.nameTranslation.damage-engine": "Damage Engine",
-  "modmenu.descriptionTranslation.damage-engine": "Display the damage values you inflict on the UI.",
-  "modmenu.summaryTranslation.damage-engine": "Display the damage values you inflict on the UI."
+  "modmenu.descriptionTranslation.damage-engine": "Display damage info on the UI.",
+  "modmenu.summaryTranslation.damage-engine": "Display damage info on the UI."
 }

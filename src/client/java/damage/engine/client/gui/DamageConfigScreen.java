@@ -49,6 +49,10 @@ public class DamageConfigScreen extends Screen {
     private double lastCategoryScroll = 0;
     
     private boolean expandDamageColors = false;
+    private boolean expandInfoConfig = false;
+    private boolean expandDamageDisplayConfig = false;
+    private boolean expandDamageDisplayAppearance = false;
+    private boolean expandInfoAppearance = false;
     
     private int resetButtonState = 0;
     private long resetButtonActionTime = 0;
@@ -273,46 +277,83 @@ public class DamageConfigScreen extends Screen {
 
     private void initOptionEntries() {
         addHeader("category.damage_engine.general");
-        addOption(new BooleanOptionEntry("option.damage-engine.showProgressBar", config.showProgressBar, v -> config.showProgressBar = v));
-        addOption(new BooleanOptionEntry("option.damage-engine.showDamageHistory", config.showDamageHistory, v -> config.showDamageHistory = v));
-        addOption(new NumericEntry("option.damage-engine.resetTime", config.resetTime, v -> config.resetTime = v));
-        addOption(new NumericEntry("option.damage-engine.historyDisappearanceTime", config.historyDisappearanceTime, v -> config.historyDisappearanceTime = v));
-        addOption(new IntegerSliderEntry("option.damage-engine.historyLimit", config.historyLimit, 1, 50, v -> config.historyLimit = v));
+        
+        addOption(new ExpandableHeaderEntry("option.damage-engine.info_config", expandInfoConfig, v -> {
+            expandInfoConfig = v;
+            refreshOptions();
+        }));
+        
+        if (expandInfoConfig) {
+            addOption(new BooleanOptionEntry("option.damage-engine.showInfo", config.showInfo, v -> config.showInfo = v));
+            addOption(new NumericEntry("option.damage-engine.infoTrackTime", config.infoTrackTime, v -> config.infoTrackTime = v));
+        }
+        
+        addOption(new ExpandableHeaderEntry("option.damage-engine.damage_display_config", expandDamageDisplayConfig, v -> {
+            expandDamageDisplayConfig = v;
+            refreshOptions();
+        }));
+        
+        if (expandDamageDisplayConfig) {
+            addOption(new BooleanOptionEntry("option.damage-engine.resetEnabled", config.resetEnabled, v -> config.resetEnabled = v));
+            addOption(new NumericEntry("option.damage-engine.resetTime", config.resetTime, v -> config.resetTime = v));
+            addOption(new BooleanOptionEntry("option.damage-engine.showProgressBar", config.showProgressBar, v -> config.showProgressBar = v));
+            addOption(new BooleanOptionEntry("option.damage-engine.showDamageHistory", config.showDamageHistory, v -> config.showDamageHistory = v));
+            addOption(new NumericEntry("option.damage-engine.historyDisappearanceTime", config.historyDisappearanceTime, v -> config.historyDisappearanceTime = v));
+            addOption(new IntegerSliderEntry("option.damage-engine.historyLimit", config.historyLimit, 1, 50, v -> config.historyLimit = v, true));
+        }
         
         addHeader("category.damage_engine.appearance");
         addOption(new ButtonActionEntry("option.damage-engine.edit_pos_label", "button.damage-engine.adjust", () -> {
             playClickSound();
             this.client.setScreen(new HudEditorScreen(this));
         }));
-        
-        addOption(new HexColorEntry("option.damage-engine.progressBarColor", config.progressBarColor, v -> config.progressBarColor = v));
-        addOption(new HexColorEntry("option.damage-engine.comboColor", config.comboColor, v -> config.comboColor = v));
-        addOption(new HexColorEntry("option.damage-engine.historyColor", config.historyColor, v -> config.historyColor = v));
-        addOption(new HexColorEntry("option.damage-engine.critColor", config.critColor, v -> config.critColor = v));
-        
-        addOption(new ExpandableHeaderEntry("option.damage-engine.colors", expandDamageColors, v -> {
-            expandDamageColors = v;
+
+        addOption(new ExpandableHeaderEntry("option.damage-engine.info_appearance", expandInfoAppearance, v -> {
+            expandInfoAppearance = v;
             refreshOptions();
         }));
         
-        if (expandDamageColors) {
-             config.damageThresholds.sort((a, b) -> Float.compare(a.threshold, b.threshold));
-             
-             for (DamageEngineConfig.DamageThreshold dt : new ArrayList<>(config.damageThresholds)) {
-                 addOption(new DamageThresholdEntry(dt, () -> {
-                     config.damageThresholds.remove(dt);
+        if (expandInfoAppearance) {
+            addOption(new HexColorEntry("option.damage-engine.infoBarColor", config.infoBarColor, v -> config.infoBarColor = v));
+            addOption(new HexColorEntry("option.damage-engine.infoBackgroundColor", config.infoBackgroundColor, v -> config.infoBackgroundColor = v));
+            addOption(new IntegerSliderEntry("option.damage-engine.infoBackgroundOpacity", config.infoBackgroundOpacity, 0, 100, v -> config.infoBackgroundOpacity = v, true));
+        }
+        
+        addOption(new ExpandableHeaderEntry("option.damage-engine.damage_display_appearance", expandDamageDisplayAppearance, v -> {
+            expandDamageDisplayAppearance = v;
+            refreshOptions();
+        }));
+        
+        if (expandDamageDisplayAppearance) {
+            addOption(new HexColorEntry("option.damage-engine.progressBarColor", config.progressBarColor, v -> config.progressBarColor = v));
+            addOption(new HexColorEntry("option.damage-engine.comboColor", config.comboColor, v -> config.comboColor = v));
+            addOption(new HexColorEntry("option.damage-engine.historyColor", config.historyColor, v -> config.historyColor = v));
+            addOption(new HexColorEntry("option.damage-engine.critColor", config.critColor, v -> config.critColor = v));
+            
+            addOption(new ExpandableHeaderEntry("option.damage-engine.colors", expandDamageColors, v -> {
+                expandDamageColors = v;
+                refreshOptions();
+            }));
+            
+            if (expandDamageColors) {
+                 config.damageThresholds.sort((a, b) -> Float.compare(a.threshold, b.threshold));
+                 
+                 for (DamageEngineConfig.DamageThreshold dt : new ArrayList<>(config.damageThresholds)) {
+                     addOption(new DamageThresholdEntry(dt, () -> {
+                         config.damageThresholds.remove(dt);
+                         refreshOptions();
+                     }));
+                 }
+                 
+                 addOption(new AddButtonEntry(() -> {
+                     float nextVal = 0f;
+                     if (!config.damageThresholds.isEmpty()) {
+                         nextVal = config.damageThresholds.get(config.damageThresholds.size() - 1).threshold + 50f;
+                     }
+                     config.damageThresholds.add(new DamageEngineConfig.DamageThreshold(nextVal, 0xFFFFFFFF));
                      refreshOptions();
                  }));
-             }
-             
-             addOption(new AddButtonEntry(() -> {
-                 float nextVal = 0f;
-                 if (!config.damageThresholds.isEmpty()) {
-                     nextVal = config.damageThresholds.get(config.damageThresholds.size() - 1).threshold + 50f;
-                 }
-                 config.damageThresholds.add(new DamageEngineConfig.DamageThreshold(nextVal, 0xFFFFFFFF));
-                 refreshOptions();
-             }));
+            }
         }
         
         addHeader("category.damage_engine.keybinds");
@@ -323,6 +364,9 @@ public class DamageConfigScreen extends Screen {
         if (DamageEngineClient.toggleHudKeyBinding != null) {
             addOption(new KeybindEntry("key.damage_engine.toggle_hud", DamageEngineClient.toggleHudKeyBinding));
         }
+        if (DamageEngineClient.clearDamageKeyBinding != null) {
+            addOption(new KeybindEntry("key.damage_engine.clear_damage", DamageEngineClient.clearDamageKeyBinding));
+        }
         
         addHeader("category.damage_engine.other");
         addOption(new BooleanOptionEntry("option.damage-engine.hideOnF1", config.hideOnF1, v -> config.hideOnF1 = v));
@@ -332,7 +376,6 @@ public class DamageConfigScreen extends Screen {
             config.resetToDefaults();
             KeyBinding.updateKeysByCode();
             this.client.options.write();
-            
             refreshOptions();
         }));
         
@@ -922,16 +965,25 @@ public class DamageConfigScreen extends Screen {
     private static class BooleanOptionEntry extends OptionEntry {
         private final StyledButton button;
         private final Text label;
+        private final Text hint;
         private boolean state;
         private final MinecraftClient client = MinecraftClient.getInstance();
         
         public BooleanOptionEntry(String key, boolean initial, Consumer<Boolean> onToggle) {
-            this(Text.translatable(key), initial, onToggle);
+            this(Text.translatable(key), initial, onToggle,
+                "option.damage-engine.resetEnabled".equals(key) ? Text.translatable("hint.damage-engine.resetEnabled")
+                    : "option.damage-engine.showInfo".equals(key) ? Text.translatable("hint.damage-engine.showInfo")
+                    : null);
         }
 
         public BooleanOptionEntry(Text label, boolean initial, Consumer<Boolean> onToggle) {
+            this(label, initial, onToggle, null);
+        }
+        
+        public BooleanOptionEntry(Text label, boolean initial, Consumer<Boolean> onToggle, Text hint) {
             this.state = initial;
             this.label = label;
+            this.hint = hint;
             int onColor = 0xFFB5F0C6;
             int offColor = 0xFFFC887E;
             
@@ -945,7 +997,12 @@ public class DamageConfigScreen extends Screen {
         }
         @Override
         public void renderContent(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            context.drawTextWithShadow(client.textRenderer, label, x, y + 8, 0xFFFFFFFF);
+            if (hint != null) {
+                context.drawTextWithShadow(client.textRenderer, label, x, y + 4, 0xFFFFFFFF);
+                context.drawTextWithShadow(client.textRenderer, hint, x, y + 14, 0xFFA0A0A0);
+            } else {
+                context.drawTextWithShadow(client.textRenderer, label, x, y + 8, 0xFFFFFFFF);
+            }
             button.setX(x + entryWidth - 110);
             button.setY(y + 2);
             button.setFocused(false); 
@@ -957,10 +1014,20 @@ public class DamageConfigScreen extends Screen {
     
     private static class StyledSliderWidget extends SliderWidget {
         private final boolean showValue;
+        private final boolean soundOnPress;
+        private final boolean soundOnRelease;
+        private boolean pendingReleaseSound;
+        private double valueBeforeInteraction;
         
         public StyledSliderWidget(int x, int y, int width, int height, Text text, double value, boolean showValue) {
+            this(x, y, width, height, text, value, showValue, true, false);
+        }
+        
+        public StyledSliderWidget(int x, int y, int width, int height, Text text, double value, boolean showValue, boolean soundOnPress, boolean soundOnRelease) {
             super(x, y, width, height, text, value);
             this.showValue = showValue;
+            this.soundOnPress = soundOnPress;
+            this.soundOnRelease = soundOnRelease;
         }
         
         @Override
@@ -969,13 +1036,40 @@ public class DamageConfigScreen extends Screen {
         @Override
         protected void applyValue() {} 
 
+        private void playConfiguredClickSound() {
+            if (MinecraftClient.getInstance().currentScreen instanceof DamageConfigScreen s) {
+                s.playClickSound();
+            } else {
+                super.playDownSound(MinecraftClient.getInstance().getSoundManager());
+            }
+        }
+        
         @Override
         public void playDownSound(net.minecraft.client.sound.SoundManager soundManager) {
-             if (MinecraftClient.getInstance().currentScreen instanceof DamageConfigScreen s) {
-                 s.playClickSound();
-             } else {
-                 super.playDownSound(soundManager);
-             }
+             if (!soundOnPress) return;
+             playConfiguredClickSound();
+        }
+        
+        @Override
+        public boolean mouseClicked(Click click, boolean modifiers) {
+            boolean handled = super.mouseClicked(click, modifiers);
+            if (handled && soundOnRelease) {
+                pendingReleaseSound = true;
+                valueBeforeInteraction = this.value;
+            }
+            return handled;
+        }
+        
+        @Override
+        public boolean mouseReleased(Click click) {
+            boolean handled = super.mouseReleased(click);
+            if (soundOnRelease && pendingReleaseSound) {
+                pendingReleaseSound = false;
+                if (Math.abs(this.value - valueBeforeInteraction) > 1.0E-9) {
+                    playConfiguredClickSound();
+                }
+            }
+            return handled;
         }
         
         @Override
@@ -1041,12 +1135,16 @@ public class DamageConfigScreen extends Screen {
         private final MinecraftClient client = MinecraftClient.getInstance();
         
         public IntegerSliderEntry(String key, int current, int min, int max, Consumer<Integer> onChange) {
+            this(key, current, min, max, onChange, false);
+        }
+        
+        public IntegerSliderEntry(String key, int current, int min, int max, Consumer<Integer> onChange, boolean soundOnReleaseOnly) {
             this.label = Text.translatable(key);
             float minF = (float)min;
             float maxF = (float)max;
             float currentF = (float)current;
             
-            this.slider = new StyledSliderWidget(0, 0, 100, 20, Text.literal(String.valueOf(current)), (currentF - minF) / (maxF - minF), true) {
+            this.slider = new StyledSliderWidget(0, 0, 100, 20, Text.literal(String.valueOf(current)), (currentF - minF) / (maxF - minF), true, !soundOnReleaseOnly, soundOnReleaseOnly) {
                 @Override protected void updateMessage() { 
                     int val = (int)Math.round(minF + this.value * (maxF - minF));
                     this.setMessage(Text.literal(String.valueOf(val))); 
