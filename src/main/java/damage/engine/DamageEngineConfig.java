@@ -75,6 +75,9 @@ public class DamageEngineConfig {
     public float infoTrackTime = 15.0f;
     public boolean debugMode = false;
     public boolean hideOnF1 = true;
+    public boolean showHud = true;
+    public boolean previewEnabled = false;
+    public boolean shownFirstTimeMessage = false;
 
     private DamageEngineConfig() {
         damageThresholds.add(new DamageThreshold(0f, 0xFFFFFFFF));
@@ -129,6 +132,9 @@ public class DamageEngineConfig {
                     this.infoTrackTime = loaded.infoTrackTime;
                     this.debugMode = loaded.debugMode;
                     this.hideOnF1 = loaded.hideOnF1;
+                    this.showHud = loaded.showHud;
+                    this.previewEnabled = loaded.previewEnabled;
+                    this.shownFirstTimeMessage = loaded.shownFirstTimeMessage;
                 }
             }
         } catch (Exception e) {
@@ -186,5 +192,7 @@ public class DamageEngineConfig {
         infoTrackTime = 15.0f;
         debugMode = false;
         hideOnF1 = true;
+        showHud = true;
+        previewEnabled = false;
     }
 }

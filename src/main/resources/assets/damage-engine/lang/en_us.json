@@ -6,11 +6,13 @@
   "category.damage_engine.other": "Other",
 
   "key.category.damage-engine.general": "Damage Engine",
+  "key.categories.damage-engine": "Damage Engine",
   
   "option.damage-engine.showProgressBar": "Show Progress Bar",
   "option.damage-engine.showDamageHistory": "Show History",
   "option.damage-engine.resetEnabled": "Enable Reset",
   "hint.damage-engine.resetEnabled": "Enable/Disable combo reset timer",
+  "option.damage-engine.showHud": "Show HUD",
   "option.damage-engine.showInfo": "Show Info",
   "hint.damage-engine.showInfo": "Show entity HP and related info on HUD",
   "option.damage-engine.infoTrackTime": "Info Track Time (s)",

@@ -9,11 +9,13 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageSessionManager;
 import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -36,6 +38,15 @@ public class DamageEngineClient implements ClientModInitializer {
         ));
     }
     
+    public static void resetKeyBindings() {
+        boolean wasShownFirstTimeMessage = DamageEngineConfig.getInstance().shownFirstTimeMessage;
+        configKeyBinding.setBoundKey(InputUtil.UNKNOWN_KEY);
+        toggleHudKeyBinding.setBoundKey(InputUtil.UNKNOWN_KEY);
+        clearDamageKeyBinding.setBoundKey(InputUtil.UNKNOWN_KEY);
+        DamageEngineConfig.getInstance().resetToDefaults();
+        DamageEngineConfig.getInstance().shownFirstTimeMessage = wasShownFirstTimeMessage;
+    }
+    
     @Override
     public void onInitializeClient() {
         HudRenderCallback.EVENT.register(new DamageHud());
@@ -43,6 +54,18 @@ public class DamageEngineClient implements ClientModInitializer {
         configKeyBinding = registerKeyBinding("key.damage_engine.config", GLFW.GLFW_KEY_UNKNOWN);
         toggleHudKeyBinding = registerKeyBinding("key.damage_engine.toggle_hud", GLFW.GLFW_KEY_UNKNOWN);
         clearDamageKeyBinding = registerKeyBinding("key.damage_engine.clear_damage", GLFW.GLFW_KEY_UNKNOWN);
+        
+        ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
+            DamageEngineConfig config = DamageEngineConfig.getInstance();
+            if (!config.shownFirstTimeMessage && client.player != null) {
+                client.player.sendMessage(
+                    Text.literal("[伤害引擎]").withColor(0xB1EAC2).append(Text.literal("当你在攻击实体时，屏幕上会显示伤害和相关生物信息，如果你想关闭，请打开该mod配置界面进行配置。").withColor(0xB1EAC2)),
+                    false
+                );
+                config.shownFirstTimeMessage = true;
+                config.save();
+            }
+        });
         
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             if (client.player != null) {
@@ -83,7 +106,7 @@ public class DamageEngineClient implements ClientModInitializer {
                         }
                         return 1;
                     }))
-                .then(ClientCommandManager.literal("option")
+                .then(ClientCommandManager.literal("options")
                     .executes(ctx -> {
                         if (ctx.getSource().getClient() != null) {
                             ctx.getSource().getClient().execute(() -> ctx.getSource().getClient().setScreen(new DamageConfigScreen(ctx.getSource().getClient().currentScreen)));

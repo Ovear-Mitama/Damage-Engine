@@ -67,6 +67,7 @@ public class DamageHud implements HudRenderCallback {
             DamageEngineConfig config = DamageEngineConfig.getInstance();
             
             if (config.hideOnF1 && client.options.hudHidden) return;
+            if (!config.showHud) return;
             if (!config.showDamage) return;
             
             DamageSessionManager session = DamageSessionManager.getInstance();
@@ -219,7 +220,7 @@ public class DamageHud implements HudRenderCallback {
             if (isPreview) {
                 smoothProgress = targetProgress;
             } else {
-                float delta = 1.0f; // client.getRenderTickCounter().getTickDelta(true); // TODO: Fix RenderTickCounter
+                float delta = 1.0f; 
                 
                 if (combo > lastComboCount) {
                     if (combo == 1) {
@@ -264,10 +265,8 @@ public class DamageHud implements HudRenderCallback {
             context.fill(barX, barY, barX + barWidth, barY + barHeight, (bgAlpha << 24));
             
             int barColor = DamageEngineConfig.getInstance().progressBarColor;
-            int barAlpha = (int)(255 * globalAlpha);
-            int barColorWithAlpha = (barColor & 0x00FFFFFF) | (barAlpha << 24);
             
-            // Use matrix scaling for smooth sub-pixel rendering of the progress bar
+
             context.getMatrices().pushMatrix();
             context.getMatrices().translate(barX, barY);
             context.getMatrices().scale(barWidth * smoothProgress, (float)barHeight);
@@ -368,21 +367,7 @@ public class DamageHud implements HudRenderCallback {
             
             int targetId = session.getLastTargetEntityId();
             if (targetId != infoLastTargetId) {
-                if (!wasInactive && infoSmoothRatio >= 0) {
-                    float nextRatio = MathHelper.clamp(target.getHealth() / Math.max(1.0f, target.getMaxHealth()), 0.0f, 1.0f);
-                    if (Math.abs(nextRatio - infoSmoothRatio) > 0.01f) {
-                        infoPrevSmoothRatio = infoSmoothRatio;
-                        infoPrevLagRatio = infoLagRatio;
-                        infoPrevHealRatio = infoHealRatio;
-                        infoPrevDamageTailActive = infoDamageTailActive;
-                        infoSwitching = true;
-                        infoSwitchStartMs = now;
-                    } else {
-                        infoSwitching = false;
-                    }
-                } else {
-                    infoSwitching = false;
-                }
+                infoSwitching = false;
                 infoLastTargetId = targetId;
                 infoSmoothRatio = -1f;
                 infoLagRatio = -1f;
@@ -396,36 +381,57 @@ public class DamageHud implements HudRenderCallback {
             return;
         }
         
-        if (!infoDeathDrain && !infoFading && candidateTargetId != -1 && (target == null || !target.isAlive()) && (session.isInfoActive() || infoHasSnapshot)) {
+        if (candidateTargetId != -1 && (target == null || !target.isAlive() || (target != null && target.getHealth() <= 0)) && session.isInfoActive()) {
+            float originalHealth = 1.0f;
             if (target != null) {
                 captureInfoSnapshot(target);
+                originalHealth = target.getHealth();
+                infoHealth = 0f;
+                infoAbsorption = 0f;
             } else if (!infoHasSnapshot) {
                 infoHasSnapshot = true;
                 infoName = "";
                 infoIsPlayer = false;
                 infoPlayerSkin = null;
                 infoMaxHealth = 1f;
+                infoHealth = 0f;
+                infoAbsorption = 0f;
             }
-            infoHealth = 0f;
-            infoAbsorption = 0f;
             infoDeathDrain = true;
             infoFading = false;
             infoAlpha = 1.0f;
+            if (infoSmoothRatio < 0) {
+                float currentHealthRatio = originalHealth / infoMaxHealth;
+                infoSmoothRatio = currentHealthRatio;
+                infoLagRatio = currentHealthRatio;
+                infoHealRatio = currentHealthRatio;
+            }
             session.clearInfo();
             return;
         }
         
         if (infoDeathDrain) {
             float eps = 0.0025f;
-            if (infoSmoothRatio >= 0 && infoLagRatio >= 0 && infoHealRatio >= 0
-                && infoSmoothRatio <= eps && infoLagRatio <= eps && infoHealRatio <= eps) {
+            if (infoSmoothRatio < 0 || infoLagRatio < 0 || infoHealRatio < 0) {
+                float currentHealthRatio = infoHealth / infoMaxHealth;
+                infoSmoothRatio = currentHealthRatio;
+                infoLagRatio = currentHealthRatio;
+                infoHealRatio = currentHealthRatio;
+            } else {
+                float deathDt = infoHealthLastUpdateMs == 0 ? 0.016f : (now - infoHealthLastUpdateMs) / 1000.0f;
+                deathDt = MathHelper.clamp(deathDt, 0.0f, 0.1f);
+                infoHealthLastUpdateMs = now;
+                
+                float downSmoothing = 1.0f - (float)Math.pow(0.001, deathDt);
+                infoSmoothRatio += (0.0f - infoSmoothRatio) * downSmoothing;
+                infoLagRatio += (0.0f - infoLagRatio) * downSmoothing;
+                infoHealRatio += (0.0f - infoHealRatio) * downSmoothing;
+            }
+            if (infoSmoothRatio <= eps && infoLagRatio <= eps && infoHealRatio <= eps) {
                 infoDeathDrain = false;
                 infoFading = true;
                 infoFadeStartMs = now;
                 infoLastTargetId = -1;
-            } else {
-                infoFading = false;
-                infoAlpha = 1.0f;
             }
         } else if (infoHasSnapshot && !infoFading && infoAlpha > 0.01f) {
             infoFading = true;

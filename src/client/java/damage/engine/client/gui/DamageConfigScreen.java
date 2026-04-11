@@ -32,7 +32,6 @@ import net.minecraft.text.MutableText;
 import net.minecraft.util.Formatting;
 import net.minecraft.client.sound.PositionedSoundInstance;
 import net.minecraft.sound.SoundEvents;
-import net.minecraft.client.sound.SoundInstance;
 
 public class DamageConfigScreen extends Screen {
     private final Screen parent;
@@ -40,7 +39,6 @@ public class DamageConfigScreen extends Screen {
     
     private CategoryListWidget categoryList;
     private ConfigOptionListWidget optionList;
-    private boolean previewEnabled = false;
     
     private final List<CategoryEntry> categories = new ArrayList<>();
     private int selectedCategoryIndex = 0;
@@ -60,6 +58,8 @@ public class DamageConfigScreen extends Screen {
     private boolean isNavigating = false;
     
     private boolean isBinding = false;
+    
+    private float smoothY = -1;
 
     private static long handCursor = 0;
     private static long arrowCursor = 0;
@@ -197,8 +197,6 @@ public class DamageConfigScreen extends Screen {
             categories.clear();
             footerButtons.clear();
             
-            int footerHeight = 40;
-            int headerHeight = 0; 
             int leftWidth = 120;
             int footerY = this.height - 35;
             int topY = 0; 
@@ -244,9 +242,9 @@ public class DamageConfigScreen extends Screen {
             int onColor = 0xFFB5F0C6;
             int offColor = 0xFFFC887E;
             final StyledButton[] previewBtnRef = new StyledButton[1];
-            previewBtnRef[0] = new StyledButton(10, buttonY, 80, 20, Text.translatable("text.damage-engine.preview").append(": ").append(Text.literal(previewEnabled ? "ON" : "OFF").withColor(previewEnabled ? onColor : offColor)), () -> {
-                previewEnabled = !previewEnabled;
-                previewBtnRef[0].setMessage(Text.translatable("text.damage-engine.preview").append(": ").append(Text.literal(previewEnabled ? "ON" : "OFF").withColor(previewEnabled ? onColor : offColor)));
+            previewBtnRef[0] = new StyledButton(10, buttonY, 80, 20, Text.translatable("text.damage-engine.preview").append(": ").append(Text.literal(config.previewEnabled ? "ON" : "OFF").withColor(config.previewEnabled ? onColor : offColor)), () -> {
+                config.previewEnabled = !config.previewEnabled;
+                previewBtnRef[0].setMessage(Text.translatable("text.damage-engine.preview").append(": ").append(Text.literal(config.previewEnabled ? "ON" : "OFF").withColor(config.previewEnabled ? onColor : offColor)));
             });
             footerButtons.add(previewBtnRef[0]);
             this.addDrawableChild(previewBtnRef[0]);
@@ -277,6 +275,8 @@ public class DamageConfigScreen extends Screen {
 
     private void initOptionEntries() {
         addHeader("category.damage_engine.general");
+        
+        addOption(new BooleanOptionEntry("option.damage-engine.showHud", config.showHud, v -> config.showHud = v));
         
         addOption(new ExpandableHeaderEntry("option.damage-engine.info_config", expandInfoConfig, v -> {
             expandInfoConfig = v;
@@ -374,6 +374,7 @@ public class DamageConfigScreen extends Screen {
         
         addOption(new ResetButtonEntry("option.damage-engine.reset", () -> {
             config.resetToDefaults();
+            DamageEngineClient.resetKeyBindings();
             KeyBinding.updateKeysByCode();
             this.client.options.write();
             refreshOptions();
@@ -421,26 +422,7 @@ public class DamageConfigScreen extends Screen {
         }
     }
     
-    private void updateActiveCategory() {
-        if (isNavigating) return;
-        if (optionList == null || categories.isEmpty()) return;
-        
-        double scroll = optionList.getScrollY();
-        
-        int currentBest = 0;
-        for (int i = 0; i < categories.size(); i++) {
-            CategoryEntry cat = categories.get(i);
-            double catY = cat.targetIndex * 26;
-            
-            if (scroll >= catY - 10) {
-                currentBest = i;
-            } else {
-                break;
-            }
-        }
-        
-        selectedCategoryIndex = categories.get(currentBest).id;
-    }
+
 
     public void setBinding(boolean binding) {
         this.isBinding = binding;
@@ -453,7 +435,7 @@ public class DamageConfigScreen extends Screen {
              try {
                  java.lang.reflect.Field volField = net.minecraft.client.sound.AbstractSoundInstance.class.getDeclaredField("volume");
                  volField.setAccessible(true);
-                 volField.setFloat(sound, 0.25F);
+                 volField.setFloat(sound, 0.15F);
              } catch (Exception ignored) {
              }
              
@@ -563,7 +545,7 @@ public class DamageConfigScreen extends Screen {
         
         context.drawTextWithShadow(this.textRenderer, Text.translatable("category.damage_engine"), 10, 10, 0xFFFFFFFF);
         
-        if (previewEnabled) {
+        if (config.previewEnabled) {
             new DamageHud().renderPreview(context, this.width/2, this.height/2);
         }
         
@@ -628,8 +610,6 @@ public class DamageConfigScreen extends Screen {
                      if (hce.field.isMouseOver(mouseX, mouseY)) { cursor = ibeamCursor; found = true; }
                  } else if (entry instanceof NumericEntry ne) {
                      if (ne.field.isMouseOver(mouseX, mouseY)) { cursor = ibeamCursor; found = true; }
-                 } else if (entry instanceof SliderEntry se) {
-                     if (se.slider.isMouseOver(mouseX, mouseY)) { cursor = hResizeCursor; found = true; }
                  } else if (entry instanceof IntegerSliderEntry ise) {
                      if (ise.slider.isMouseOver(mouseX, mouseY)) { cursor = hResizeCursor; found = true; }
                  }
@@ -671,10 +651,15 @@ public class DamageConfigScreen extends Screen {
             int x = screen.categoryList.getRowLeft();
             
             boolean isSelected = screen.selectedCategoryIndex == id;
+            
             if (isSelected) {
-                context.fill(x, y + 2, x + 2, y + 25 - 2, 0xFFFFFFFF);
+                if (screen.smoothY == -1) {
+                    screen.smoothY = y;
+                } else {
+                    screen.smoothY += (y - screen.smoothY) * 0.4f * delta;
+                }
+                context.fill(x, (int)screen.smoothY + 2, x + 2, (int)screen.smoothY + 25 - 2, 0xFFFFFFFF);
             }
-            int color = 0xFFFFFFFF;
 
             context.drawTextWithShadow(client.textRenderer, text, x + 10, y + 8, 0xFFFFFFFF);
         }
@@ -724,13 +709,13 @@ public class DamageConfigScreen extends Screen {
 
         @Override public int getRowWidth() { return 100; }
         public void addEntryPublic(CategoryEntry entry) { this.addEntry(entry); }
-        public void setLeftPos(int x) { }
         @Override public int getRowLeft() { return 0; }
-        public int getScrollbarPositionX() { return -10; } 
         @Override protected void drawHeaderAndFooterSeparators(DrawContext context) {}
     }
     
     private abstract static class OptionEntry extends ElementListWidget.Entry<OptionEntry> {
+        private float hoverAlpha = 0;
+        
         @Override
         public void render(DrawContext context, int mouseX, int mouseY, boolean hovered, float delta) {
             DamageConfigScreen screen = (DamageConfigScreen) MinecraftClient.getInstance().currentScreen;
@@ -747,7 +732,15 @@ public class DamageConfigScreen extends Screen {
             boolean isHovered = mouseX >= x && mouseX <= x + entryWidth && mouseY >= y && mouseY < y + entryHeight;
             
             if (isHovered && shouldHighlight()) {
-                context.fill(x - 200, y, x + entryWidth + 200, y + entryHeight, 0x30FFFFFF);
+                hoverAlpha += (0.15f - hoverAlpha) * 0.4f * delta;
+                int alpha = (int)(hoverAlpha * 255);
+                context.fill(x - 200, y, x + entryWidth + 200, y + entryHeight, (alpha << 24) | 0xFFFFFF);
+            } else {
+                hoverAlpha += (0.0f - hoverAlpha) * 0.4f * delta;
+                if (hoverAlpha > 0.01f) {
+                    int alpha = (int)(hoverAlpha * 255);
+                    context.fill(x - 200, y, x + entryWidth + 200, y + entryHeight, (alpha << 24) | 0xFFFFFF);
+                }
             }
             renderContent(context, index, y, x, entryWidth, entryHeight, mouseX, mouseY, isHovered, delta);
         }
@@ -760,7 +753,6 @@ public class DamageConfigScreen extends Screen {
         public boolean mouseClicked(Click click, boolean modifiers) {
             double mouseX = MinecraftClient.getInstance().mouse.getX() * (double)MinecraftClient.getInstance().getWindow().getScaledWidth() / (double)MinecraftClient.getInstance().getWindow().getWidth();
             double mouseY = MinecraftClient.getInstance().mouse.getY() * (double)MinecraftClient.getInstance().getWindow().getScaledHeight() / (double)MinecraftClient.getInstance().getWindow().getHeight();
-            int button = click.button();
             
             for (Element child : this.children()) {
                 if (child instanceof TextFieldWidget tf) {
@@ -844,7 +836,7 @@ public class DamageConfigScreen extends Screen {
             double mouseX = MinecraftClient.getInstance().mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
             double mouseY = MinecraftClient.getInstance().mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
             
-            if (mouseX >= getScrollbarX() && mouseX <= getScrollbarX() + 6) {
+            if (mouseX >= getScrollbarX() && mouseX <= getScrollbarX() + 6 && mouseY >= this.getY() && mouseY <= this.getBottom()) {
                  scrolling = true;
             }
             return super.mouseClicked(click, modifiers);
@@ -879,9 +871,7 @@ public class DamageConfigScreen extends Screen {
         public void clearEntriesPublic() { this.clearEntries(); }
         @Override public int getRowWidth() { return this.width - 20; } 
         public void addEntryPublic(OptionEntry entry) { this.addEntry(entry); }
-        public void setLeftPos(int x) { 
-            this.setX(x);
-        }
+
         @Override
         public int getRowLeft() { return this.getX() + 10; }
         public int getScrollbarX() { return this.getRight() - 6; }
@@ -1019,10 +1009,6 @@ public class DamageConfigScreen extends Screen {
         private boolean pendingReleaseSound;
         private double valueBeforeInteraction;
         
-        public StyledSliderWidget(int x, int y, int width, int height, Text text, double value, boolean showValue) {
-            this(x, y, width, height, text, value, showValue, true, false);
-        }
-        
         public StyledSliderWidget(int x, int y, int width, int height, Text text, double value, boolean showValue, boolean soundOnPress, boolean soundOnRelease) {
             super(x, y, width, height, text, value);
             this.showValue = showValue;
@@ -1106,37 +1092,10 @@ public class DamageConfigScreen extends Screen {
         }
     }
 
-    private static class SliderEntry extends OptionEntry {
-        private final StyledSliderWidget slider;
-        private final Text label;
-        private final MinecraftClient client = MinecraftClient.getInstance();
-        
-        public SliderEntry(String key, float current, float min, float max, Consumer<Float> onChange) {
-            this.label = Text.translatable(key);
-            this.slider = new StyledSliderWidget(0, 0, 100, 20, Text.literal(String.format("%.1f", current)), (current - min) / (max - min), true) {
-                @Override protected void updateMessage() { this.setMessage(Text.literal(String.format("%.1f", min + this.value * (max - min)))); }
-                @Override protected void applyValue() { onChange.accept((float)(min + this.value * (max - min))); }
-            };
-        }
-        @Override
-        public void renderContent(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            context.drawTextWithShadow(client.textRenderer, label, x, y + 8, 0xFFFFFFFF);
-            slider.setX(x + entryWidth - 110);
-            slider.setY(y + 2);
-            slider.render(context, mouseX, mouseY, tickDelta);
-        }
-        @Override public List<? extends Element> children() { return Collections.singletonList(slider); }
-        @Override public List<? extends Selectable> selectableChildren() { return Collections.singletonList(slider); }
-    }
-
     private static class IntegerSliderEntry extends OptionEntry {
         private final StyledSliderWidget slider;
         private final Text label;
         private final MinecraftClient client = MinecraftClient.getInstance();
-        
-        public IntegerSliderEntry(String key, int current, int min, int max, Consumer<Integer> onChange) {
-            this(key, current, min, max, onChange, false);
-        }
         
         public IntegerSliderEntry(String key, int current, int min, int max, Consumer<Integer> onChange, boolean soundOnReleaseOnly) {
             this.label = Text.translatable(key);
@@ -1258,9 +1217,6 @@ public class DamageConfigScreen extends Screen {
         @Override
         public boolean mouseClicked(Click click, boolean modifiers) {
              if (this.button.mouseClicked(click, modifiers)) return true;
-             
-             double mouseX = MinecraftClient.getInstance().mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
-             double mouseY = MinecraftClient.getInstance().mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
              
              if (this.onToggle != null) {
                  this.onToggle.accept(!expanded);
@@ -1385,11 +1341,8 @@ public class DamageConfigScreen extends Screen {
 
     private static class AddButtonEntry extends OptionEntry {
         private final PlainTextButton button;
-        private final MinecraftClient client = MinecraftClient.getInstance();
-        private final Runnable action;
         
         public AddButtonEntry(Runnable action) {
-            this.action = action;
             this.button = new PlainTextButton(0, 0, 20, 20, Text.literal("+"), action, 0xFFFFFFFF, 0xFFFBFB54);
         }
         
@@ -1526,23 +1479,8 @@ public class DamageConfigScreen extends Screen {
         @Override public List<? extends Selectable> selectableChildren() { return Collections.singletonList(field); }
     }
     
-    private static class TextLabelEntry extends OptionEntry {
-        private final Text text;
-        private final MinecraftClient client = MinecraftClient.getInstance();
-        public TextLabelEntry(String str) { this.text = Text.literal(str); }
-        @Override
-        protected boolean shouldHighlight() { return false; }
-        @Override
-        public void renderContent(DrawContext context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
-            context.drawTextWithShadow(client.textRenderer, text, x, y + 10, 0xFFFFFFFF);
-        }
-        @Override public List<? extends Element> children() { return Collections.emptyList(); }
-        @Override public List<? extends Selectable> selectableChildren() { return Collections.emptyList(); }
-    }
-    
     private static class SpacerEntry extends OptionEntry {
-        private final int height;
-        public SpacerEntry(int height) { this.height = height; }
+        public SpacerEntry(int height) { }
         @Override
         protected boolean shouldHighlight() { return false; }
         @Override

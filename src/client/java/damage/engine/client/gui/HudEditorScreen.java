@@ -238,7 +238,6 @@ public class HudEditorScreen extends Screen {
             if (selectedModule != null && isOverHandle(mouseX, mouseY, selectedModule)) {
                 cursor = diagResizeCursor;
             } else {
-                boolean foundModule = false;
                 for (EditorModule m : modules) {
                     if (isOverModule(mouseX, mouseY, m)) {
                         if (m == selectedModule) {
@@ -246,7 +245,6 @@ public class HudEditorScreen extends Screen {
                         } else {
                             cursor = handCursor;
                         }
-                        foundModule = true;
                         break;
                     }
                 }
@@ -348,8 +346,6 @@ public class HudEditorScreen extends Screen {
     public boolean mouseClicked(Click click, boolean modifiers) {
         if (super.mouseClicked(click, modifiers)) return true;
         
-        double mouseX = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
-        double mouseY = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
         int button = 0; 
         
         this.setFocused(null);

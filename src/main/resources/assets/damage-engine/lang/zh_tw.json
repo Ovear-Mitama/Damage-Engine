@@ -6,9 +6,11 @@
   "category.damage_engine.other": "其他設定",
 
   "key.category.damage-engine.general": "傷害引擎",
+  "key.categories.damage-engine": "傷害引擎",
   
   "option.damage-engine.showProgressBar": "顯示進度條",
   "option.damage-engine.showDamageHistory": "顯示歷史記錄",
+  "option.damage-engine.showHud": "顯示HUD",
   "option.damage-engine.showInfo": "開啟資訊顯示",
   "option.damage-engine.resetEnabled": "開啟重置",
   "option.damage-engine.edit_pos_label": "調整HUD",

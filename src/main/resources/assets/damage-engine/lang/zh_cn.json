@@ -6,11 +6,13 @@
   "category.damage_engine.other": "其他设置",
   
   "key.category.damage-engine.general": "伤害引擎",
+  "key.categories.damage-engine": "伤害引擎",
 
   "option.damage-engine.showProgressBar": "显示进度条",
   "option.damage-engine.showDamageHistory": "显示历史记录",
   "option.damage-engine.resetEnabled": "开启重置",
   "hint.damage-engine.resetEnabled": "开启/关闭连击重置时间",
+  "option.damage-engine.showHud": "显示HUD",
   "option.damage-engine.showInfo": "开启信息显示",
   "hint.damage-engine.showInfo": "在界面上显示实体生命值等信息",
   "option.damage-engine.infoTrackTime": "信息跟踪时间 (秒)",
