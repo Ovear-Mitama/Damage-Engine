@@ -1,9 +1,9 @@
 package damage.engine.hud;
 
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.client.font.TextRenderer;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.text.Text;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -27,11 +27,11 @@ public class DebugLogManager {
         }
     }
 
-    public void render(DrawContext context) {
+    public void render(GuiGraphics context) {
         if (logs.isEmpty()) return;
 
-        MinecraftClient client = MinecraftClient.getInstance();
-        TextRenderer tr = client.textRenderer;
+        Minecraft minecraft = Minecraft.getInstance();
+        Font tr = minecraft.font;
         long now = System.currentTimeMillis();
         
         int x = 5;
@@ -55,7 +55,7 @@ public class DebugLogManager {
             if (alpha < 5) alpha = 5;
 
             int color = 0xFFFFFF | (alpha << 24);
-            context.drawTextWithShadow(tr, Text.literal(entry.message), x, y, color);
+            context.drawString(tr, Component.literal(entry.message), x, y, color, true);
             y += lineHeight;
         }
     }

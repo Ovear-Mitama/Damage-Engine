@@ -1,8 +1,10 @@
 package damage.engine;
 
 import damage.engine.network.DamagePayload;
+import damage.engine.network.HandshakePayload;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
+import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,5 +21,12 @@ public class DamageEngine implements ModInitializer {
 
 		// 注册网络
 		PayloadTypeRegistry.playS2C().register(DamagePayload.ID, DamagePayload.CODEC);
+		
+		// 注册握手包（C2S），客户端用于检测服务端是否安装了本 mod
+		PayloadTypeRegistry.playC2S().register(HandshakePayload.ID, HandshakePayload.CODEC);
+		ServerPlayNetworking.registerGlobalReceiver(HandshakePayload.ID, (payload, context) -> {
+			// 此 handler 的存在本身就表示服务端安装了本 mod
+			// 客户端通过 ClientPlayNetworking.canSend(HandshakePayload.ID) 来检测
+		});
 	}
 }

@@ -3,6 +3,7 @@
 	"package": "damage.engine.mixin.client",
 	"compatibilityLevel": "JAVA_21",
 	"client": [
+		"LivingEntityClientMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
