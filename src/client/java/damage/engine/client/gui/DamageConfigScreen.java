@@ -1526,6 +1526,7 @@ public class DamageConfigScreen extends Screen {
                 try { 
                     String hex = s.startsWith("#") ? s.substring(1) : s;
                     int val = (int)Long.parseLong(hex, 16);
+                    val = 0xFF000000 | (val & 0xFFFFFF); // Ensure full alpha
                     this.currentColor = val;
                     onChange.accept(val); 
                 } catch(Exception ignored){} 
@@ -1794,7 +1795,7 @@ public class DamageConfigScreen extends Screen {
                 int lw = minecraft.font.width(label);
                 context.drawString(minecraft.font, hint, x + lw + 5, y + 8, 0xFFAAAAAA, true);
             }
-            int boxW = 100;
+            int boxW = 75;
             int boxX = x + entryWidth - 110;
             int boxY = y + 2;
             context.fill(boxX, boxY, boxX + boxW, boxY + 18, 0x20000000);
@@ -1919,6 +1920,7 @@ public class DamageConfigScreen extends Screen {
                 try {
                     String hex = s.startsWith("#") ? s.substring(1) : s;
                     int v = (int)Long.parseLong(hex, 16);
+                    v = 0xFF000000 | (v & 0xFFFFFF); // Ensure full alpha
                     g.color = v;
                     this.currentColor = v;
                 } catch(Exception ignored){}
@@ -2039,7 +2041,6 @@ public class DamageConfigScreen extends Screen {
                 colField.setWidth(colBoxW - 8);
                 colField.setHeight(12);
                 colField.visible = true;
-                colField.setFocused(false);
                 
                 Component label = Component.literal(grade.text);
                 context.drawString(minecraft.font, label, x + 10, y + 8, 0xFFFFFFFF, true);
