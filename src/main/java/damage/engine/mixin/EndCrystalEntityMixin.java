@@ -1,10 +1,10 @@
 package damage.engine.mixin;
 
 import damage.engine.util.AttackerAccessor;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.entity.decoration.EndCrystalEntity;
-import net.minecraft.server.world.ServerWorld;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.damagesource.DamageSource;
+import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import org.jetbrains.annotations.Nullable;
 
-@Mixin(EndCrystalEntity.class)
+@Mixin(EndCrystal.class)
 public class EndCrystalEntityMixin implements AttackerAccessor {
 
     @Unique
@@ -23,10 +23,10 @@ public class EndCrystalEntityMixin implements AttackerAccessor {
         return this.damageEngine$attacker;
     }
 
-    @Inject(method = "damage", at = @At("HEAD"))
-    private void onDamageHead(ServerWorld world, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+    @Inject(method = "hurtServer", at = @At("HEAD"))
+    private void onDamageHead(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (source != null) {
-            Entity attacker = source.getAttacker();
+            Entity attacker = source.getEntity();
             if (attacker != null) {
                 this.damageEngine$attacker = attacker;
             }

@@ -3,13 +3,12 @@ package damage.engine.client.gui;
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageSessionManager;
-import net.minecraft.client.gui.DrawContext;
-import net.minecraft.client.gui.Click;
-import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.client.MinecraftClient;
-import net.minecraft.text.Text;
-import org.lwjgl.glfw.GLFW;
-
+import com.mojang.blaze3d.platform.cursor.CursorType;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -37,73 +36,59 @@ public class HudEditorScreen extends Screen {
     private DamageConfigScreen.StyledButton redoBtn;
     private DamageConfigScreen.StyledButton resetBtn;
 
-    private static long handCursor = 0;
-    private static long arrowCursor = 0;
-    private static long moveCursor = 0;
-    private static long resizeCursor = 0;
-    private static long diagResizeCursor = 0;
+    // Cursor types for custom widget cursor support (1.21.11+)
+    private static final CursorType CURSOR_HAND = createCursor(0x00036004, "hand");
+    private static final CursorType CURSOR_MOVE = createCursor(0x00036009, "move");
+    private static final CursorType CURSOR_NWSE_RESIZE = createCursor(0x00036007, "nwseresize");
+
+    private static CursorType createCursor(int handle, String name) {
+        try {
+            return CursorType.createStandardCursor(handle, name, CursorType.DEFAULT);
+        } catch (Exception e) {
+            return CursorType.DEFAULT;
+        }
+    }
 
     public HudEditorScreen(Screen parent) {
-        super(Text.translatable("title.damage-engine.hud_editor"));
+        super(Component.translatable("title.damage-engine.hud_editor"));
         this.parent = parent;
         this.config = DamageEngineConfig.getInstance();
         this.damageHud = new DamageHud();
         
         modules.add(new EditorModule(config.totalDamageConfig, ModuleType.TOTAL));
-        modules.add(new EditorModule(config.historyConfig, ModuleType.HISTORY));
+        modules.add(new EditorModule(config.ratingConfig, ModuleType.RATING));
         modules.add(new EditorModule(config.infoConfig, ModuleType.INFO));
     }
     
     public void playClickSound() {
         try {
-             net.minecraft.client.sound.PositionedSoundInstance sound = net.minecraft.client.sound.PositionedSoundInstance.ambient(net.minecraft.sound.SoundEvents.UI_BUTTON_CLICK.value());
-             
-             try {
-                 java.lang.reflect.Field volField = net.minecraft.client.sound.AbstractSoundInstance.class.getDeclaredField("volume");
-                 volField.setAccessible(true);
-                 volField.setFloat(sound, 0.25F);
-             } catch (Exception ignored) {}
-             
-             MinecraftClient.getInstance().getSoundManager().play(sound);
+             net.minecraft.client.resources.sounds.SimpleSoundInstance sound = net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F);
+             Minecraft.getInstance().getSoundManager().play(sound);
         } catch (Exception e) {
         }
     }
 
     @Override
-    public boolean shouldPause() {
+    public boolean isPauseScreen() {
         return false;
     }
     
     @Override
     protected void init() {
-        if (handCursor == 0) handCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HAND_CURSOR);
-        if (arrowCursor == 0) arrowCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_ARROW_CURSOR);
-        
-        if (moveCursor == 0) {
-             moveCursor = GLFW.glfwCreateStandardCursor(0x00036009); 
-             if (moveCursor == 0) moveCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_CROSSHAIR_CURSOR);
-        }
-        
-        if (resizeCursor == 0) resizeCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HRESIZE_CURSOR); 
-        
-        if (diagResizeCursor == 0) {
-            diagResizeCursor = GLFW.glfwCreateStandardCursor(0x00036007); 
-            if (diagResizeCursor == 0) diagResizeCursor = GLFW.glfwCreateStandardCursor(GLFW.GLFW_HAND_CURSOR);
-        }
 
         int btnY = 10;
         int btnX = 10;
         int spacing = 5;
         
-        undoBtn = new DamageConfigScreen.StyledButton(btnX, btnY, 40, 20, Text.translatable("hud.editor.undo"), this::undo);
+        undoBtn = new DamageConfigScreen.StyledButton(btnX, btnY, 40, 20, Component.translatable("hud.editor.undo"), this::undo);
         
-        redoBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing, btnY, 40, 20, Text.translatable("hud.editor.redo"), this::redo);
+        redoBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.redo"), this::redo);
             
-        resetBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, Text.translatable("hud.editor.reset").withColor(0xFFFC887E), this::handleResetClick);
+        resetBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.reset").withColor(0xFFFC887E), this::handleResetClick);
             
-        this.addDrawableChild(undoBtn);
-        this.addDrawableChild(redoBtn);
-        this.addDrawableChild(resetBtn);
+        this.addRenderableWidget(undoBtn);
+        this.addRenderableWidget(redoBtn);
+        this.addRenderableWidget(resetBtn);
         
         updateButtons();
     }
@@ -111,13 +96,13 @@ public class HudEditorScreen extends Screen {
     private void handleResetClick() {
         if (resetButtonState == 0) {
             resetButtonState = 1;
-            resetBtn.setMessage(Text.translatable("gui.confirm").append("?").withColor(0xFFFC887E));
+            resetBtn.setMessage(Component.translatable("gui.confirm").append("?").withColor(0xFFFC887E));
             resetButtonActionTime = System.currentTimeMillis();
         } else if (resetButtonState == 1) {
             resetButtonState = 2;
             resetButtonActionTime = System.currentTimeMillis();
             resetAllModules();
-            resetBtn.setMessage(Text.translatable("text.damage-engine.reset_done").withColor(0xFFB5F0C6));
+            resetBtn.setMessage(Component.translatable("text.damage-engine.reset_done").withColor(0xFFB5F0C6));
         }
     }
     
@@ -128,12 +113,12 @@ public class HudEditorScreen extends Screen {
         if (resetButtonState == 2) {
             if (System.currentTimeMillis() - resetButtonActionTime > 3000) {
                 resetButtonState = 0;
-                resetBtn.setMessage(Text.translatable("hud.editor.reset").withColor(0xFFFC887E));
+                resetBtn.setMessage(Component.translatable("hud.editor.reset").withColor(0xFFFC887E));
             }
         } else if (resetButtonState == 1) {
              if (System.currentTimeMillis() - resetButtonActionTime > 5000) {
                  resetButtonState = 0;
-                 resetBtn.setMessage(Text.translatable("hud.editor.reset").withColor(0xFFFC887E));
+                 resetBtn.setMessage(Component.translatable("hud.editor.reset").withColor(0xFFFC887E));
              }
         }
     }
@@ -186,25 +171,22 @@ public class HudEditorScreen extends Screen {
 
     private void resetAllModules() {
         saveStateForUndo();
-        config.totalDamageConfig.x = 0.8203125f;
-        config.totalDamageConfig.y = 0.3602415f;
+        config.totalDamageConfig.x = 0.8160156f;
+        config.totalDamageConfig.y = 0.37278107f;
         config.totalDamageConfig.scale = 0.95652175f;
         
-        config.historyConfig.x = 0.9359375f;
-        config.historyConfig.y = 0.3305973f;
-        config.historyConfig.scale = 0.95652175f;
+        config.infoConfig.x = 0.61875f;
+        config.infoConfig.y = 0.59909815f;
+        config.infoConfig.scale = 0.5539445f;
         
-        config.infoConfig.x = 0.8817709f;
-        config.infoConfig.y = 0.25621924f;
-        config.infoConfig.scale = 0.95652175f;
+        config.ratingConfig.x = 0.7867187f;
+        config.ratingConfig.y = 0.31508327f;
+        config.ratingConfig.scale = 1.4066461f;
         config.save();
     }
 
     @Override
-    public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        if (this.client.world == null) {
-            context.fill(0, 0, this.width, this.height, 0xC0101010);
-        }
+    public void render(GuiGraphics context, int mouseX, int mouseY, float delta) {
         
         for (EditorModule m : modules) {
             renderModule(context, m);
@@ -214,72 +196,60 @@ public class HudEditorScreen extends Screen {
             drawSelection(context, selectedModule);
         }
         
-        for (net.minecraft.client.gui.Element element : this.children()) {
-            if (element instanceof net.minecraft.client.gui.Drawable) {
-                ((net.minecraft.client.gui.Drawable) element).render(context, mouseX, mouseY, delta);
-            }
-        }
-        
-        updateCursor(mouseX, mouseY);
-    }
-    
-    private boolean isMouseOverButton(net.minecraft.client.gui.widget.ClickableWidget button, double mouseX, double mouseY) {
-        return button.visible && mouseX >= button.getX() && mouseY >= button.getY() && mouseX < button.getX() + button.getWidth() && mouseY < button.getHeight() + button.getY();
-    }
-    
-    private void updateCursor(double mouseX, double mouseY) {
-        if (client == null) return;
-        long windowHandle = client.getWindow().getHandle();
-        long cursor = arrowCursor;
-        
-        if (isMouseOverButton(undoBtn, mouseX, mouseY) || isMouseOverButton(redoBtn, mouseX, mouseY) || isMouseOverButton(resetBtn, mouseX, mouseY)) {
-            cursor = handCursor;
-        } else {
-            if (selectedModule != null && isOverHandle(mouseX, mouseY, selectedModule)) {
-                cursor = diagResizeCursor;
-            } else {
-                for (EditorModule m : modules) {
-                    if (isOverModule(mouseX, mouseY, m)) {
-                        if (m == selectedModule) {
-                            cursor = moveCursor;
-                        } else {
-                            cursor = handCursor;
-                        }
-                        break;
-                    }
+        // Cursor support for modules
+        for (EditorModule m : modules) {
+            if (selectedModule == m) {
+                if (isOverHandle(mouseX, mouseY, m)) {
+                    context.requestCursor(CURSOR_NWSE_RESIZE);
+                } else if (isOverModule(mouseX, mouseY, m)) {
+                    context.requestCursor(CURSOR_MOVE);
                 }
+            } else if (isOverModule(mouseX, mouseY, m)) {
+                context.requestCursor(CURSOR_HAND);
             }
         }
         
-        GLFW.glfwSetCursor(windowHandle, cursor);
+        for (net.minecraft.client.gui.components.events.GuiEventListener element : this.children()) {
+            if (element instanceof net.minecraft.client.gui.components.Renderable) {
+                ((net.minecraft.client.gui.components.Renderable) element).render(context, mouseX, mouseY, delta);
+            }
+        }
+        
+
     }
     
-    private void renderModule(DrawContext context, EditorModule m) {
-        damageHud.renderModule(context, m.config, this.client, 1.0f, () -> {
+
+    
+
+    
+    private void renderModule(GuiGraphics context, EditorModule m) {
+        damageHud.renderModule(context, m.config, this.minecraft, 1.0f, () -> {
             switch (m.type) {
                 case TOTAL:
-                    damageHud.renderTotalDamage(context, 12.5f, 0.7f, true, 1.0f, 5, this.client);
+                    int previewLimit = DamageEngineConfig.getInstance().historyLimit;
+                    List<DamageSessionManager.DamageEntry> history = new ArrayList<>();
+                    float previewTotal = 0;
+                    for (int j = 0; j < previewLimit; j++) {
+                        boolean isCrit = j >= previewLimit - 3;
+                        float dmg = 1.5f + j * 0.3f;
+                        previewTotal += dmg;
+                        history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0));
+                    }
+                    damageHud.renderTotalDamage(context, previewTotal, 0.7f, true, 1.0f, previewLimit, this.minecraft);
+                    damageHud.renderHistory(context, history, true, 1.0f, this.minecraft);
                     break;
-                case COMBO:
-                    break;
-                case HISTORY:
-                    List<DamageSessionManager.DamageEntry> history = List.of(
-                        new DamageSessionManager.DamageEntry(2.5f, false, 0),
-                        new DamageSessionManager.DamageEntry(2.5f, false, 0),
-                        new DamageSessionManager.DamageEntry(2.5f, false, 0),
-                        new DamageSessionManager.DamageEntry(2.5f, false, 0),
-                        new DamageSessionManager.DamageEntry(2.5f, false, 0)
-                    );
-                    damageHud.renderHistory(context, history, true, 1.0f, this.client);
+                case RATING:
+                    damageHud.cyclePreviewGrades();
+                    damageHud.renderRating(context, true, 1.0f, this.minecraft);
                     break;
                 case INFO:
-                    damageHud.renderInfo(context, null, true, 1.0f, this.client);
+                    damageHud.renderInfo(context, null, true, 1.0f, this.minecraft);
                     break;
             }
         });
     }
     
-    private void drawSelection(DrawContext context, EditorModule m) {
+    private void drawSelection(GuiGraphics context, EditorModule m) {
         int[] b = getBounds(m);
         int greenColor = 0xFFB5F0C6;
         
@@ -291,7 +261,7 @@ public class HudEditorScreen extends Screen {
         context.fill(hx, hy, hx + handleSize, hy + handleSize, greenColor);
     }
     
-    private void drawBorder(DrawContext context, int x, int y, int width, int height, int color) {
+    private void drawBorder(GuiGraphics context, int x, int y, int width, int height, int color) {
         context.fill(x, y, x + width, y + 1, color);
         context.fill(x, y + height - 1, x + width, y + height, color);
         context.fill(x, y + 1, x + 1, y + height - 1, color);
@@ -308,18 +278,14 @@ public class HudEditorScreen extends Screen {
         
         switch (m.type) {
             case TOTAL:
-                w = (int)(100 * s); h = (int)(40 * s);
+                w = (int)(80 * s); h = (int)(55 * s);
                 
                 ox = (int)(-w/2 + 2 * s);
-                oy = (int)(-h/2 + 10 * s);
+                oy = (int)(-h/2 + 12 * s);
                 break;
-            case COMBO:
-                w = (int)(50 * s); h = (int)(20 * s);
-                ox = -w/2; oy = 0;
-                break;
-            case HISTORY:
-                w = (int)(60 * s); h = (int)(10 * config.historyLimit * s);
-                ox = -w/2; oy = 0;
+            case RATING:
+                w = (int)(30 * s); h = (int)(18 * s);
+                ox = -w/2; oy = -h/2 - (int)(2 * s);
                 break;
             case INFO:
                 w = (int)(106 * s); h = (int)(34 * s);
@@ -343,16 +309,14 @@ public class HudEditorScreen extends Screen {
     }
     
     @Override
-    public boolean mouseClicked(Click click, boolean modifiers) {
-        if (super.mouseClicked(click, modifiers)) return true;
-        
-        int button = 0; 
+    public boolean mouseClicked(MouseButtonEvent mouseButtonEvent, boolean bl) {
+        if (super.mouseClicked(mouseButtonEvent, bl)) return true;
         
         this.setFocused(null);
         
-        if (button == 0) {
-            double mx = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
-            double my = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
+        if (mouseButtonEvent.button() == 0) {
+            double mx = minecraft.mouseHandler.xpos() * (double)minecraft.getWindow().getGuiScaledWidth() / (double)minecraft.getWindow().getWidth();
+            double my = minecraft.mouseHandler.ypos() * (double)minecraft.getWindow().getGuiScaledHeight() / (double)minecraft.getWindow().getHeight();
             
             if (selectedModule != null && isOverHandle(mx, my, selectedModule)) {
                 saveStateForUndo();
@@ -390,8 +354,8 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public boolean mouseReleased(Click click) {
-        if (super.mouseReleased(click)) return true;
+    public boolean mouseReleased(MouseButtonEvent mouseButtonEvent) {
+        if (super.mouseReleased(mouseButtonEvent)) return true;
         
         dragging = false;
         resizing = false;
@@ -400,7 +364,7 @@ public class HudEditorScreen extends Screen {
     }
     
     @Override
-    public boolean mouseDragged(Click click, double deltaX, double deltaY) {
+    public boolean mouseDragged(MouseButtonEvent mouseButtonEvent, double deltaX, double deltaY) {
         if (resizing && selectedModule != null) {
             float sensitivity = 0.01f;
             selectedModule.config.scale += (float)(deltaX + deltaY) * sensitivity; 
@@ -410,24 +374,20 @@ public class HudEditorScreen extends Screen {
         }
         
         if (dragging && selectedModule != null) {
-            double mouseX = client.mouse.getX() * (double)client.getWindow().getScaledWidth() / (double)client.getWindow().getWidth();
-            double mouseY = client.mouse.getY() * (double)client.getWindow().getScaledHeight() / (double)client.getWindow().getHeight();
-            
-            float newX = ((float)mouseX - dragOffsetX) / (float)width;
-            float newY = ((float)mouseY - dragOffsetY) / (float)height;
+            float newX = ((float)mouseButtonEvent.x() - dragOffsetX) / (float)width;
+            float newY = ((float)mouseButtonEvent.y() - dragOffsetY) / (float)height;
             
             selectedModule.config.x = newX;
             selectedModule.config.y = newY;
             return true;
         }
-        return super.mouseDragged(click, deltaX, deltaY); 
+        return super.mouseDragged(mouseButtonEvent, deltaX, deltaY); 
     }
     
     @Override
-    public void close() {
-        GLFW.glfwSetCursor(client.getWindow().getHandle(), arrowCursor);
+    public void onClose() {
         config.save();
-        client.setScreen(parent);
+        minecraft.setScreen(parent);
     }
     
     private static class EditorModule {
@@ -436,7 +396,7 @@ public class HudEditorScreen extends Screen {
         public EditorModule(DamageEngineConfig.ModuleConfig c, ModuleType t) { this.config = c; this.type = t; }
     }
     
-    private enum ModuleType { TOTAL, COMBO, HISTORY, INFO }
+    private enum ModuleType { TOTAL, RATING, INFO }
     
     private record ModuleSnapshot(float x, float y, float scale, boolean enabled) {
         public ModuleSnapshot(DamageEngineConfig.ModuleConfig c) { this(c.x, c.y, c.scale, c.enabled); }

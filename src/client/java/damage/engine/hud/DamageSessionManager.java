@@ -31,12 +31,9 @@ public class DamageSessionManager {
     }
     
     public void addDamage(float amount, boolean isCrit, int targetEntityId, boolean preferSwitchTarget) {
-        // 此处移除了 hudEnabled 检查，以便在需要时将逻辑与渲染解耦，
-        // 但通常即使隐藏，我们也可以保持跟踪。
-        
         long now = System.currentTimeMillis();
-        // 在添加新伤害之前检查会话是否过期
         if (DamageEngineConfig.getInstance().resetEnabled && isActive && (now - lastHitTime) > DamageEngineConfig.getInstance().resetTime * 1000) {
+            RatingManager.getInstance().endSession();
             resetDamageOnly();
         }
 
@@ -44,6 +41,8 @@ public class DamageSessionManager {
         totalDamage += amount;
         comboCount++;
         lastHitTime = now;
+        
+        RatingManager.getInstance().addHit(amount, isCrit);
         
         if (targetEntityId != -1) {
             if (!isInfoActive() || targetEntityId == lastTargetEntityId || preferSwitchTarget) {
@@ -67,7 +66,8 @@ public class DamageSessionManager {
         
 
         
-        if (DamageEngineConfig.getInstance().resetEnabled && (now - lastHitTime) > (resetTimeMs + 1000)) { // 1秒淡出缓冲
+        if (DamageEngineConfig.getInstance().resetEnabled && (now - lastHitTime) > (resetTimeMs + 1000)) {
+            RatingManager.getInstance().endSession();
             resetDamageOnly();
         }
         
@@ -97,6 +97,7 @@ public class DamageSessionManager {
     }
     
     public void reset() {
+        RatingManager.getInstance().endSession();
         resetDamageOnly();
         clearInfo();
     }
