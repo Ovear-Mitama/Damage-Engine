@@ -168,7 +168,7 @@ public class DamageHud implements HudRenderCallback {
         
         // Render rating as separate module
         RatingManager rm = RatingManager.getInstance();
-        if (isPreview || rm.isVisible()) {
+        if ((isPreview || rm.isVisible()) && config.showRating) {
             renderModule(context, config.ratingConfig, minecraft, globalAlpha, () -> {
                 renderRating(context, isPreview, globalAlpha, minecraft);
             });
@@ -731,10 +731,10 @@ public class DamageHud implements HudRenderCallback {
         if (infoAvatarAlpha > 0.01f && infoPlayerSkinTexture != null) {
             int faceAlpha = (int)(255 * infoAvatarAlpha);
             int faceColor = (faceAlpha << 24) | 0xFFFFFF;
-            // blitSprite(pipeline, id, texW, texH, u, v, x, y, w, h, color)
-            context.blitSprite(RenderPipelines.GUI_TEXTURED, infoPlayerSkinTexture, 64, 64, 8, 8, avatarDrawX, avatarY, avatarSize, avatarSize, faceColor);
+            // blit(pipeline, id, x, y, u, v, displayW, displayH, srcW, srcH, texW, texH, color)
+            context.blit(RenderPipelines.GUI_TEXTURED, infoPlayerSkinTexture, avatarDrawX, avatarY, 8.0f, 8.0f, avatarSize, avatarSize, 8, 8, 64, 64, faceColor);
             // Hat layer
-            context.blitSprite(RenderPipelines.GUI_TEXTURED, infoPlayerSkinTexture, 64, 64, 40, 8, avatarDrawX, avatarY, avatarSize, avatarSize, faceColor);
+            context.blit(RenderPipelines.GUI_TEXTURED, infoPlayerSkinTexture, avatarDrawX, avatarY, 40.0f, 8.0f, avatarSize, avatarSize, 8, 8, 64, 64, faceColor);
         }
         
         int barH = 5;
