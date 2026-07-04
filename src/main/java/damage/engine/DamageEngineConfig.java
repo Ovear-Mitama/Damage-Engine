@@ -18,6 +18,7 @@ public class DamageEngineConfig {
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
     public boolean showDamage = true;
+    public boolean showDamageDisplay = true;
     public boolean showProgressBar = true;
     public boolean showCombo = true;
     public boolean showDamageHistory = true;
@@ -160,6 +161,7 @@ public class DamageEngineConfig {
                 DamageEngineConfig loaded = GSON.fromJson(reader, DamageEngineConfig.class);
                 if (loaded != null) {
                     this.showDamage = loaded.showDamage;
+                    this.showDamageDisplay = loaded.showDamageDisplay;
                     this.showProgressBar = loaded.showProgressBar;
                     this.showCombo = loaded.showCombo;
                     this.showDamageHistory = loaded.showDamageHistory;
@@ -243,6 +245,7 @@ public class DamageEngineConfig {
     
     private void applyHardcodedDefaults() {
         showDamage = true;
+        showDamageDisplay = true;
         showProgressBar = true;
         showCombo = true;
         showDamageHistory = true;
