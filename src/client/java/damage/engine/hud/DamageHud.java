@@ -65,6 +65,7 @@ public class DamageHud implements HudRenderCallback {
     private float contentRightX = 20f;
     private String previewGrade = "";
     private int previewGradeColor = 0xFFFFFFFF;
+    private static Identifier cachedPreviewSkin = null;
     
     public void cyclePreviewGrades() {
         List<DamageEngineConfig.RatingGrade> grades = DamageEngineConfig.getInstance().ratingGrades;
@@ -87,6 +88,14 @@ public class DamageHud implements HudRenderCallback {
             if (config.hideOnF1 && minecraft.options.hideGui) return;
             if (!config.showDamage) return;
             
+            // Cache player skin for preview
+            if (minecraft.player != null && cachedPreviewSkin == null) {
+                Identifier skin = minecraft.player.getSkin().body().texturePath();
+                if (skin != null) {
+                    cachedPreviewSkin = skin;
+                }
+            }
+            
             DamageSessionManager session = DamageSessionManager.getInstance();
             updateInfoAnimation(session, minecraft);
             if (config.showInfo && infoAlpha > 0.01f) {
@@ -95,6 +104,16 @@ public class DamageHud implements HudRenderCallback {
                     renderInfo(context, session, false, a, minecraft);
                 });
             }
+            
+            // Rating renders independently of showDamageDisplay
+            RatingManager rm = RatingManager.getInstance();
+            if ((rm.isVisible()) && config.showRating) {
+                renderModule(context, config.ratingConfig, minecraft, 1.0f, () -> {
+                    renderRating(context, false, 1.0f, minecraft);
+                });
+            }
+            
+            if (!config.showDamageDisplay) return;
             
             if (!session.isActive()) {
                 lastComboCount = 0;
@@ -133,8 +152,35 @@ public class DamageHud implements HudRenderCallback {
     }
     
     public void renderPreview(GuiGraphics context, int centerX, int centerY) {
+        DamageEngineConfig config = DamageEngineConfig.getInstance();
+        Minecraft minecraft = Minecraft.getInstance();
+        
+        // Cycle through rating grades for preview
+        List<DamageEngineConfig.RatingGrade> grades = config.ratingGrades;
+        if (grades != null && !grades.isEmpty()) {
+            int idx = (int)((System.currentTimeMillis() / 1500) % grades.size());
+            previewGrade = grades.get(idx).text;
+            previewGradeColor = grades.get(idx).color;
+        }
+        
+        // Rating renders independently
+        if (config.showRating) {
+            renderModule(context, config.ratingConfig, minecraft, 1.0f, () -> {
+                renderRating(context, true, 1.0f, minecraft);
+            });
+        }
+        
+        // Info panel renders independently
+        if (config.showInfo) {
+            renderModule(context, config.infoConfig, minecraft, 1.0f, () -> {
+                renderInfo(context, null, true, 1.0f, minecraft);
+            });
+        }
+        
+        if (!config.showDamageDisplay) return;
+        
         float total = 0;
-        int previewLimit = DamageEngineConfig.getInstance().historyLimit;
+        int previewLimit = config.historyLimit;
         List<DamageSessionManager.DamageEntry> history = new ArrayList<>();
         for (int i = 0; i < previewLimit; i++) {
             boolean isCrit = i >= previewLimit - 3;
@@ -145,34 +191,12 @@ public class DamageHud implements HudRenderCallback {
         int combo = previewLimit;
         float progress = 0.7f;
         
-        // Cycle through rating grades for preview
-        List<DamageEngineConfig.RatingGrade> grades = DamageEngineConfig.getInstance().ratingGrades;
-        if (grades != null && !grades.isEmpty()) {
-            int idx = (int)((System.currentTimeMillis() / 1500) % grades.size());
-            previewGrade = grades.get(idx).text;
-            previewGradeColor = grades.get(idx).color;
-        }
-        
         renderDamageContent(context, total, combo, progress, history, true, 1.0f);
-        
-        Minecraft minecraft = Minecraft.getInstance();
-        DamageEngineConfig config = DamageEngineConfig.getInstance();
-        renderModule(context, config.infoConfig, minecraft, 1.0f, () -> {
-            renderInfo(context, null, true, 1.0f, minecraft);
-        });
     }
 
     private void renderDamageContent(GuiGraphics context, float total, int combo, float targetProgress, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha) {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         Minecraft minecraft = Minecraft.getInstance();
-        
-        // Render rating as separate module
-        RatingManager rm = RatingManager.getInstance();
-        if ((isPreview || rm.isVisible()) && config.showRating) {
-            renderModule(context, config.ratingConfig, minecraft, globalAlpha, () -> {
-                renderRating(context, isPreview, globalAlpha, minecraft);
-            });
-        }
         
         // Render total damage + history as one integrated module
         renderModule(context, config.totalDamageConfig, minecraft, globalAlpha, () -> {
@@ -629,7 +653,10 @@ public class DamageHud implements HudRenderCallback {
             absorption = 0.0f;
             isPlayer = true;
             fullName = minecraft.player != null ? minecraft.player.getName().getString() : "Player";
-            playerSkinTexture = null; // Skin texture access changed in 1.21.11
+            playerSkinTexture = cachedPreviewSkin;
+            if (playerSkinTexture == null) {
+                playerSkinTexture = Identifier.withDefaultNamespace("textures/entity/player/wide/steve.png");
+            }
             infoAvatarFactor = 1.0f;
             infoAvatarAlpha = 1.0f;
         } else {
@@ -728,13 +755,13 @@ public class DamageHud implements HudRenderCallback {
         float oldAlphaMul = infoSwitching ? (1.0f - switchT) : 0.0f;
         float newAlphaMul = infoSwitching ? switchT : 1.0f;
         
-        if (infoAvatarAlpha > 0.01f && infoPlayerSkinTexture != null) {
+        if (infoAvatarAlpha > 0.01f && skinTexture != null) {
             int faceAlpha = (int)(255 * infoAvatarAlpha);
             int faceColor = (faceAlpha << 24) | 0xFFFFFF;
             // blit(pipeline, id, x, y, u, v, displayW, displayH, srcW, srcH, texW, texH, color)
-            context.blit(RenderPipelines.GUI_TEXTURED, infoPlayerSkinTexture, avatarDrawX, avatarY, 8.0f, 8.0f, avatarSize, avatarSize, 8, 8, 64, 64, faceColor);
+            context.blit(RenderPipelines.GUI_TEXTURED, skinTexture, avatarDrawX, avatarY, 8.0f, 8.0f, avatarSize, avatarSize, 8, 8, 64, 64, faceColor);
             // Hat layer
-            context.blit(RenderPipelines.GUI_TEXTURED, infoPlayerSkinTexture, avatarDrawX, avatarY, 40.0f, 8.0f, avatarSize, avatarSize, 8, 8, 64, 64, faceColor);
+            context.blit(RenderPipelines.GUI_TEXTURED, skinTexture, avatarDrawX, avatarY, 40.0f, 8.0f, avatarSize, avatarSize, 8, 8, 64, 64, faceColor);
         }
         
         int barH = 5;

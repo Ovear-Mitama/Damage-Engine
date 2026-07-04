@@ -33,6 +33,11 @@ public class ClientHealthTracker {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         if (!config.showDamage) return;
         
+        // Only track damage for entities the player recently attacked
+        if (!ClientAttackTracker.getInstance().wasRecentlyAttacked(entity.getId())) {
+            return;
+        }
+        
         // Check if entity is in crosshair for info panel switching
         boolean preferSwitchTarget = false;
         Minecraft client = Minecraft.getInstance();

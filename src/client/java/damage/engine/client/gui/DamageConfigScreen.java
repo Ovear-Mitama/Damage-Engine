@@ -324,6 +324,7 @@ public class DamageConfigScreen extends Screen {
         }));
         
         if (expandDamageDisplayConfig) {
+            addOption(new BooleanOptionEntry("option.damage-engine.showDamageDisplay", config.showDamageDisplay, v -> config.showDamageDisplay = v, Component.translatable("hint.damage-engine.showDamageDisplay")));
             addOption(new BooleanOptionEntry("option.damage-engine.resetEnabled", config.resetEnabled, v -> config.resetEnabled = v));
             addOption(new NumericEntry("option.damage-engine.resetTime", config.resetTime, v -> config.resetTime = v));
             addOption(new BooleanOptionEntry("option.damage-engine.showProgressBar", config.showProgressBar, v -> config.showProgressBar = v));
@@ -490,6 +491,16 @@ public class DamageConfigScreen extends Screen {
         addOption(new ResetButtonEntry("option.damage-engine.reset", () -> {
             config.resetToDefaults();
             this.minecraft.options.save();
+            // Reset custom keybinds
+            if (DamageEngineClient.configKeyBinding != null) {
+                DamageEngineClient.configKeyBinding.setKey(InputConstants.UNKNOWN);
+            }
+            if (DamageEngineClient.toggleHudKeyBinding != null) {
+                DamageEngineClient.toggleHudKeyBinding.setKey(InputConstants.UNKNOWN);
+            }
+            if (DamageEngineClient.clearDamageKeyBinding != null) {
+                DamageEngineClient.clearDamageKeyBinding.setKey(InputConstants.UNKNOWN);
+            }
             refreshOptions();
         }));
         
@@ -1009,6 +1020,10 @@ public class DamageConfigScreen extends Screen {
                 "option.damage-engine.resetEnabled".equals(key) ? Component.translatable("hint.damage-engine.resetEnabled")
                     : "option.damage-engine.showInfo".equals(key) ? Component.translatable("hint.damage-engine.showInfo")
                     : null);
+        }
+
+        public BooleanOptionEntry(String key, boolean initial, Consumer<Boolean> onToggle, Component hint) {
+            this(Component.translatable(key), initial, onToggle, hint);
         }
 
         public BooleanOptionEntry(Component label, boolean initial, Consumer<Boolean> onToggle, Component hint) {
@@ -1792,21 +1807,20 @@ public class DamageConfigScreen extends Screen {
         public void renderContent(GuiGraphics context, int index, int y, int x, int entryWidth, int entryHeight, int mouseX, int mouseY, boolean hovered, float tickDelta) {
             context.drawString(minecraft.font, label, x, y + 8, 0xFFFFFFFF, true);
             if (hint != null) {
-                int lw = minecraft.font.width(label);
-                context.drawString(minecraft.font, hint, x + lw + 5, y + 8, 0xFFAAAAAA, true);
+                context.drawString(minecraft.font, hint, x, y + 18, 0xFFAAAAAA, true);
             }
             int boxW = 75;
             int boxX = x + entryWidth - 110;
-            int boxY = y + 2;
-            context.fill(boxX, boxY, boxX + boxW, boxY + 18, 0x20000000);
+            int boxY = y + 6;
+            context.fill(boxX, boxY, boxX + boxW, boxY + 20, 0x20000000);
             int bc = (input.isFocused() || input.isMouseOver(mouseX, mouseY)) ? 0xFFFFFFFF : 0xFFA0A0A0;
             context.fill(boxX, boxY, boxX + boxW, boxY + 1, bc);
-            context.fill(boxX, boxY + 17, boxX + boxW, boxY + 18, bc);
-            context.fill(boxX, boxY, boxX + 1, boxY + 18, bc);
-            context.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + 18, bc);
-            input.setX(boxX + 3);
-            input.setY(boxY + 4);
-            input.setWidth(boxW - 6);
+            context.fill(boxX, boxY + 19, boxX + boxW, boxY + 20, bc);
+            context.fill(boxX, boxY, boxX + 1, boxY + 20, bc);
+            context.fill(boxX + boxW - 1, boxY, boxX + boxW, boxY + 20, bc);
+            input.setX(boxX + 4);
+            input.setY(boxY + 6);
+            input.setWidth(boxW - 8);
             input.setHeight(12);
             input.render(context, mouseX, mouseY, tickDelta);
         }
@@ -1857,14 +1871,14 @@ public class DamageConfigScreen extends Screen {
             int textBoxX = rightX - 25 - 3 - boxW;
             
             textField.setX(textBoxX + 4);
-            textField.setY(boxY + 5);
+            textField.setY(boxY + 6);
             textField.setWidth(boxW - 8);
             textField.setHeight(12);
             
             int scoreBoxX = textBoxX - 3 - boxW;
             
             scoreField.setX(scoreBoxX + 4);
-            scoreField.setY(boxY + 5);
+            scoreField.setY(boxY + 6);
             scoreField.setWidth(boxW - 8);
             scoreField.setHeight(12);
             

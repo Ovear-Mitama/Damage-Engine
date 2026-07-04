@@ -57,8 +57,9 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 	
-    // ModMenu
-    modImplementation "com.terraformersmc:modmenu:${project.modmenu_version}"
+    // ModMenu (dev environment only, not a hard dependency)
+    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+    modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
 
     // Jade (from Modrinth)
     modImplementation "maven.modrinth:jade:${project.jade_version}"
