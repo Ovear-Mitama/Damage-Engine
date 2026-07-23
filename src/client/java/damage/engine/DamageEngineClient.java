@@ -4,8 +4,8 @@ import damage.engine.hud.DamageSessionManager;
 import damage.engine.hud.DamageIndicator;
 import damage.engine.hud.RatingManager;
 import damage.engine.network.DamagePayload;
-import damage.engine.network.NetworkRegistry;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.world.phys.EntityHitResult;
@@ -38,7 +38,7 @@ public class DamageEngineClient implements ClientModInitializer {
         KeyMapping.resetMapping();
 
         // Register S2C payload handler (receiver for damage data from server)
-        NetworkRegistry.registerS2C(DamagePayload.TYPE, DamagePayload.STREAM_CODEC, (payload, ctx) -> {
+        ClientPlayNetworking.registerGlobalReceiver(DamagePayload.TYPE, (payload, ctx) -> {
             // Set flag immediately to block client-side health tracker
             // before the next entity tick, preventing double counting.
             if (!serverHasMod) {

@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.3.4";
+	public static final String MOD_VERSION = "1.3.4.5";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	public DamageEngine(IEventBus modEventBus, ModContainer modContainer) {

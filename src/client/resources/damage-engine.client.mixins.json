@@ -8,7 +8,6 @@
 		"WorldRenderMixin",
 		"ClientConnectionMixin",
 		"ClientTickMixin",
-		"ClientPayloadHandlerMixin",
 		"KeyBindingMixin",
 		"KeyBindingAccessor",
 		"KeyBindingCategoryMixin",

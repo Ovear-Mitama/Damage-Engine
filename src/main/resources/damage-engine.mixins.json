@@ -5,10 +5,7 @@
 	"mixins": [
 		"LivingEntityMixin",
 		"PlayerEntityMixin",
-		"EndCrystalEntityMixin",
-		"ServerPayloadHandlerMixin",
-		"CustomPayloadCodecMixin",
-		"CustomPayloadC2SCodecMixin"
+		"EndCrystalEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
