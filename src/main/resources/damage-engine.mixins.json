@@ -1,0 +1,19 @@
+{
+	"required": true,
+	"package": "damage.engine.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"LivingEntityMixin",
+		"PlayerEntityMixin",
+		"EndCrystalEntityMixin",
+		"ServerPayloadHandlerMixin",
+		"CustomPayloadCodecMixin",
+		"CustomPayloadC2SCodecMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}

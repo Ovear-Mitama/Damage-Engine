@@ -1,0 +1,114 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+repositories {
+    mavenLocal()
+    maven { url "https://maven.terraformersmc.com/releases/" }
+    maven { url "https://maven.fabricmc.net/" }
+    maven { url "https://mirrors.cloud.tencent.com/nexus/repository/maven-public/" }
+    maven { url "https://maven.aliyun.com/repository/public" }
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    accessWidenerPath = file("src/main/resources/damage-engine.accesswidener")
+
+    mods {
+        "damage-engine" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+
+}
+
+// Include common shared sources
+sourceSets {
+    main {
+        java {
+            srcDir 'common/src/main/java'
+        }
+    }
+    client {
+        java {
+            srcDir 'common/src/client/java'
+        }
+    }
+}
+
+dependencies {
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Fabric API (dev only, not a hard dependency)
+    modLocalRuntime "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    // ModMenu (optional, for config screen integration)
+    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+    modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": inputs.properties.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+	
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+jar {
+	inputs.property "archivesName", project.base.archivesName
+
+	from(sourceSets.client.output)
+
+	from("LICENSE") {
+		rename { "${it}_${inputs.properties.archivesName}"}
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			artifactId = project.archives_base_name
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}
