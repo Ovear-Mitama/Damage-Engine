@@ -57,7 +57,6 @@ public class DamageEngineClient {
         ClientKeybindings.configKeyBinding = configKeyBinding;
         ClientKeybindings.toggleHudKeyBinding = toggleHudKeyBinding;
         ClientKeybindings.clearDamageKeyBinding = clearDamageKeyBinding;
-        KeyMapping.resetMapping();
 
         // Register keybindings via NeoForge event
         modEventBus.addListener(DamageEngineClient::registerKeys);
