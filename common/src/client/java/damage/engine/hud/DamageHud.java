@@ -334,14 +334,17 @@ public class DamageHud {
         guiGraphics.pose().pushPose();
         guiGraphics.pose().scale(labelScale, labelScale, 1.0f);
         int lblW = font.width(damageLabel);
+        // Label shifts down when progress bar is hidden
+        boolean hasProgressBar = DamageEngineConfig.getInstance().showProgressBar && DamageEngineConfig.getInstance().resetEnabled;
+        int labelY = hasProgressBar ? -15 : -12;
         if (showCombo && combo > 0) {
-            guiGraphics.drawString(font, damageLabel, -fullLabelWidth / 2, -15, labelColor);
+            guiGraphics.drawString(font, damageLabel, -fullLabelWidth / 2, labelY, labelColor);
             String comboText = "x" + combo;
             int comboColorCfg = DamageEngineConfig.getInstance().comboColor;
             int comboColor = (comboColorCfg & 0x00FFFFFF) | (labelAlpha << 24);
-            guiGraphics.drawString(font, comboText, fullLabelWidth / 2 - font.width(comboText), -15, comboColor);
+            guiGraphics.drawString(font, comboText, fullLabelWidth / 2 - font.width(comboText), labelY, comboColor);
         } else {
-            guiGraphics.drawString(font, damageLabel, -fullLabelWidth / 2 + (fullLabelWidth - lblW), -15, labelColor);
+            guiGraphics.drawString(font, damageLabel, -fullLabelWidth / 2 + (fullLabelWidth - lblW), labelY, labelColor);
         }
         guiGraphics.pose().popPose();
 
@@ -415,7 +418,8 @@ public class DamageHud {
     public void renderHistory(GuiGraphics guiGraphics, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha, Minecraft client) {
         Font font = client.font;
         int limit = DamageEngineConfig.getInstance().historyLimit;
-        int decimalPlaces = DamageEngineConfig.getInstance().decimalPlaces;
+        int decimalPlaces = DamageEngineConfig.getInstance().historyDecimalPlaces;
+        boolean recordOtherPlayers = DamageEngineConfig.getInstance().recordOtherPlayers;
 
         int renderIndex = 0;
         List<DamageSessionManager.DamageEntry> renderList = (history != null) ? new java.util.ArrayList<>(history) : java.util.Collections.emptyList();
@@ -433,6 +437,21 @@ public class DamageHud {
         int growthAmount = Math.max(0, renderList.size() - prevAnimSize);
 
         int baseY = 15;
+
+        // Player avatar for preview when recording other players
+        PlayerSkin previewSkin = null;
+        if (isPreview && recordOtherPlayers) {
+            if (client.player != null) {
+                previewSkin = client.player.getSkin();
+            }
+            if (previewSkin == null) {
+                com.mojang.authlib.GameProfile profile = client.getGameProfile();
+                if (profile != null) {
+                    previewSkin = client.getSkinManager().getInsecureSkin(profile);
+                }
+            }
+        }
+        int avatarGap = (previewSkin != null) ? 11 : 0;
 
         for (int i = renderList.size() - 1; i >= 0; i--) {
             if (renderIndex >= limit) break;
@@ -475,8 +494,6 @@ public class DamageHud {
             String valText = formatDamage(entry.damage(), decimalPlaces);
             int textWidth = font.width(valText);
 
-            float xPos = contentRightX - textWidth + slideOffsetX;
-
             float targetY = baseY + renderIndex * 10;
             boolean isNewEntry = renderIndex < growthAmount;
             float yPos;
@@ -485,6 +502,15 @@ public class DamageHud {
                 yPos = Mth.lerp(animProgress, oldY, targetY);
             } else {
                 yPos = targetY;
+            }
+
+            float xPos = contentRightX - textWidth + slideOffsetX;
+
+            // Draw player avatar before damage entry
+            if (avatarGap > 0 && previewSkin != null) {
+                guiGraphics.setColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
+                drawPlayerFace(guiGraphics, previewSkin.texture(), (int)(xPos - avatarGap), (int)yPos, 8, true);
+                guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
             }
 
             guiGraphics.drawString(font, valText, (int)xPos, (int)yPos, itemColorWithAlpha);

@@ -3,9 +3,6 @@
 	"package": "damage.engine.mixin",
 	"compatibilityLevel": "JAVA_21",
 	"mixins": [
-		"LivingEntityMixin",
-		"PlayerEntityMixin",
-		"EndCrystalEntityMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

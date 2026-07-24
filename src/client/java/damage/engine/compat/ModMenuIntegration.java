@@ -2,11 +2,11 @@ package damage.engine.compat;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
-import damage.engine.client.gui.DamageConfigScreen;
+import damage.engine.client.gui.HomeScreen;
 
 public class ModMenuIntegration implements ModMenuApi {
     @Override
     public ConfigScreenFactory<?> getModConfigScreenFactory() {
-        return parent -> new DamageConfigScreen(parent);
+        return parent -> new HomeScreen(parent);
     }
 }

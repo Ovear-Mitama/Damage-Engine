@@ -18,7 +18,7 @@ public abstract class PlayerEntityMixin {
     @Unique
     private DamageTrackerHelper.Snapshot damageEngine$snap;
 
-    @Inject(method = "hurt", at = @At("HEAD"))
+    @Inject(method = "hurt", at = @At("HEAD"), require = 0)
     private void onHurtHead(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
         Player self = (Player) (Object) this;
         if (self.level().isClientSide()) return;
@@ -26,7 +26,7 @@ public abstract class PlayerEntityMixin {
         damageEngine$snap = DamageTrackerHelper.capturePreDamage(self, source);
     }
 
-    @Inject(method = "hurt", at = @At("RETURN"))
+    @Inject(method = "hurt", at = @At("RETURN"), require = 0)
     private void onHurtReturn(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
         Player self = (Player) (Object) this;
         if (self.level().isClientSide()) return;

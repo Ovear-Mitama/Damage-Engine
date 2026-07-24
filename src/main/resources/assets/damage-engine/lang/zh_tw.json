@@ -1,10 +1,4 @@
 {
-  "category.damage_engine": "傷害引擎",
-  "category.damage_engine.general": "一般設定",
-  "category.damage_engine.appearance": "外觀設定",
-  "category.damage_engine.keybinds": "按鍵綁定",
-  "category.damage_engine.other": "其他設定",
-
   "key.category.damage-engine.general": "傷害引擎",
   
   "option.damage-engine.showDamage": "顯示HUD",

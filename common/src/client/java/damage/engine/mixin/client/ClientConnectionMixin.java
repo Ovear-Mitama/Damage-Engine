@@ -14,6 +14,13 @@ public class ClientConnectionMixin {
     private void damageEngine$onGameJoin(CallbackInfo ci) {
         DamageEngineClient.serverHasMod = false;
         DamageEngineClient.serverModChecked = false;
-        DamageEngineClient.joinCheckTicks = 40;
+        // 单机世界服务端一定有 mod，直接标记
+        if (net.minecraft.client.Minecraft.getInstance().getSingleplayerServer() != null) {
+            DamageEngineClient.serverHasMod = true;
+            DamageEngineClient.serverModChecked = true;
+            DamageEngineClient.joinCheckTicks = -1;
+        } else {
+            DamageEngineClient.joinCheckTicks = 40;
+        }
     }
 }

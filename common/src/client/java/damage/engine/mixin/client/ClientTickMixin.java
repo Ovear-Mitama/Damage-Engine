@@ -4,7 +4,7 @@ import damage.engine.ClientKeybindings;
 import damage.engine.DamageEngineConfig;
 import damage.engine.DamageEngineClient;
 import damage.engine.client.ClientAttackTracker;
-import damage.engine.client.gui.DamageConfigScreen;
+import damage.engine.client.gui.HomeScreen;
 import damage.engine.hud.DamageSessionManager;
 import damage.engine.hud.DamageIndicator;
 import net.minecraft.client.Minecraft;
@@ -51,7 +51,7 @@ public class ClientTickMixin {
             
             if (ClientKeybindings.configKeyBinding != null) {
                 while (ClientKeybindings.configKeyBinding.consumeClick()) {
-                    client.setScreen(new DamageConfigScreen(client.screen));
+                    client.setScreen(new HomeScreen(client.screen));
                 }
             }
             if (ClientKeybindings.toggleHudKeyBinding != null) {

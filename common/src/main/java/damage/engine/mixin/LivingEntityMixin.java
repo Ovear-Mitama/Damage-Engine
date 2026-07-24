@@ -26,7 +26,7 @@ public abstract class LivingEntityMixin extends Entity {
         super(type, world);
     }
 
-    @Inject(method = "hurt", at = @At("HEAD"))
+    @Inject(method = "hurt", at = @At("HEAD"), require = 0)
     private void onHurtHead(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
         if (this.level().isClientSide()) return;
         if ((Object) this instanceof Player) return;
@@ -34,7 +34,7 @@ public abstract class LivingEntityMixin extends Entity {
         damageEngine$snap = DamageTrackerHelper.capturePreDamage((LivingEntity) (Object) this, source);
     }
 
-    @Inject(method = "hurt", at = @At("RETURN"))
+    @Inject(method = "hurt", at = @At("RETURN"), require = 0)
     private void onHurtReturn(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
         if (this.level().isClientSide()) return;
         if ((Object) this instanceof Player) return;

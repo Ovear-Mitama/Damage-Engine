@@ -12,7 +12,8 @@
 		"KeyBindingAccessor",
 		"KeyBindingCategoryMixin",
 		"PlayerAttackMixin",
-		"ProjectileHitMixin"
+		"ProjectileHitMixin",
+		"ClientPayloadMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

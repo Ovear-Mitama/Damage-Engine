@@ -22,7 +22,7 @@ public class EndCrystalEntityMixin implements AttackerAccessor {
         return this.damageEngine$attacker;
     }
 
-    @Inject(method = "hurt", at = @At("HEAD"))
+    @Inject(method = "hurt", at = @At("HEAD"), require = 0)
     private void onDamageHead(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (source != null) {
             Entity attacker = source.getEntity();

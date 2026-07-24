@@ -25,6 +25,11 @@ public class NetworkRegistry {
         C2S_HANDLERS.put(type, (BiConsumer<?, Object>) handler);
     }
 
+    /** 仅注册 codec，不注册处理器——用于不需要拦截的包（如握手） */
+    public static <T extends CustomPacketPayload> void registerC2SCodec(CustomPacketPayload.Type<T> type, StreamCodec<? super RegistryFriendlyByteBuf, T> codec) {
+        C2S_CODECS.put(type, (StreamCodec<? super RegistryFriendlyByteBuf, ?>) codec);
+    }
+
     public static Map<CustomPacketPayload.Type<?>, StreamCodec<? super RegistryFriendlyByteBuf, ?>> getS2CCodecs() {
         return S2C_CODECS;
     }

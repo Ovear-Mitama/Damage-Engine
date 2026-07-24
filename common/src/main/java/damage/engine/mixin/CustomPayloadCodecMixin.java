@@ -1,33 +1,31 @@
 package damage.engine.mixin;
 
 import damage.engine.network.NetworkRegistry;
-import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
-import org.spongepowered.asm.mixin.injection.ModifyArg;
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Injects our custom payload types into the vanilla ClientboundCustomPayloadPacket codec
- * so they can be decoded correctly on the receiving end.
+ * Replaces the empty List.of() in ClientboundCustomPayloadPacket.&lt;clinit&gt;
+ * with a list containing our custom S2C payload codecs.
  */
 @Mixin(ClientboundCustomPayloadPacket.class)
 public class CustomPayloadCodecMixin {
 
-    @ModifyArg(
+    @ModifyExpressionValue(
         method = "<clinit>",
         at = @At(
             value = "INVOKE",
-            target = "Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload;codec(Lnet/minecraft/network/protocol/common/custom/CustomPacketPayload$FallbackProvider;Ljava/util/List;Lnet/minecraft/network/ConnectionProtocol;Lnet/minecraft/network/protocol/PacketFlow;)Lnet/minecraft/network/codec/StreamCodec;"
-        ),
-        index = 1
+            target = "Ljava/util/List;of()Ljava/util/List;"
+        )
     )
-    private static List<CustomPacketPayload.TypeAndCodec<?, ?>> modifyS2CTypes(List<CustomPacketPayload.TypeAndCodec<?, ?>> types) {
-        List<CustomPacketPayload.TypeAndCodec<?, ?>> newTypes = new ArrayList<>(types);
+    private static List<CustomPacketPayload.TypeAndCodec<?, ?>> addS2CTypes(List<CustomPacketPayload.TypeAndCodec<?, ?>> original) {
+        List<CustomPacketPayload.TypeAndCodec<?, ?>> newTypes = new ArrayList<>();
         for (var entry : NetworkRegistry.getS2CCodecs().entrySet()) {
             @SuppressWarnings({"unchecked", "rawtypes"})
             CustomPacketPayload.TypeAndCodec<?, ?> typeAndCodec = new CustomPacketPayload.TypeAndCodec(entry.getKey(), entry.getValue());

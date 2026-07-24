@@ -4,8 +4,8 @@ import damage.engine.hud.DamageSessionManager;
 import damage.engine.hud.DamageIndicator;
 import damage.engine.hud.RatingManager;
 import damage.engine.network.DamagePayload;
+import damage.engine.network.NetworkRegistry;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.world.phys.EntityHitResult;
@@ -20,27 +20,21 @@ public class DamageEngineClient implements ClientModInitializer {
     public static KeyMapping toggleHudKeyBinding;
     public static KeyMapping clearDamageKeyBinding;
     
-    /** Whether the server has Damage Engine installed. Only valid after serverModChecked is true. */
     public static volatile boolean serverHasMod = false;
-    /** Whether we have completed the server mod presence check. */
     public static volatile boolean serverModChecked = false;
-    /** Tick counter for delayed server mod check. */
     public static int joinCheckTicks = -1;
     
     public static final Logger LOGGER = LoggerFactory.getLogger("damage-engine");
 
     @Override
     public void onInitializeClient() {
-        // Sync keybinding references from ClientKeybindings (created by KeyBindingMixin)
         configKeyBinding = ClientKeybindings.configKeyBinding;
         toggleHudKeyBinding = ClientKeybindings.toggleHudKeyBinding;
         clearDamageKeyBinding = ClientKeybindings.clearDamageKeyBinding;
         KeyMapping.resetMapping();
 
-        // Register S2C payload handler (receiver for damage data from server)
-        ClientPlayNetworking.registerGlobalReceiver(DamagePayload.TYPE, (payload, ctx) -> {
-            // Set flag immediately to block client-side health tracker
-            // before the next entity tick, preventing double counting.
+        // 用 NetworkRegistry 注册 S2C 处理器（不走 Fabric API 的 registerGlobalReceiver）
+        NetworkRegistry.registerS2C(DamagePayload.TYPE, DamagePayload.STREAM_CODEC, (payload, ctx) -> {
             if (!serverHasMod) {
                 serverHasMod = true;
                 serverModChecked = true;
@@ -115,16 +109,12 @@ public class DamageEngineClient implements ClientModInitializer {
     
     public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
         Minecraft client = Minecraft.getInstance();
+        // If entity is targeted by crosshair → use hit point (near crosshair)
         if (client.hitResult instanceof EntityHitResult ehr && ehr.getEntity() != null 
             && ehr.getEntity().getId() == entityId) {
-            Vec3 hit = ehr.getLocation();
-            double blend = 0.35;
-            return new Vec3(
-                baseX + (hit.x - baseX) * blend,
-                baseY + (hit.y - baseY) * blend,
-                baseZ + (hit.z - baseZ) * blend
-            );
+            return ehr.getLocation();
         }
-        return new Vec3(baseX, baseY, baseZ);
+        // Not targeted: use entity position with Y offset to head level
+        return new Vec3(baseX, baseY + 1.5, baseZ);
     }
 }

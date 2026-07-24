@@ -1,6 +1,6 @@
 package damage.engine;
 
-import damage.engine.client.gui.DamageConfigScreen;
+import damage.engine.client.gui.HomeScreen;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.KeyMapping;
@@ -65,7 +65,7 @@ public class DamageEngineClient {
         // Register config screen
         modContainer.registerExtensionPoint(
             IConfigScreenFactory.class,
-            (container, screen) -> new DamageConfigScreen(screen)
+            (container, screen) -> new HomeScreen(screen)
         );
     }
 
@@ -80,14 +80,8 @@ public class DamageEngineClient {
         Minecraft client = Minecraft.getInstance();
         if (client.hitResult instanceof EntityHitResult ehr && ehr.getEntity() != null 
             && ehr.getEntity().getId() == entityId) {
-            Vec3 hit = ehr.getLocation();
-            double blend = 0.35;
-            return new Vec3(
-                baseX + (hit.x - baseX) * blend,
-                baseY + (hit.y - baseY) * blend,
-                baseZ + (hit.z - baseZ) * blend
-            );
+            return ehr.getLocation();
         }
-        return new Vec3(baseX, baseY, baseZ);
+        return new Vec3(baseX, baseY + 1.5, baseZ);
     }
 }
