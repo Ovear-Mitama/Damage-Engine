@@ -446,14 +446,22 @@ public class DamageConfigScreen extends Screen {
         if (config.previewEnabled) {
             new DamageHud().renderPreview(guiGraphics, 30, this.height - 30);
         }
-        
-        // Render footer widgets (avoid super.render() blur)
+
+        // Manual widget rendering
         for (GuiEventListener child : this.children()) {
-            if (child != optionList && child instanceof AbstractWidget w) {
-                w.render(guiGraphics, mouseX, mouseY, delta);
+            if (child instanceof net.minecraft.client.gui.components.Renderable renderable) {
+                renderable.render(guiGraphics, mouseX, mouseY, delta);
             }
         }
-        // Tooltip is handled by vanilla AbstractWidget system — do NOT render manually
+
+        // Tooltip rendering
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof AbstractWidget widget && widget.isMouseOver(mouseX, mouseY)) {
+                if (widget.getTooltip() != null) {
+                    guiGraphics.renderTooltip(this.font, widget.getTooltip().toCharSequence(this.minecraft), mouseX, mouseY);
+                }
+            }
+        }
     }
 
     @Override

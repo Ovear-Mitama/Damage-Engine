@@ -12,6 +12,8 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import com.mojang.blaze3d.systems.RenderSystem;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.util.Mth;
 import java.util.ArrayList;
 import java.util.List;
@@ -239,16 +241,12 @@ public class DamageHud {
                     guiGraphics.pose().pushPose();
                     guiGraphics.pose().scale(0.15f, 0.15f, 1.0f);
 
-                    com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-                    com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-                    guiGraphics.setColor(1.0f, 1.0f, 1.0f, (float)rAlpha / 255.0f);
+                    float colorAlpha = (float)rAlpha / 255.0f;
 
                     int imgWidth = nativeImage.getWidth();
                     int imgHeight = nativeImage.getHeight();
-                    guiGraphics.blit(texId, -imgWidth / 2, -imgHeight / 2, 0, 0, imgWidth, imgHeight, imgWidth, imgHeight);
-
-                    guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-                    com.mojang.blaze3d.systems.RenderSystem.disableBlend();
+                    RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, colorAlpha);
+                    guiGraphics.blit(RenderType::guiTextured, texId, -imgWidth / 2, -imgHeight / 2, 0, 0, imgWidth, imgHeight, imgWidth, imgHeight);
 
                     guiGraphics.pose().popPose();
                 } catch (Exception e) {
@@ -508,9 +506,7 @@ public class DamageHud {
 
             // Draw player avatar before damage entry
             if (avatarGap > 0 && previewSkin != null) {
-                guiGraphics.setColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
                 drawPlayerFace(guiGraphics, previewSkin.texture(), (int)(xPos - avatarGap), (int)yPos, 8, true);
-                guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
             }
 
             guiGraphics.drawString(font, valText, (int)xPos, (int)yPos, itemColorWithAlpha);
@@ -780,36 +776,22 @@ public class DamageHud {
         if (infoAvatarAlpha > 0.01f) {
             guiGraphics.pose().pushPose();
 
-            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-            com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-            com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
-
             if (isSameSkin || !infoSwitching) {
                 if (skinToDraw != null) {
-                    float fade = infoAvatarAlpha * globalAlpha;
-                    guiGraphics.setColor(1.0f, 1.0f, 1.0f, fade);
                     drawPlayerFace(guiGraphics, skinToDraw.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
                 }
             } else {
                 if (switchT < 0.5f) {
                     if (infoPrevPlayerSkin != null) {
-                        float localT = switchT * 2.0f;
-                        float alpha = infoAvatarAlpha * (1.0f - localT) * globalAlpha;
-                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
                         drawPlayerFace(guiGraphics, infoPrevPlayerSkin.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
                     }
                 } else {
                     if (skinToDraw != null) {
-                        float localT = (switchT - 0.5f) * 2.0f;
-                        float alpha = infoAvatarAlpha * localT * globalAlpha;
-                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
                         drawPlayerFace(guiGraphics, skinToDraw.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
                     }
                 }
             }
 
-            guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-            com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
             guiGraphics.pose().popPose();
         }
 
@@ -972,8 +954,8 @@ public class DamageHud {
 
         Component hpText = Component.literal(hp + "/" + maxHp);
         guiGraphics.drawString(font, hpText, textX + 10, textYHp, textColor);
-        guiGraphics.blitSprite(ResourceLocation.withDefaultNamespace("hud/heart/container"), textX, textYHp, 9, 9);
-        guiGraphics.blitSprite(heartTexture, textX, textYHp, 9, 9);
+        guiGraphics.blitSprite(RenderType::guiTextured, ResourceLocation.withDefaultNamespace("hud/heart/container"), textX, textYHp, 9, 9);
+        guiGraphics.blitSprite(RenderType::guiTextured, heartTexture, textX, textYHp, 9, 9);
     }
 
     private float oldAlphaMul() {
@@ -1040,9 +1022,13 @@ public class DamageHud {
     }
 
     private static void drawPlayerFace(GuiGraphics guiGraphics, ResourceLocation skinTexture, int x, int y, int size, boolean hatVisible) {
-        guiGraphics.blit(skinTexture, x, y, size, size, 8, 8, 8, 8, 64, 64);
+        RenderSystem.enableBlend();
+        RenderSystem.defaultBlendFunc();
+        RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
+        guiGraphics.blit(RenderType::guiTextured, skinTexture, x, y, 8, 8, size, size, 8, 8, 64, 64);
         if (hatVisible) {
-            guiGraphics.blit(skinTexture, x, y, size, size, 40, 8, 8, 8, 64, 64);
+            guiGraphics.blit(RenderType::guiTextured, skinTexture, x, y, 40, 8, size, size, 8, 8, 64, 64);
         }
+        RenderSystem.disableBlend();
     }
 }
