@@ -4,11 +4,11 @@ import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Tooltip;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
 
 public class HomeScreen extends Screen {
     private final Screen parent;
@@ -28,7 +28,7 @@ public class HomeScreen extends Screen {
         int buttonWidth = 100;
         int buttonHeight = 22;
         int buttonSpacing = 8;
-        int totalButtonsWidth = buttonWidth * 3 + buttonSpacing * 2;
+        int totalButtonsWidth = buttonWidth * 2 + buttonSpacing;
 
         // Buttons placed lower on screen
         int buttonY = this.height / 2 + 30;
@@ -48,17 +48,6 @@ public class HomeScreen extends Screen {
             Component.translatable("button.damage-engine.config_management"),
             () -> this.minecraft.setScreen(new ProfileManagerScreen(this))
         ));
-
-        // Material Editor button (greyed out, shows tooltip)
-        StyledButton materialBtn = new StyledButton(
-            centerX - totalButtonsWidth / 2 + (buttonWidth + buttonSpacing) * 2, buttonY,
-            buttonWidth, buttonHeight,
-            Component.translatable("button.damage-engine.material_editor"),
-            () -> {}
-        );
-        materialBtn.active = false;
-        materialBtn.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.material_editor_wip")));
-        this.addRenderableWidget(materialBtn);
     }
 
     @Override
@@ -67,8 +56,9 @@ public class HomeScreen extends Screen {
 
         int centerX = this.width / 2;
         int titleY = this.height / 4;
-        // Title left-aligned near upper-center
-        int titleLeftX = centerX - 130;
+        // Title left-aligned with buttons below
+        int buttonWidth = 100, buttonSpacing = 8;
+        int titleLeftX = centerX - (buttonWidth * 2 + buttonSpacing) / 2;
 
         // Bigger "Damage Engine" title with scale + scan overlay on top
         guiGraphics.pose().pushPose();
@@ -85,12 +75,18 @@ public class HomeScreen extends Screen {
         int greenColor = 0xFFB5F0C6;
         guiGraphics.drawString(this.font, devText, titleLeftX, titleY + (int)(this.font.lineHeight * titleScale) + 6, greenColor);
 
-        // Render widgets + tooltips manually (avoid super.render() blur)
-        for (var child : this.children()) {
-            if (child instanceof AbstractWidget w) {
-                w.render(guiGraphics, mouseX, mouseY, delta);
-                if (w.isMouseOver(mouseX, mouseY) && w.getTooltip() != null) {
-                    guiGraphics.renderTooltip(this.font, w.getTooltip().toCharSequence(this.minecraft), mouseX, mouseY);
+        // Manual widget rendering
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof Renderable renderable) {
+                renderable.render(guiGraphics, mouseX, mouseY, delta);
+            }
+        }
+
+        // Tooltip rendering
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof AbstractWidget widget && widget.isMouseOver(mouseX, mouseY)) {
+                if (widget.getTooltip() != null) {
+                    guiGraphics.renderTooltip(this.font, widget.getTooltip().toCharSequence(this.minecraft), mouseX, mouseY);
                 }
             }
         }

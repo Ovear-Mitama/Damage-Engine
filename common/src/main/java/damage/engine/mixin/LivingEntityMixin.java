@@ -1,6 +1,7 @@
 package damage.engine.mixin;
 
 import damage.engine.util.DamageTrackerHelper;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -26,16 +27,16 @@ public abstract class LivingEntityMixin extends Entity {
         super(type, world);
     }
 
-    @Inject(method = "hurt", at = @At("HEAD"), require = 0)
-    private void onHurtHead(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
+    @Inject(method = "hurtServer", at = @At("HEAD"), require = 0)
+    private void onHurtHead(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (this.level().isClientSide()) return;
         if ((Object) this instanceof Player) return;
 
         damageEngine$snap = DamageTrackerHelper.capturePreDamage((LivingEntity) (Object) this, source);
     }
 
-    @Inject(method = "hurt", at = @At("RETURN"), require = 0)
-    private void onHurtReturn(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
+    @Inject(method = "hurtServer", at = @At("RETURN"), require = 0)
+    private void onHurtReturn(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (this.level().isClientSide()) return;
         if ((Object) this instanceof Player) return;
 

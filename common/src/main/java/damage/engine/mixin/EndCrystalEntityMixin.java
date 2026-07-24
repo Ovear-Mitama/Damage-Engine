@@ -1,6 +1,7 @@
 package damage.engine.mixin;
 
 import damage.engine.util.AttackerAccessor;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.boss.enderdragon.EndCrystal;
@@ -22,13 +23,11 @@ public class EndCrystalEntityMixin implements AttackerAccessor {
         return this.damageEngine$attacker;
     }
 
-    @Inject(method = "hurt", at = @At("HEAD"), require = 0)
-    private void onDamageHead(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
-        if (source != null) {
-            Entity attacker = source.getEntity();
-            if (attacker != null) {
-                this.damageEngine$attacker = attacker;
-            }
+    @Inject(method = "hurtServer", at = @At("HEAD"), require = 0)
+    private void onDamageHead(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
+        Entity sourceEntity = source.getEntity();
+        if (sourceEntity != null) {
+            this.damageEngine$attacker = sourceEntity;
         }
     }
 }
