@@ -178,6 +178,8 @@ public class DamageConfigScreen extends Screen {
         addOption(new HexColorEntry("option.damage-engine.damageIndicatorCritColor", config.damageIndicatorCritColor, v -> { config.damageIndicatorCritColor = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorBold", config.indicatorBold, v -> { config.indicatorBold = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showHealIndicator", config.showHealIndicator, v -> { config.showHealIndicator = v; markChanged(); }));
+        addOption(new HexColorEntry("option.damage-engine.healIndicatorColor", config.healIndicatorColor, v -> { config.healIndicatorColor = v; markChanged(); }));
+        addOption(new BooleanOptionEntry("option.damage-engine.showGlobalDamageIndicator", config.showGlobalDamageIndicator, v -> { config.showGlobalDamageIndicator = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorPrefixSign", config.indicatorPrefixSign, v -> { config.indicatorPrefixSign = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showKillIndicator", config.showKillIndicator, v -> { config.showKillIndicator = v; markChanged(); }));
         addOption(new TextEntry("option.damage-engine.killText", config.killText, v -> { config.killText = v; markChanged(); }));
@@ -1163,8 +1165,6 @@ public class DamageConfigScreen extends Screen {
                 return false;
             }
             @Override protected void renderWidget(GuiGraphics g, int mx, int my, float d) {
-                int bg = isBinding() ? 0x30404000 : 0x20000000;
-                g.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), bg);
                 int bc = isHovered() || isBinding() ? 0xFFFFFFFF : 0xFFA0A0A0;
                 int x = getX(), y = getY(), w = getWidth(), h = getHeight();
                 g.fill(x, y, x + w, y + 1, bc); g.fill(x, y + h - 1, x + w, y + h, bc);

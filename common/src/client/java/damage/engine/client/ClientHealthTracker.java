@@ -33,8 +33,49 @@ public class ClientHealthTracker {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         if (!config.showDamage) return;
 
+        // Check if player recently attacked this entity
+        boolean isSelfDamage = ClientAttackTracker.getInstance().wasRecentlyAttacked(entity.getId());
+
+        // Handle global damage indicators (damage caused by others)
+        if (!isSelfDamage && config.showGlobalDamageIndicator) {
+            // Calculate distance for culling
+            Minecraft client = Minecraft.getInstance();
+            if (client.player != null) {
+                double dx = entity.getX() - client.player.getX();
+                double dy = entity.getY() - client.player.getY();
+                double dz = entity.getZ() - client.player.getZ();
+                double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                if (distance <= config.globalIndicatorMaxDistance) {
+                    Vec3 pos = DamageEngineClient.blendIndicatorPos(
+                        entity.getX(),
+                        entity.getY() + entity.getEyeHeight() * 0.6,
+                        entity.getZ(),
+                        entity.getId()
+                    );
+
+                    if (config.showDamageIndicator && damageAmount > 0 && !killed) {
+                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                            damageAmount,
+                            false,  // Cannot detect crit in client-only mode
+                            false
+                        );
+                    }
+
+                    if (config.showKillIndicator && killed) {
+                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                            damageAmount,
+                            false,
+                            true
+                        );
+                    }
+                }
+            }
+            return; // Don't process further for global damage
+        }
+
         // Only track damage for entities the player recently attacked (melee or projectile)
-        if (!ClientAttackTracker.getInstance().wasRecentlyAttacked(entity.getId())) {
+        if (!isSelfDamage) {
             return;
         }
 
@@ -56,7 +97,7 @@ public class ClientHealthTracker {
         );
 
         // Add damage indicator using blended position
-        if (config.showDamageIndicator && damageAmount > 0) {
+        if (config.showDamageIndicator && damageAmount > 0 && !killed) {
             DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
                 damageAmount,
                 false,  // Cannot detect crit in client-only mode

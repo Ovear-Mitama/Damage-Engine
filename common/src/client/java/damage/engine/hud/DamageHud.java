@@ -161,7 +161,7 @@ public class DamageHud {
         Minecraft client = Minecraft.getInstance();
 
         RatingManager rm = RatingManager.getInstance();
-        if ((isPreview && config.showRating) || (!isPreview && rm.isVisible())) {
+        if ((isPreview && config.showRating) || (!isPreview && config.showRating && rm.isVisible())) {
             renderModule(guiGraphics, config.ratingConfig, client, globalAlpha, () -> {
                 renderRating(guiGraphics, isPreview, globalAlpha, client);
             });

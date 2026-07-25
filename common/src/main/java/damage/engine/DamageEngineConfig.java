@@ -48,7 +48,10 @@ public class DamageEngineConfig {
     public int indicatorOpacity = 100;
     public boolean indicatorBold = false;
     public boolean showHealIndicator = false;
+    public int healIndicatorColor = 0xFFB1EAC2;
     public boolean indicatorPrefixSign = false;
+    public boolean showGlobalDamageIndicator = false;
+    public float globalIndicatorMaxDistance = 64.0f;
     public String killText = "Kill!";
     public int killTextColor = 0xFFF9867D;
     public boolean showKillIndicator = true;
@@ -283,7 +286,9 @@ public class DamageEngineConfig {
         this.indicatorOpacity = loaded.indicatorOpacity;
         this.indicatorBold = loaded.indicatorBold;
         this.showHealIndicator = loaded.showHealIndicator;
+        this.healIndicatorColor = loaded.healIndicatorColor;
         this.indicatorPrefixSign = loaded.indicatorPrefixSign;
+        this.showGlobalDamageIndicator = loaded.showGlobalDamageIndicator;
         this.killText = loaded.killText != null ? loaded.killText : "Kill!";
         this.killTextColor = loaded.killTextColor;
         this.showKillIndicator = loaded.showKillIndicator;
@@ -389,7 +394,9 @@ public class DamageEngineConfig {
         indicatorOpacity = 100;
         indicatorBold = false;
         showHealIndicator = false;
+        healIndicatorColor = 0xFFB1EAC2;
         indicatorPrefixSign = false;
+        showGlobalDamageIndicator = false;
         killText = "Kill!";
         killTextColor = 0xFFF9867D;
         showKillIndicator = true;

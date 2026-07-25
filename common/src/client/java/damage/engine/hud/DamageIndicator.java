@@ -5,6 +5,8 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.Camera;
+import net.minecraft.network.chat.Component;
+import net.minecraft.ChatFormatting;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -208,7 +210,7 @@ public class DamageIndicator {
                     argbColor = config.killTextColor;
                 } else if (ind.isHeal) {
                     text = (config.indicatorPrefixSign ? "+" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
-                    argbColor = 0xFF55FF55;
+                    argbColor = config.healIndicatorColor;
                 } else if (ind.isCrit) {
                     text = (config.indicatorPrefixSign ? "-" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.damageIndicatorCritColor;
@@ -245,14 +247,15 @@ public class DamageIndicator {
                 guiGraphics.pose().translate(ri.x, ri.y, 0);
                 guiGraphics.pose().scale(ri.scale, ri.scale, 1.0f);
 
-                int textWidth = font.width(ri.text);
                 int textY = -(font.lineHeight / 2);
 
                 if (config.indicatorBold) {
-                    // Draw bold by rendering twice with 1px offset
-                    guiGraphics.drawString(font, ri.text, -textWidth / 2 + 1, textY, ri.color);
-                    guiGraphics.drawString(font, ri.text, -textWidth / 2, textY, ri.color);
+                    // Use Minecraft's built-in bold formatting
+                    var boldText = Component.literal(ri.text).withStyle(ChatFormatting.BOLD).getVisualOrderText();
+                    int textWidth = font.width(boldText);
+                    guiGraphics.drawString(font, boldText, -textWidth / 2, textY, ri.color);
                 } else {
+                    int textWidth = font.width(ri.text);
                     guiGraphics.drawString(font, ri.text, -textWidth / 2, textY, ri.color);
                 }
 

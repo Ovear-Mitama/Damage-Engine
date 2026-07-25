@@ -44,6 +44,14 @@ public class DamageTrackerHelper {
         Entity attacker = source.getEntity();
         Entity directSource = source.getDirectEntity();
 
+        // For projectiles, use the owner as the real attacker
+        if (attacker instanceof Projectile proj) {
+            Entity owner = proj.getOwner();
+            if (owner != null) {
+                attacker = owner;
+            }
+        }
+
         if (attacker == null) {
             if (directSource instanceof OwnableEntity ownable) {
                 attacker = ownable.getOwner();

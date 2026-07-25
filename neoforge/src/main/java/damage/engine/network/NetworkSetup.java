@@ -58,7 +58,36 @@ public class NetworkSetup {
                         );
                     }
 
-                    if (payload.attackerId() != mc.player.getId()) {
+                    boolean isSelfDamage = payload.attackerId() == mc.player.getId();
+
+                    // Handle global damage indicators (damage caused by others)
+                    if (!isSelfDamage && config.showGlobalDamageIndicator) {
+                        // Calculate distance for culling
+                        double dx = payload.posX() - mc.player.getX();
+                        double dy = payload.posY() - mc.player.getY();
+                        double dz = payload.posZ() - mc.player.getZ();
+                        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                        if (distance <= config.globalIndicatorMaxDistance) {
+                            if (config.showDamageIndicator && payload.amount() > 0 && !payload.killed()) {
+                                Vec3 pos = payload.isProjectile()
+                                    ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
+                                    : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                                DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                    payload.amount(), payload.isCrit(), false);
+                            }
+                            if (config.showKillIndicator && payload.killed()) {
+                                Vec3 pos = payload.isProjectile()
+                                    ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
+                                    : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                                DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                    payload.amount(), false, true);
+                            }
+                        }
+                    }
+
+                    // Only process self damage for session tracking
+                    if (!isSelfDamage) {
                         return;
                     }
 
@@ -71,7 +100,7 @@ public class NetworkSetup {
 
                     DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
 
-                    if (config.showDamageIndicator && payload.amount() > 0) {
+                    if (config.showDamageIndicator && payload.amount() > 0 && !payload.killed()) {
                         Vec3 pos = payload.isProjectile()
                             ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
                             : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
