@@ -4,6 +4,8 @@ import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageSessionManager;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -183,10 +185,11 @@ public class HudEditorScreen extends Screen {
         if (selectedModule != null) {
             drawSelection(guiGraphics, selectedModule);
         }
-        
-        for (net.minecraft.client.gui.components.events.GuiEventListener element : this.children()) {
-            if (element instanceof net.minecraft.client.gui.components.Renderable) {
-                ((net.minecraft.client.gui.components.Renderable) element).render(guiGraphics, mouseX, mouseY, delta);
+
+        // Manual widget rendering
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof Renderable renderable) {
+                renderable.render(guiGraphics, mouseX, mouseY, delta);
             }
         }
     }

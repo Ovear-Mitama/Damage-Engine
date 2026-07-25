@@ -1,6 +1,7 @@
 package damage.engine.mixin;
 
 import damage.engine.util.DamageTrackerHelper;
+import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -13,6 +14,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
@@ -26,16 +28,16 @@ public abstract class LivingEntityMixin extends Entity {
         super(type, world);
     }
 
-    @Inject(method = "hurt", at = @At("HEAD"), require = 0)
-    private void onHurtHead(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
+    @Inject(method = "hurtServer", at = @At("HEAD"), require = 0)
+    private void onHurtHead(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (this.level().isClientSide()) return;
         if ((Object) this instanceof Player) return;
 
         damageEngine$snap = DamageTrackerHelper.capturePreDamage((LivingEntity) (Object) this, source);
     }
 
-    @Inject(method = "hurt", at = @At("RETURN"), require = 0)
-    private void onHurtReturn(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
+    @Inject(method = "hurtServer", at = @At("RETURN"), require = 0)
+    private void onHurtReturn(ServerLevel level, DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir) {
         if (this.level().isClientSide()) return;
         if ((Object) this instanceof Player) return;
 
@@ -43,5 +45,13 @@ public abstract class LivingEntityMixin extends Entity {
             DamageTrackerHelper.broadcastPostDamage((LivingEntity) (Object) this, source, damageEngine$snap, LOGGER);
             damageEngine$snap = null;
         }
+    }
+
+    @Inject(method = "heal", at = @At("TAIL"), require = 0)
+    private void onHeal(float amount, CallbackInfo ci) {
+        if (this.level().isClientSide()) return;
+        if (amount <= 0) return;
+        LivingEntity self = (LivingEntity) (Object) this;
+        DamageTrackerHelper.broadcastHeal(self, amount);
     }
 }

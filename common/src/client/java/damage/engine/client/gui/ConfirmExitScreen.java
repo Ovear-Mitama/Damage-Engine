@@ -4,6 +4,8 @@ import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
@@ -55,10 +57,10 @@ public class ConfirmExitScreen extends Screen {
         String msg = Component.translatable("text.damage-engine.unsaved_changes").getString();
         guiGraphics.drawCenteredString(this.font, msg, this.width / 2, this.height / 2 - 25, 0xFFFFFFFF);
 
-        // Render widgets manually (avoid super.render() blur)
-        for (var child : this.children()) {
-            if (child instanceof net.minecraft.client.gui.components.Renderable r) {
-                r.render(guiGraphics, mouseX, mouseY, delta);
+        // Manual widget rendering
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof Renderable renderable) {
+                renderable.render(guiGraphics, mouseX, mouseY, delta);
             }
         }
     }

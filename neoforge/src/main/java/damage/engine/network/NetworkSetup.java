@@ -16,7 +16,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
-@EventBusSubscriber(value = Dist.CLIENT, modid = DamageEngine.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = DamageEngine.MOD_ID, value = Dist.CLIENT)
 public class NetworkSetup {
 
     @SubscribeEvent
@@ -58,61 +58,55 @@ public class NetworkSetup {
                         );
                     }
 
-                    boolean isSelfDamage = payload.attackerId() == mc.player.getId();
-
-                    // Handle global damage indicators (damage caused by others)
-                    if (!isSelfDamage && config.showGlobalDamageIndicator) {
-                        // Calculate distance for culling
-                        double dx = payload.posX() - mc.player.getX();
-                        double dy = payload.posY() - mc.player.getY();
-                        double dz = payload.posZ() - mc.player.getZ();
-                        double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-                        if (distance <= config.globalIndicatorMaxDistance) {
-                            if (config.showDamageIndicator && payload.amount() > 0 && !payload.killed()) {
-                                Vec3 pos = payload.isProjectile()
-                                    ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                                    : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                                DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                                    payload.amount(), payload.isCrit(), false);
-                            }
-                            if (config.showKillIndicator && payload.killed()) {
-                                Vec3 pos = payload.isProjectile()
-                                    ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                                    : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                                DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                                    payload.amount(), false, true);
-                            }
+                    // 生命恢复：全图显示，不管是谁造成的
+                    if (payload.isHeal()) {
+                        if (config.showHealIndicator) {
+                            Vec3 pos = new Vec3(payload.posX(), payload.posY(), payload.posZ());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                payload.amount(), false, false, true);
                         }
-                    }
-
-                    // Only process self damage for session tracking
-                    if (!isSelfDamage) {
                         return;
                     }
 
-                    boolean preferSwitchTarget = false;
-                    try {
-                        if (mc.hitResult instanceof EntityHitResult ehr) {
-                            preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
+                    boolean isSelfDamage = payload.attackerId() == mc.player.getId();
+
+                    // 自身造成的伤害：正常处理
+                    if (isSelfDamage) {
+                        boolean preferSwitchTarget = false;
+                        try {
+                            if (mc.hitResult instanceof EntityHitResult ehr) {
+                                preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
+                            }
+                        } catch (Exception ignored) {}
+
+                        DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
+
+                        if (config.showDamageIndicator && payload.amount() > 0) {
+                            Vec3 pos = payload.isProjectile()
+                                ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
+                                : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                payload.amount(), payload.isCrit(), false);
                         }
-                    } catch (Exception ignored) {}
-
-                    DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
-
-                    if (config.showDamageIndicator && payload.amount() > 0 && !payload.killed()) {
-                        Vec3 pos = payload.isProjectile()
-                            ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                            : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                            payload.amount(), payload.isCrit(), false);
-                    }
-                    if (config.showKillIndicator && payload.killed()) {
-                        Vec3 pos = payload.isProjectile()
-                            ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                            : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                            payload.amount(), false, true);
+                        if (config.showKillIndicator && payload.killed()) {
+                            Vec3 pos = payload.isProjectile()
+                                ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
+                                : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                payload.amount(), false, true);
+                        }
+                    } else if (config.showGlobalDamageIndicator) {
+                        // 全图伤害跳字：显示非自身造成的伤害
+                        if (config.showDamageIndicator && payload.amount() > 0) {
+                            Vec3 pos = new Vec3(payload.posX(), payload.posY(), payload.posZ());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                payload.amount(), payload.isCrit(), false);
+                        }
+                        if (config.showKillIndicator && payload.killed()) {
+                            Vec3 pos = new Vec3(payload.posX(), payload.posY(), payload.posZ());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                payload.amount(), false, true);
+                        }
                     }
 
                     if (config.debugShowRating && mc.player != null) {

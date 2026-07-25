@@ -6,7 +6,7 @@ import net.minecraft.network.codec.StreamCodec;
 import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
 import net.minecraft.resources.ResourceLocation;
 
-public record DamagePayload(int entityId, float amount, boolean isCrit, int attackerId, String debugInfo, double posX, double posY, double posZ, boolean isProjectile, boolean killed) implements CustomPacketPayload {
+public record DamagePayload(int entityId, float amount, boolean isCrit, int attackerId, String debugInfo, double posX, double posY, double posZ, boolean isProjectile, boolean killed, boolean isHeal) implements CustomPacketPayload {
     public static final CustomPacketPayload.Type<DamagePayload> TYPE = new CustomPacketPayload.Type<>(ResourceLocation.fromNamespaceAndPath(DamageEngine.MOD_ID, "damage_packet"));
     
     public static final StreamCodec<RegistryFriendlyByteBuf, DamagePayload> STREAM_CODEC = StreamCodec.of(
@@ -21,6 +21,7 @@ public record DamagePayload(int entityId, float amount, boolean isCrit, int atta
             buf.writeDouble(value.posZ);
             buf.writeBoolean(value.isProjectile);
             buf.writeBoolean(value.killed);
+            buf.writeBoolean(value.isHeal);
         },
         buf -> new DamagePayload(
             buf.readVarInt(),
@@ -31,6 +32,7 @@ public record DamagePayload(int entityId, float amount, boolean isCrit, int atta
             buf.readDouble(),
             buf.readDouble(),
             buf.readDouble(),
+            buf.readBoolean(),
             buf.readBoolean(),
             buf.readBoolean()
         )

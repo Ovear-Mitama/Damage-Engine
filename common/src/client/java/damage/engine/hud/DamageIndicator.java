@@ -6,7 +6,7 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.Camera;
 import net.minecraft.network.chat.Component;
-import net.minecraft.ChatFormatting;
+import net.minecraft.network.chat.Style;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
@@ -102,7 +102,9 @@ public class DamageIndicator {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         if (!config.showDamage) return;
         if (config.hideOnF1 && client.options.hideGui) return;
-        if (!config.showDamageIndicator) return;
+        
+        // Check if any indicator type is enabled - if none, skip all rendering
+        if (!config.showDamageIndicator && !config.showHealIndicator) return;
 
         synchronized (indicators) {
             if (indicators.isEmpty()) return;
@@ -136,10 +138,22 @@ public class DamageIndicator {
                 float totalDuration = TOTAL_DURATION;
                 if (age > totalDuration) continue;
 
+                // Per-type config filtering
+                if (ind.isHeal && !config.showHealIndicator) continue;
+                if (!ind.isHeal && !config.showDamageIndicator) continue;
+
                 // Only skip if entity is behind the camera
                 Vector4f worldPos = new Vector4f((float) ind.x, (float) ind.y, (float) ind.z, 1.0f);
                 worldPos.mul(viewProjMatrix);
                 if (worldPos.w() <= 0.001f) continue;
+
+                // Distance limit check
+                double dx = ind.x - camPos.x;
+                double dy = ind.y - camPos.y;
+                double dz = ind.z - camPos.z;
+                double distanceSq = dx * dx + dy * dy + dz * dz;
+                float maxDist = config.indicatorMaxDistance;
+                if (maxDist > 0 && distanceSq > maxDist * maxDist) continue;
 
                 // Still compute NDC for blending, but don't cull based on off-screen position
                 float ndcX = worldPos.x() / worldPos.w();
@@ -210,7 +224,7 @@ public class DamageIndicator {
                     argbColor = config.killTextColor;
                 } else if (ind.isHeal) {
                     text = (config.indicatorPrefixSign ? "+" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
-                    argbColor = config.healIndicatorColor;
+                    argbColor = config.damageIndicatorHealColor;
                 } else if (ind.isCrit) {
                     text = (config.indicatorPrefixSign ? "-" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.damageIndicatorCritColor;
@@ -247,15 +261,15 @@ public class DamageIndicator {
                 guiGraphics.pose().translate(ri.x, ri.y, 0);
                 guiGraphics.pose().scale(ri.scale, ri.scale, 1.0f);
 
+                int textWidth;
                 int textY = -(font.lineHeight / 2);
 
                 if (config.indicatorBold) {
-                    // Use Minecraft's built-in bold formatting
-                    var boldText = Component.literal(ri.text).withStyle(ChatFormatting.BOLD).getVisualOrderText();
-                    int textWidth = font.width(boldText);
+                    Component boldText = Component.literal(ri.text).withStyle(Style.EMPTY.withBold(true));
+                    textWidth = font.width(boldText);
                     guiGraphics.drawString(font, boldText, -textWidth / 2, textY, ri.color);
                 } else {
-                    int textWidth = font.width(ri.text);
+                    textWidth = font.width(ri.text);
                     guiGraphics.drawString(font, ri.text, -textWidth / 2, textY, ri.color);
                 }
 

@@ -12,6 +12,7 @@ import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.RenderType;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
@@ -59,7 +60,7 @@ public class DamageConfigScreen extends Screen {
     @Override
     protected void init() {
         try {
-            if (optionList != null) lastScroll = optionList.getScrollAmount();
+            if (optionList != null) lastScroll = optionList.scrollAmount();
             this.clearWidgets();
             
             int tabHeight = 24;
@@ -167,6 +168,8 @@ public class DamageConfigScreen extends Screen {
 
     private void initDamageNumbersTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamageIndicator", config.showDamageIndicator, v -> { config.showDamageIndicator = v; markChanged(); }));
+        addOption(new BooleanOptionEntry("option.damage-engine.showGlobalDamageIndicator", config.showGlobalDamageIndicator, v -> { config.showGlobalDamageIndicator = v; markChanged(); }));
+        addOption(new NumericEntry("option.damage-engine.indicatorMaxDistance", config.indicatorMaxDistance, v -> { config.indicatorMaxDistance = v; markChanged(); }));
         addOption(new IntegerSliderEntry("option.damage-engine.indicatorDecimalPlaces", config.indicatorDecimalPlaces, 0, 10, v -> { config.indicatorDecimalPlaces = v; markChanged(); }, true));
         
         // Mode selector
@@ -178,8 +181,7 @@ public class DamageConfigScreen extends Screen {
         addOption(new HexColorEntry("option.damage-engine.damageIndicatorCritColor", config.damageIndicatorCritColor, v -> { config.damageIndicatorCritColor = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorBold", config.indicatorBold, v -> { config.indicatorBold = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showHealIndicator", config.showHealIndicator, v -> { config.showHealIndicator = v; markChanged(); }));
-        addOption(new HexColorEntry("option.damage-engine.healIndicatorColor", config.healIndicatorColor, v -> { config.healIndicatorColor = v; markChanged(); }));
-        addOption(new BooleanOptionEntry("option.damage-engine.showGlobalDamageIndicator", config.showGlobalDamageIndicator, v -> { config.showGlobalDamageIndicator = v; markChanged(); }));
+        addOption(new HexColorEntry("option.damage-engine.damageIndicatorHealColor", config.damageIndicatorHealColor, v -> { config.damageIndicatorHealColor = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorPrefixSign", config.indicatorPrefixSign, v -> { config.indicatorPrefixSign = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showKillIndicator", config.showKillIndicator, v -> { config.showKillIndicator = v; markChanged(); }));
         addOption(new TextEntry("option.damage-engine.killText", config.killText, v -> { config.killText = v; markChanged(); }));
@@ -305,7 +307,7 @@ public class DamageConfigScreen extends Screen {
 
     private void refreshOptions() {
         if (optionList == null) return;
-        double scroll = optionList.getScrollAmount();
+        double scroll = optionList.scrollAmount();
         optionList.clearEntriesPublic();
         initOptionEntries();
         optionList.setScrollAmount(scroll);
@@ -422,12 +424,11 @@ public class DamageConfigScreen extends Screen {
             }
         }
         
-        // Separator below tabs
-        guiGraphics.fill(0, tabHeight, this.width, tabHeight + 1, 0xFF555555);
+        // Separator below tabs - removed, super.renderWidget() handles list header
         
         if (optionList != null) {
-            optionList.render(guiGraphics, mouseX, mouseY, delta);
             optionList.updateSmoothScroll(delta);
+            optionList.render(guiGraphics, mouseX, mouseY, delta);
         }
         
         // Footer separator
@@ -448,14 +449,22 @@ public class DamageConfigScreen extends Screen {
         if (config.previewEnabled) {
             new DamageHud().renderPreview(guiGraphics, 30, this.height - 30);
         }
-        
-        // Render footer widgets (avoid super.render() blur)
+
+        // Manual widget rendering
         for (GuiEventListener child : this.children()) {
-            if (child != optionList && child instanceof AbstractWidget w) {
-                w.render(guiGraphics, mouseX, mouseY, delta);
+            if (child instanceof net.minecraft.client.gui.components.Renderable renderable) {
+                renderable.render(guiGraphics, mouseX, mouseY, delta);
             }
         }
-        // Tooltip is handled by vanilla AbstractWidget system — do NOT render manually
+
+        // Tooltip rendering
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof AbstractWidget widget && widget.isMouseOver(mouseX, mouseY)) {
+                if (widget.getTooltip() != null) {
+                    guiGraphics.renderTooltip(this.font, widget.getTooltip().toCharSequence(this.minecraft), mouseX, mouseY);
+                }
+            }
+        }
     }
 
     @Override
@@ -589,60 +598,63 @@ public class DamageConfigScreen extends Screen {
             return super.mouseClicked(mx, my, btn);
         }
         @Override public boolean mouseReleased(double mx, double my, int btn) { scrolling = false; return super.mouseReleased(mx, my, btn); }
-        @Override protected void renderListBackground(GuiGraphics g) {}
         public void clearEntriesPublic() { this.clearEntries(); }
         @Override public int getRowWidth() { return this.width - 20; }
         public void addEntryPublic(OptionEntry e) { this.addEntry(e); }
         @Override public int getRowLeft() { return this.getX() + 10; }
         public int getScrollbarX() { return this.getRight() - 6; }
         @Override public void updateWidgetNarration(NarrationElementOutput n) {}
-        @Override protected void renderListSeparators(GuiGraphics g) {}
         @Override protected void renderSelection(GuiGraphics g, int t, int w, int h, int oc, int ic) {}
+        @Override protected void renderListBackground(GuiGraphics g) {
+        }
         @Override public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
             if (scrolling) {
-                int bh = this.getHeight(), ch = this.getMaxScroll() + this.getHeight();
+                int bh = this.getHeight(), ch = this.maxScrollAmount() + this.getHeight();
                 if (ch > bh) {
                     int sbh = Math.max(32, (int)((float)(bh * bh) / (float)ch));
                     if (sbh > bh) sbh = bh;
-                    double d = Math.max(1, this.getMaxScroll() / (double)(bh - sbh));
-                    this.setScrollAmount(this.getScrollAmount() + dy * d);
+                    double d = Math.max(1, this.maxScrollAmount() / (double)(bh - sbh));
+                    this.setScrollAmount(this.scrollAmount() + dy * d);
                 }
                 return true;
             }
             return super.mouseDragged(mx, my, btn, dx, dy);
         }
+        @Override
         public void renderWidget(GuiGraphics g, int mx, int my, float delta) {
-            this.enableScissor(g);
-            this.renderListItems(g, mx, my, delta);
-            g.disableScissor();
+            // 使用父类渲染，正确清除背景并渲染列表项
+            // 平滑滚动在 updateSmoothScroll() 中已完成，渲染前位置已确定
+            super.renderWidget(g, mx, my, delta);
+            
+            // 覆盖自定义滚动条
             int sx = this.getScrollbarX(), sy = this.getY(), sh = this.getHeight();
-            int ch = this.getMaxScroll() + this.getHeight();
+            int ch = this.maxScrollAmount() + this.getHeight();
             if (ch > this.getHeight()) {
                 int bh = Math.max(32, (int)((float)(this.getHeight() * this.getHeight()) / (float)ch));
                 if (bh > this.getHeight()) bh = this.getHeight();
-                int bt = (int)this.getScrollAmount() * (this.getHeight() - bh) / this.getMaxScroll() + this.getY();
+                int bt = (int)this.scrollAmount() * (this.getHeight() - bh) / this.maxScrollAmount() + this.getY();
                 if (bt < this.getY()) bt = this.getY();
                 g.fill(sx, sy, sx + 6, sy + sh, 0x80000000);
                 g.fill(sx, bt, sx + 6, bt + bh, 0xA0FFFFFF);
             }
         }
         @Override public boolean mouseScrolled(double mx, double my, double hAmt, double vAmt) {
-            this.targetScroll = this.getScrollAmount() - vAmt * 80.0;
-            this.targetScroll = Math.max(0, Math.min(this.targetScroll, this.getMaxScroll()));
+            this.targetScroll = this.scrollAmount() - vAmt * 80.0;
+            this.targetScroll = Math.max(0, Math.min(this.targetScroll, this.maxScrollAmount()));
             this.isSmoothScrolling = true;
             return true;
         }
         public void updateSmoothScroll(float delta) {
             if (isSmoothScrolling) {
-                double cur = this.getScrollAmount();
+                double cur = this.scrollAmount();
                 if (Math.abs(cur - targetScroll) < 0.5) {
                     this.setScrollAmount(targetScroll);
                     isSmoothScrolling = false;
                 } else {
-                    this.setScrollAmount(Mth.lerp(0.5f * delta, cur, targetScroll));
+                    this.setScrollAmount(Mth.lerp(0.12f, cur, targetScroll));
                 }
             } else {
-                targetScroll = this.getScrollAmount();
+                targetScroll = this.scrollAmount();
             }
         }
     }
