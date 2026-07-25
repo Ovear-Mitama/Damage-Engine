@@ -8,6 +8,7 @@ import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.entity.living.LivingDamageEvent;
+import net.neoforged.neoforge.event.entity.living.LivingHealEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import org.slf4j.Logger;
 
@@ -17,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.4.0";
+	public static final String MOD_VERSION = "1.4.1.1";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	private static final Map<LivingEntity, DamageTrackerHelper.Snapshot> PRE_DAMAGE_SNAPS = new ConcurrentHashMap<>();
@@ -37,6 +38,12 @@ public class DamageEngine {
 			DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.remove(event.getEntity());
 			if (snap != null) {
 				DamageTrackerHelper.broadcastPostDamage(event.getEntity(), event.getSource(), snap, LOGGER);
+			}
+		});
+
+		NeoForge.EVENT_BUS.addListener((LivingHealEvent event) -> {
+			if (event.getAmount() > 0) {
+				DamageTrackerHelper.broadcastHeal(event.getEntity(), event.getAmount());
 			}
 		});
 	}

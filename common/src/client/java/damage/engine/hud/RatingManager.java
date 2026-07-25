@@ -40,6 +40,7 @@ public class RatingManager {
     public boolean isActive() { return sessionActive; }
 
     public boolean isVisible() {
+        if (!DamageEngineConfig.getInstance().showRating) return false;
         if (sessionActive) {
             // Auto-end session if past rating reset time
             float resetTime = DamageEngineConfig.getInstance().ratingResetTime;

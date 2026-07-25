@@ -44,14 +44,6 @@ public class DamageTrackerHelper {
         Entity attacker = source.getEntity();
         Entity directSource = source.getDirectEntity();
 
-        // For projectiles, use the owner as the real attacker
-        if (attacker instanceof Projectile proj) {
-            Entity owner = proj.getOwner();
-            if (owner != null) {
-                attacker = owner;
-            }
-        }
-
         if (attacker == null) {
             if (directSource instanceof OwnableEntity ownable) {
                 attacker = ownable.getOwner();
@@ -75,9 +67,10 @@ public class DamageTrackerHelper {
 
         if (directSource instanceof Projectile) {
             isProjectile = true;
-            srcX = directSource.getX();
-            srcY = directSource.getY();
-            srcZ = directSource.getZ();
+            // Blend projectile position with entity position to avoid clustering for AoE effects
+            srcX = (directSource.getX() + self.getX()) / 2.0;
+            srcY = (directSource.getY() + self.getY() + self.getEyeHeight() * 0.6) / 2.0;
+            srcZ = (directSource.getZ() + self.getZ()) / 2.0;
         } else if (attacker != null) {
             AABB box = self.getBoundingBox();
             srcX = Mth.clamp(attacker.getX(), box.minX, box.maxX);
@@ -118,17 +111,34 @@ public class DamageTrackerHelper {
         }
 
         boolean killed = !self.isAlive() || self.getHealth() <= 0f;
+        boolean isHeal = actualDamage < 0;
 
-        if (actualDamage > 0 || killed) {
-            DamagePayload payload = new DamagePayload(self.getId(), actualDamage, snap.wasCrit,
+        if (actualDamage > 0 || killed || isHeal) {
+            DamagePayload payload = new DamagePayload(self.getId(), Math.abs(actualDamage), snap.wasCrit,
                 snap.attackerId, debugInfo,
-                snap.srcX, snap.srcY, snap.srcZ, snap.isProjectile, killed);
+                snap.srcX, snap.srcY, snap.srcZ, snap.isProjectile, killed, isHeal);
 
             ClientboundCustomPayloadPacket packet = new ClientboundCustomPayloadPacket(payload);
             ServerLevel sw = (ServerLevel) self.level();
             for (ServerPlayer player : sw.players()) {
                 player.connection.send(packet);
             }
+        }
+    }
+
+    /**
+     * Broadcasts a heal payload to all players in range.
+     */
+    public static void broadcastHeal(LivingEntity self, float amount) {
+        if (!(self.level() instanceof ServerLevel sw)) return;
+        DamagePayload payload = new DamagePayload(
+            self.getId(), amount, false, -1, "",
+            self.getX(), self.getY() + self.getEyeHeight() * 0.6, self.getZ(),
+            false, false, true
+        );
+        ClientboundCustomPayloadPacket packet = new ClientboundCustomPayloadPacket(payload);
+        for (ServerPlayer player : sw.players()) {
+            player.connection.send(packet);
         }
     }
 }

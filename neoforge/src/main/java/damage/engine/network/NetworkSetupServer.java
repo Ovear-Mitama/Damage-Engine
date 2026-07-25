@@ -7,7 +7,7 @@ import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
 
-@EventBusSubscriber(value = Dist.DEDICATED_SERVER, modid = DamageEngine.MOD_ID, bus = EventBusSubscriber.Bus.MOD)
+@EventBusSubscriber(modid = DamageEngine.MOD_ID, value = Dist.DEDICATED_SERVER)
 public class NetworkSetupServer {
 
     @SubscribeEvent

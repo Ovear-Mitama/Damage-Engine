@@ -5,6 +5,8 @@ import net.minecraft.Util;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
+import net.minecraft.client.gui.components.Renderable;
+import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -87,12 +89,18 @@ public class ProfileManagerScreen extends Screen {
         String titleText = Component.translatable("title.damage-engine.profile_manager").getString();
         guiGraphics.drawCenteredString(this.font, titleText, this.width / 2, 15, 0xFFFFFFFF);
 
-        // Render widgets + tooltips manually (avoid super.render() blur)
-        for (var child : this.children()) {
-            if (child instanceof AbstractWidget w) {
-                w.render(guiGraphics, mouseX, mouseY, delta);
-                if (w.isMouseOver(mouseX, mouseY) && w.getTooltip() != null) {
-                    guiGraphics.renderTooltip(this.font, w.getTooltip().toCharSequence(this.minecraft), mouseX, mouseY);
+        // Manual widget rendering
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof Renderable renderable) {
+                renderable.render(guiGraphics, mouseX, mouseY, delta);
+            }
+        }
+
+        // Tooltip rendering
+        for (GuiEventListener child : this.children()) {
+            if (child instanceof AbstractWidget widget && widget.isMouseOver(mouseX, mouseY)) {
+                if (widget.getTooltip() != null) {
+                    guiGraphics.renderTooltip(this.font, widget.getTooltip().toCharSequence(this.minecraft), mouseX, mouseY);
                 }
             }
         }
