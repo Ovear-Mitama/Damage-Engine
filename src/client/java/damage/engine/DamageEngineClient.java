@@ -65,7 +65,36 @@ public class DamageEngineClient implements ClientModInitializer {
                 }
 
                 DamagePayload dp = (DamagePayload) payload;
-                if (dp.attackerId() != mc.player.getId()) {
+                boolean isSelfDamage = dp.attackerId() == mc.player.getId();
+
+                // Handle global damage indicators (damage caused by others)
+                if (!isSelfDamage && config.showGlobalDamageIndicator) {
+                    // Calculate distance for culling
+                    double dx = dp.posX() - mc.player.getX();
+                    double dy = dp.posY() - mc.player.getY();
+                    double dz = dp.posZ() - mc.player.getZ();
+                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (distance <= config.globalIndicatorMaxDistance) {
+                        if (config.showDamageIndicator && dp.amount() > 0 && !dp.killed()) {
+                            Vec3 pos = dp.isProjectile()
+                                ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
+                                : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                dp.amount(), dp.isCrit(), false);
+                        }
+                        if (config.showKillIndicator && dp.killed()) {
+                            Vec3 pos = dp.isProjectile()
+                                ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
+                                : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                dp.amount(), false, true);
+                        }
+                    }
+                }
+
+                // Only process self damage for session tracking
+                if (!isSelfDamage) {
                     return;
                 }
                 
