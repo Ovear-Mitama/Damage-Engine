@@ -53,6 +53,7 @@ public class DamageConfigScreen extends Screen {
         super(Component.translatable("title.damage-engine.config"));
         this.parent = parent;
         this.config = DamageEngineConfig.getInstance();
+        this.config.load(); // Reload from disk to ensure the screen shows the latest saved config
         this.configSnapshot = new GsonBuilder().setPrettyPrinting().create().toJson(config);
     }
 
@@ -180,6 +181,9 @@ public class DamageConfigScreen extends Screen {
         addOption(new BooleanOptionEntry("option.damage-engine.showHealIndicator", config.showHealIndicator, v -> { config.showHealIndicator = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.healIndicatorColor", config.healIndicatorColor, v -> { config.healIndicatorColor = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showGlobalDamageIndicator", config.showGlobalDamageIndicator, v -> { config.showGlobalDamageIndicator = v; markChanged(); }));
+        addOption(new NumericEntry("option.damage-engine.globalIndicatorMaxDistance", config.globalIndicatorMaxDistance,
+            v -> { config.globalIndicatorMaxDistance = v; markChanged(); },
+            Component.translatable("hint.damage-engine.globalIndicatorMaxDistance")));
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorPrefixSign", config.indicatorPrefixSign, v -> { config.indicatorPrefixSign = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showKillIndicator", config.showKillIndicator, v -> { config.showKillIndicator = v; markChanged(); }));
         addOption(new TextEntry("option.damage-engine.killText", config.killText, v -> { config.killText = v; markChanged(); }));
@@ -704,11 +708,17 @@ public class DamageConfigScreen extends Screen {
         private final EditBox field;
         private final Component label;
         public NumericEntry(String key, float initial, Consumer<Float> onChange) {
+            this(key, initial, onChange, null);
+        }
+        public NumericEntry(String key, float initial, Consumer<Float> onChange, Component tooltip) {
             this.label = Component.translatable(key);
             this.field = new EditBox(Minecraft.getInstance().font, 0, 0, 100, 20, Component.empty());
             this.field.setBordered(false);
             this.field.setValue(formatFloat(initial));
             this.field.setResponder(s -> { try { onChange.accept(Float.parseFloat(s)); } catch(Exception ignored){} });
+            if (tooltip != null) {
+                this.field.setTooltip(Tooltip.create(tooltip));
+            }
         }
         private static String formatFloat(float v) {
             if (v == (int)v) return String.valueOf((int)v);

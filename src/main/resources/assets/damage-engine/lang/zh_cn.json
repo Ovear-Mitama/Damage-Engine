@@ -43,6 +43,7 @@
   "hint.damage-engine.mode.enhanced": "将伤害跳字移离准星",
   "hint.damage-engine.mode.cloud": "将伤害跳字集中在准星周围",
   "hint.damage-engine.indicatorMode": "增强模式：将伤害跳字移离准星。\n云状模式：将伤害跳字集中在准星周围。",
+  "hint.damage-engine.globalIndicatorMaxDistance": "单位为格，填0则为无限制",
 
   "option.damage-engine.showDamage": "HUD显示",
   "option.damage-engine.edit_pos_label": "调整HUD",

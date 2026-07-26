@@ -135,7 +135,7 @@ public class DamageHud {
             boolean isCrit = i >= previewLimit - 3;
             float dmg = 1.5f + i * 0.3f;
             total += dmg;
-            history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0));
+            history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0, -1));
         }
         int combo = previewLimit;
         float progress = 0.7f;
@@ -506,7 +506,20 @@ public class DamageHud {
 
             float xPos = contentRightX - textWidth + slideOffsetX;
 
-            // Draw player avatar before damage entry
+            // Draw player avatar for other players' damage entries
+            if (!isPreview && recordOtherPlayers && entry.attackerId() > 0 && client.level != null) {
+                Entity attackerEntity = client.level.getEntity(entry.attackerId());
+                if (attackerEntity instanceof AbstractClientPlayer attackerPlayer) {
+                    PlayerSkin skin = attackerPlayer.getSkin();
+                    if (skin != null) {
+                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
+                        drawPlayerFace(guiGraphics, skin.texture(), (int)(xPos - 11), (int)yPos, 8, true);
+                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+                    }
+                }
+            }
+
+            // Draw player avatar for preview mode
             if (avatarGap > 0 && previewSkin != null) {
                 guiGraphics.setColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
                 drawPlayerFace(guiGraphics, previewSkin.texture(), (int)(xPos - avatarGap), (int)yPos, 8, true);

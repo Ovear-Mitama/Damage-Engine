@@ -58,6 +58,7 @@
   "option.damage-engine.hitPoints": "普通攻擊分數",
   "option.damage-engine.critPoints": "暴擊分數",
   "hint.damage-engine.comboPoints": "連擊次數×分數",
+  "hint.damage-engine.globalIndicatorMaxDistance": "單位為格，填0則為無限制",
   "option.damage-engine.debugMode": "除錯模式",
   "option.damage-engine.debugShowDamageInfo": "顯示傷害資訊",
   "option.damage-engine.debugShowRating": "顯示當前評分",
