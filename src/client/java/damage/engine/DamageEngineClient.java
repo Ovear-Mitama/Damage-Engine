@@ -69,6 +69,14 @@ public class DamageEngineClient implements ClientModInitializer {
 
                 // Handle global damage indicators (damage caused by others)
                 if (!isSelfDamage && config.showGlobalDamageIndicator) {
+                    // Skip if attacker is invisible
+                    if (dp.attackerId() > 0 && mc.level != null) {
+                        net.minecraft.world.entity.Entity attackerEntity = mc.level.getEntity(dp.attackerId());
+                        if (attackerEntity instanceof net.minecraft.world.entity.LivingEntity le && le.isInvisible()) {
+                            return;
+                        }
+                    }
+
                     // Calculate distance for culling
                     double dx = dp.posX() - mc.player.getX();
                     double dy = dp.posY() - mc.player.getY();
@@ -95,6 +103,9 @@ public class DamageEngineClient implements ClientModInitializer {
 
                 // Only process self damage for session tracking
                 if (!isSelfDamage) {
+                    if (config.recordOtherPlayers) {
+                        DamageSessionManager.getInstance().addOtherPlayerDamage(dp.amount(), dp.isCrit(), dp.attackerId());
+                    }
                     return;
                 }
                 
@@ -143,7 +154,7 @@ public class DamageEngineClient implements ClientModInitializer {
             && ehr.getEntity().getId() == entityId) {
             return ehr.getLocation();
         }
-        // Not targeted: use entity position with Y offset to head level
-        return new Vec3(baseX, baseY + 1.5, baseZ);
+        // Not targeted: use body center position (baseY is already the bounding box center)
+        return new Vec3(baseX, baseY, baseZ);
     }
 }

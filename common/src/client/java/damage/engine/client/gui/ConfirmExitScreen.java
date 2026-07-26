@@ -3,13 +3,11 @@ package damage.engine.client.gui;
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.network.chat.CommonComponents;
 import net.minecraft.network.chat.Component;
 
 /**
- * Vanilla-style confirmation dialog for unsaved changes.
+ * Custom-styled confirmation dialog for unsaved changes.
  */
 public class ConfirmExitScreen extends Screen {
     private final Screen settingsScreen;
@@ -31,20 +29,18 @@ public class ConfirmExitScreen extends Screen {
         int centerX = this.width / 2;
         int buttonY = this.height / 2 + 20;
 
-        // Cancel button (left)
-        this.addRenderableWidget(Button.builder(
-            CommonComponents.GUI_CANCEL,
-            btn -> mcl.setScreen(settingsScreen)
-        ).pos(centerX - 105, buttonY).width(100).build());
+        // Cancel button (left) - returns to settings
+        this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX - 105, buttonY, 100, 20,
+            Component.translatable("gui.cancel").withColor(0xFFFC887E),
+            () -> mcl.setScreen(settingsScreen)));
 
-        // Confirm button (right)
-        this.addRenderableWidget(Button.builder(
-            Component.translatable("gui.confirm"),
-            btn -> {
+        // Confirm button (right) - discards changes and exits
+        this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX + 5, buttonY, 100, 20,
+            Component.translatable("gui.confirm").withColor(0xFFB7F3C8),
+            () -> {
                 config.load();
                 mcl.setScreen(parent);
-            }
-        ).pos(centerX + 5, buttonY).width(100).build());
+            }));
     }
 
     @Override

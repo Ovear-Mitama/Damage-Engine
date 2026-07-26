@@ -13,7 +13,7 @@ public class DamageSessionManager {
     private int lastTargetEntityId = -1;
     private long infoExpireAt = 0;
 
-    public record DamageEntry(float damage, boolean isCrit, long timestamp) {}
+    public record DamageEntry(float damage, boolean isCrit, long timestamp, int attackerId) {}
     private final List<DamageEntry> damageHistory = new CopyOnWriteArrayList<>();
 
     private boolean isActive = false;
@@ -51,7 +51,16 @@ public class DamageSessionManager {
             }
         }
 
-        damageHistory.add(new DamageEntry(amount, isCrit, now));
+        damageHistory.add(new DamageEntry(amount, isCrit, now, -1));
+        int limit = DamageEngineConfig.getInstance().historyLimit;
+        if (damageHistory.size() > limit) {
+            damageHistory.remove(0);
+        }
+    }
+
+    public void addOtherPlayerDamage(float amount, boolean isCrit, int attackerId) {
+        long now = System.currentTimeMillis();
+        damageHistory.add(new DamageEntry(amount, isCrit, now, attackerId));
         int limit = DamageEngineConfig.getInstance().historyLimit;
         if (damageHistory.size() > limit) {
             damageHistory.remove(0);

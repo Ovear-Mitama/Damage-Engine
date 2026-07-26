@@ -205,7 +205,7 @@ public class HudEditorScreen extends Screen {
                         boolean isCrit = j >= previewLimit - 3;
                         float dmg = 1.5f + j * 0.3f;
                         previewTotal += dmg;
-                        history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0));
+                        history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0L, 0));
                     }
                     damageHud.renderTotalDamage(guiGraphics, previewTotal, 0.7f, true, 1.0f, previewLimit, this.minecraft);
                     damageHud.renderHistory(guiGraphics, history, true, 1.0f, this.minecraft);

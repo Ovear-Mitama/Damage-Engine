@@ -43,6 +43,7 @@
   "hint.damage-engine.mode.enhanced": "Move damage numbers away from crosshair",
   "hint.damage-engine.mode.cloud": "Gather damage numbers around crosshair",
   "hint.damage-engine.indicatorMode": "Enhanced: Move damage numbers away from crosshair.\nCloud: Gather damage numbers around crosshair.",
+  "hint.damage-engine.globalIndicatorMaxDistance": "In blocks, set 0 for unlimited",
 
   "option.damage-engine.showDamage": "HUD Display",
   "option.damage-engine.edit_pos_label": "Adjust HUD",

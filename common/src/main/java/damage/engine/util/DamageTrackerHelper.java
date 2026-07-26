@@ -8,6 +8,7 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.OwnableEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
+import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.phys.AABB;
@@ -73,7 +74,7 @@ public class DamageTrackerHelper {
         boolean isProjectile = false;
         double srcX, srcY, srcZ;
 
-        if (directSource instanceof Projectile) {
+        if (directSource instanceof Projectile && !(directSource instanceof ThrownPotion)) {
             isProjectile = true;
             srcX = directSource.getX();
             srcY = directSource.getY();
@@ -81,11 +82,12 @@ public class DamageTrackerHelper {
         } else if (attacker != null) {
             AABB box = self.getBoundingBox();
             srcX = Mth.clamp(attacker.getX(), box.minX, box.maxX);
-            srcY = Mth.clamp(attacker.getEyeY(), box.minY, box.maxY);
+            srcY = (box.minY + box.maxY) * 0.5;
             srcZ = Mth.clamp(attacker.getZ(), box.minZ, box.maxZ);
         } else {
+            AABB box = self.getBoundingBox();
             srcX = self.getX();
-            srcY = self.getY() + self.getEyeHeight() * 0.6;
+            srcY = (box.minY + box.maxY) * 0.5;
             srcZ = self.getZ();
         }
 
@@ -117,7 +119,7 @@ public class DamageTrackerHelper {
             logger.info(debugInfo);
         }
 
-        boolean killed = !self.isAlive() || self.getHealth() <= 0f;
+        boolean killed = (!self.isAlive() || self.getHealth() <= 0f) && snap.prevHealth > 0f;
 
         if (actualDamage > 0 || killed) {
             DamagePayload payload = new DamagePayload(self.getId(), actualDamage, snap.wasCrit,

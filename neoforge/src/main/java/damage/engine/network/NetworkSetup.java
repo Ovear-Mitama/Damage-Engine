@@ -62,6 +62,14 @@ public class NetworkSetup {
 
                     // Handle global damage indicators (damage caused by others)
                     if (!isSelfDamage && config.showGlobalDamageIndicator) {
+                        // Skip if attacker is invisible
+                        if (payload.attackerId() > 0 && mc.level != null) {
+                            net.minecraft.world.entity.Entity attackerEntity = mc.level.getEntity(payload.attackerId());
+                            if (attackerEntity instanceof net.minecraft.world.entity.LivingEntity le && le.isInvisible()) {
+                                return;
+                            }
+                        }
+
                         // Calculate distance for culling
                         double dx = payload.posX() - mc.player.getX();
                         double dy = payload.posY() - mc.player.getY();
@@ -88,6 +96,9 @@ public class NetworkSetup {
 
                     // Only process self damage for session tracking
                     if (!isSelfDamage) {
+                        if (config.recordOtherPlayers) {
+                            DamageSessionManager.getInstance().addOtherPlayerDamage(payload.amount(), payload.isCrit(), payload.attackerId());
+                        }
                         return;
                     }
 
