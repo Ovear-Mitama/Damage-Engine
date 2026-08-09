@@ -59,7 +59,11 @@ public class DamageSessionManager {
     }
 
     public void addOtherPlayerDamage(float amount, boolean isCrit, int attackerId) {
+        // Respect the "record other players" setting: when disabled, don't record/show other players' damage
+        if (!DamageEngineConfig.getInstance().recordOtherPlayers) return;
         long now = System.currentTimeMillis();
+        isActive = true;
+        lastHitTime = now;
         damageHistory.add(new DamageEntry(amount, isCrit, now, attackerId));
         int limit = DamageEngineConfig.getInstance().historyLimit;
         if (damageHistory.size() > limit) {

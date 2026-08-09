@@ -23,7 +23,7 @@ public abstract class PlayerEntityMixin {
         Player self = (Player) (Object) this;
         if (self.level().isClientSide()) return;
 
-        damageEngine$snap = DamageTrackerHelper.capturePreDamage(self, source);
+        damageEngine$snap = DamageTrackerHelper.capturePreDamage(self, source, amount);
     }
 
     @Inject(method = "hurt", at = @At("RETURN"), require = 0)
@@ -32,7 +32,8 @@ public abstract class PlayerEntityMixin {
         if (self.level().isClientSide()) return;
 
         if (damageEngine$snap != null) {
-            DamageTrackerHelper.broadcastPostDamage(self, source, damageEngine$snap, LOGGER);
+            boolean accepted = ci.getReturnValue() != null && ci.getReturnValue();
+            DamageTrackerHelper.broadcastPostDamage(self, source, damageEngine$snap, LOGGER, accepted);
             damageEngine$snap = null;
         }
     }

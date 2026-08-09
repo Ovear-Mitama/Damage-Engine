@@ -35,6 +35,10 @@
   "text.damage-engine.client_mode_warning": "当前为客户端模式：\n- 无法区分攻击者（会追踪所有伤害）\n- 无法判断暴击\n- 伤害位置不精确\n- 评分系统不可用",
   "text.damage-engine.client_mode_hint": "警告:当前为客户端模式\n伤害归属无法判断\n伤害精度受限",
 
+  "text.damage-engine.update_available": "检查到新版本%s，当前版本%s",
+  "text.damage-engine.update_latest": "当前版本:%s，已是最新版本",
+  "text.damage-engine.update_checking": "正在检查更新...",
+
   "hint.damage-engine.showDamageDisplay": "在界面上显示总伤害等信息",
   "hint.damage-engine.resetEnabled": "开启/关闭连击重置时间",
   "hint.damage-engine.showInfo": "在界面上显示实体生命值等信息",
@@ -109,6 +113,7 @@
   "option.damage-engine.total_damage_colors": "总伤害显示颜色",
   "option.damage-engine.damage_indicator_colors": "伤害跳字颜色",
   "option.damage-engine.shareDamage": "共享伤害",
+  "option.damage-engine.checkUpdate": "检查更新",
   "option.damage-engine.debugMode": "调试模式",
   "option.damage-engine.debugShowDamageInfo": "显示伤害信息",
   "option.damage-engine.debugShowRating": "显示当前评分",

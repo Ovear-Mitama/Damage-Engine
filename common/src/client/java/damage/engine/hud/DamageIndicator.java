@@ -1,6 +1,7 @@
 package damage.engine.hud;
 
 import damage.engine.DamageEngineConfig;
+import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -30,14 +31,25 @@ public class DamageIndicator {
     private static final float START_SCALE = 2.0f;
     private static final float END_SCALE = 1.0f;
 
+    /** Real game projection matrix, captured during world rendering. */
     private static Matrix4f capturedProjection = null;
+    /** Real game view (modelview) matrix, captured during world rendering. */
+    private static Matrix4f capturedViewMatrix = null;
     private static long lastCleanupTime = 0;
 
     public static void captureProjection(Matrix4f proj) {
         capturedProjection = proj;
     }
 
+    public static void captureMatrices(Matrix4f proj, Matrix4f view) {
+        capturedProjection = proj;
+        capturedViewMatrix = view;
+    }
+
     public static class Indicator {
+        /** Victim entity to anchor the float to; -1 = fixed world position. */
+        final int entityId;
+        /** Fallback world position (server snapshot), used while the entity is gone. */
         final double x, y, z;
         final float damage;
         final boolean isCrit;
@@ -51,7 +63,8 @@ public class DamageIndicator {
         // Same angle used for both ring spawn position and drift direction
         final float spawnAngle;
 
-        Indicator(double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
+        Indicator(int entityId, double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
+            this.entityId = entityId;
             this.x = x;
             this.y = y;
             this.z = z;
@@ -70,13 +83,18 @@ public class DamageIndicator {
         }
     }
 
-    public static void addIndicator(double x, double y, double z, float damage, boolean isCrit, boolean isKill) {
-        addIndicator(x, y, z, damage, isCrit, isKill, false);
+    /**
+     * @param entityId victim entity to anchor the float to (its live position is used
+     *                 every frame while it exists); pass -1 to pin to the given world
+     *                 coordinates
+     */
+    public static void addIndicator(int entityId, double x, double y, double z, float damage, boolean isCrit, boolean isKill) {
+        addIndicator(entityId, x, y, z, damage, isCrit, isKill, false);
     }
 
-    public static void addIndicator(double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
+    public static void addIndicator(int entityId, double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
         synchronized (indicators) {
-            indicators.add(new Indicator(x, y, z, damage, isCrit, isKill, isHeal));
+            indicators.add(new Indicator(entityId, x, y, z, damage, isCrit, isKill, isHeal));
             while (indicators.size() > MAX_INDICATORS) {
                 indicators.remove(0);
             }
@@ -106,21 +124,39 @@ public class DamageIndicator {
 
         synchronized (indicators) {
             if (indicators.isEmpty()) return;
-            if (capturedProjection == null) return;
 
+            // Build the view/projection matrices from the live camera every frame,
+            // identical to what the game itself renders with. No matrix capture is
+            // needed (capture timing/content caused all floats to collapse to one
+            // screen position).
             Camera camera = client.gameRenderer.getMainCamera();
             Vec3 camPos = camera.getPosition();
-            Matrix4f projectionMatrix = capturedProjection;
-
-            Matrix4f viewMatrix = new Matrix4f()
-                .translate((float) camPos.x, (float) camPos.y, (float) camPos.z)
-                .rotate(camera.rotation())
-                .invert();
-
-            Matrix4f viewProjMatrix = new Matrix4f(projectionMatrix).mul(viewMatrix);
-
             int screenW = client.getWindow().getGuiScaledWidth();
             int screenH = client.getWindow().getGuiScaledHeight();
+            float aspect = (float) screenW / (float) screenH;
+
+            // View/projection for MC 1.20.1. Two paths:
+            // 1) Captured matrices (preferred): the game's modelview is camera-
+            //    relative (pure rotation, m30/m31/m32 = 0), so the float world pos
+            //    must be shifted by -camera pos BEFORE multiplying, exactly like the
+            //    game's own entity vertices.
+            // 2) Self-built fallback: full view matrix containing translation, so
+            //    absolute world coords are used directly (with a clip-Y flip which
+            //    user tests proved is needed for this fallback).
+            boolean useCaptured = capturedProjection != null && capturedViewMatrix != null;
+            Matrix4f viewProjMatrix;
+            if (useCaptured) {
+                viewProjMatrix = new Matrix4f(capturedProjection).mul(capturedViewMatrix);
+            } else {
+                Matrix4f viewMatrix = new Matrix4f()
+                    .rotate(camera.rotation())
+                    .translate((float) -camPos.x, (float) -camPos.y, (float) -camPos.z);
+                Matrix4f projectionMatrix = capturedProjection != null
+                    ? new Matrix4f(capturedProjection)
+                    : new Matrix4f().perspective((float) Math.toRadians(client.options.fov().get()), aspect, 0.05f, 1000.0f);
+                viewProjMatrix = new Matrix4f(projectionMatrix).mul(viewMatrix);
+            }
+
             long now = System.currentTimeMillis();
             Font font = client.font;
 
@@ -133,15 +169,28 @@ public class DamageIndicator {
             for (Indicator ind : indicators) {
                 float age = (now - ind.spawnTime) / 1000f;
                 if (age < 0) continue;
-                float totalDuration = TOTAL_DURATION;
-                if (age > totalDuration) continue;
+                if (age > TOTAL_DURATION) continue;
 
-                // Only skip if entity is behind the camera
-                Vector4f worldPos = new Vector4f((float) ind.x, (float) ind.y, (float) ind.z, 1.0f);
-                worldPos.mul(viewProjMatrix);
+                // The float is pinned to the world position where the hit happened
+                // (server snapshot) - it does NOT follow the entity as it moves
+                // (classic damage-number behaviour).
+                double wx = ind.x, wy = ind.y, wz = ind.z;
+
+                Vector4f worldPos;
+                if (useCaptured) {
+                    // camera-relative: shift by -camera pos first
+                    worldPos = new Vector4f((float) (wx - camPos.x), (float) (wy - camPos.y), (float) (wz - camPos.z), 1.0f);
+                    worldPos.mul(viewProjMatrix);
+                } else {
+                    worldPos = new Vector4f((float) wx, (float) wy, (float) wz, 1.0f);
+                    worldPos.mul(viewProjMatrix);
+                    // MC 1.20.1 pitch fix for the self-built fallback (logs proved X
+                    // was correct but Y was inverted). Not needed for captured matrices.
+                    worldPos.y = -worldPos.y;
+                }
+                // Skip only if the anchor is behind the camera
                 if (worldPos.w() <= 0.001f) continue;
 
-                // Still compute NDC for blending, but don't cull based on off-screen position
                 float ndcX = worldPos.x() / worldPos.w();
                 float ndcY = worldPos.y() / worldPos.w();
 
@@ -163,9 +212,12 @@ public class DamageIndicator {
 
                 // Ring area offset from entity, scaled by distance (slightly offset from crosshair)
                 int seed = (int)(ind.spawnTime % 1000);
-                float ringRadius = (12f + (seed * 13) % 12) * distFactor;
+                float ringRadius = (18f + (seed * 13) % 14) * distFactor;
                 screenX += ind.moveDirX * ringRadius;
                 screenY += ind.moveDirY * ringRadius;
+
+                // Screen-space offset to place the float above the entity (scales with distance)
+                screenY -= 20f * distFactor;
 
                 // Animation phases
                 float scale;
@@ -241,7 +293,14 @@ public class DamageIndicator {
                 toRender.add(new RenderedIndicator(text, finalX, finalY, finalScale, color, ind.isKill));
             }
 
-            // Render all indicators
+            // Render all indicators. TaCZ's crosshair hit feedback enables depth
+            // test / blend and never restores them, so later HUD draws (ours at the
+            // Gui TAIL included) inherit polluted state and flicker in sync with the
+            // crosshair. Force a stable state for our text, then leave a clean GUI
+            // state behind for anything rendered afterwards.
+            RenderSystem.disableDepthTest();
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
             for (RenderedIndicator ri : toRender) {
                 guiGraphics.pose().pushPose();
                 guiGraphics.pose().translate(ri.x, ri.y, 0);
@@ -261,6 +320,10 @@ public class DamageIndicator {
 
                 guiGraphics.pose().popPose();
             }
+            // Leave clean state for the rest of the frame / next frame.
+            RenderSystem.enableBlend();
+            RenderSystem.defaultBlendFunc();
+            RenderSystem.disableDepthTest();
         }
     }
 

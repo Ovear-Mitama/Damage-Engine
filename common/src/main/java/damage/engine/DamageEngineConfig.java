@@ -83,6 +83,9 @@ public class DamageEngineConfig {
     public boolean debugShowDamageInfo = false;
     public boolean debugShowRating = false;
     
+    // ========== Update Check ==========
+    public boolean checkUpdate = true;
+    
     // ========== Preview ==========
     public boolean previewEnabled = false;
     public boolean hasShownWelcomeMessage = false;
@@ -326,6 +329,9 @@ public class DamageEngineConfig {
         this.debugShowDamageInfo = loaded.debugShowDamageInfo;
         this.debugShowRating = loaded.debugShowRating;
         
+        // Update Check
+        this.checkUpdate = loaded.checkUpdate;
+        
         // Preview
         this.previewEnabled = loaded.previewEnabled;
         this.hasShownWelcomeMessage = loaded.hasShownWelcomeMessage;
@@ -434,6 +440,9 @@ public class DamageEngineConfig {
         debugMode = false;
         debugShowDamageInfo = false;
         debugShowRating = false;
+        
+        // Update Check
+        checkUpdate = true;
         
         // Preview
         previewEnabled = false;

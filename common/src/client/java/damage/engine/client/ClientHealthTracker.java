@@ -7,7 +7,6 @@ import damage.engine.hud.DamageSessionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
 
 /**
  * Client-side health tracker that detects damage by monitoring entity health changes.
@@ -47,27 +46,16 @@ public class ClientHealthTracker {
                 double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
                 if (distance <= config.globalIndicatorMaxDistance) {
-                    Vec3 pos = DamageEngineClient.blendIndicatorPos(
-                        entity.getX(),
-                        entity.getY() + entity.getEyeHeight() * 0.6,
-                        entity.getZ(),
-                        entity.getId()
-                    );
-
-                    if (config.showDamageIndicator && damageAmount > 0 && !killed) {
-                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                            damageAmount,
-                            false,  // Cannot detect crit in client-only mode
-                            false
-                        );
+                    if (config.showDamageIndicator && damageAmount > 0) {
+                        DamageIndicator.addIndicator(entity.getId(), entity.getX(),
+                            entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(),
+                            damageAmount, false, killed);
                     }
 
                     if (config.showKillIndicator && killed) {
-                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                            damageAmount,
-                            false,
-                            true
-                        );
+                        DamageIndicator.addIndicator(entity.getId(), entity.getX(),
+                            entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(),
+                            damageAmount, false, true);
                     }
                 }
             }
@@ -89,28 +77,16 @@ public class ClientHealthTracker {
         DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(), preferSwitchTarget);
 
         // Blend indicator position toward crosshair hit point
-        Vec3 pos = DamageEngineClient.blendIndicatorPos(
-            entity.getX(),
-            entity.getY() + entity.getEyeHeight() * 0.6,
-            entity.getZ(),
-            entity.getId()
-        );
-
-        // Add damage indicator using blended position
-        if (config.showDamageIndicator && damageAmount > 0 && !killed) {
-            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                damageAmount,
-                false,  // Cannot detect crit in client-only mode
-                false
-            );
+        if (config.showDamageIndicator && damageAmount > 0) {
+            DamageIndicator.addIndicator(entity.getId(), entity.getX(),
+                entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(),
+                damageAmount, false, killed);
         }
 
         if (config.showKillIndicator && killed) {
-            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                damageAmount,
-                false,
-                true
-            );
+            DamageIndicator.addIndicator(entity.getId(), entity.getX(),
+                entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(),
+                damageAmount, false, true);
         }
     }
 }

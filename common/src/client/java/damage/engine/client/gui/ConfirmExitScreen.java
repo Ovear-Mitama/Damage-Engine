@@ -5,6 +5,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 
 /**
  * Custom-styled confirmation dialog for unsaved changes.
@@ -31,12 +32,12 @@ public class ConfirmExitScreen extends Screen {
 
         // Cancel button (left) - returns to settings
         this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX - 105, buttonY, 100, 20,
-            Component.translatable("gui.cancel").withColor(0xFFFC887E),
+            Component.translatable("gui.cancel").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))),
             () -> mcl.setScreen(settingsScreen)));
 
         // Confirm button (right) - discards changes and exits
         this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX + 5, buttonY, 100, 20,
-            Component.translatable("gui.confirm").withColor(0xFFB7F3C8),
+            Component.translatable("gui.confirm").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFB7F3C8))),
             () -> {
                 config.load();
                 mcl.setScreen(parent);
@@ -45,7 +46,7 @@ public class ConfirmExitScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, delta);
+        this.renderBackground(guiGraphics);
 
         // Warning message
         String msg = Component.translatable("text.damage-engine.unsaved_changes").getString();

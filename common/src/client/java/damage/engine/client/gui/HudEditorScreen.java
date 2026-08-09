@@ -7,6 +7,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -71,7 +72,7 @@ public class HudEditorScreen extends Screen {
         
         redoBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.redo"), this::redo);
             
-        resetBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.reset").withColor(0xFFFC887E), this::handleResetClick);
+        resetBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))), this::handleResetClick);
             
         this.addRenderableWidget(undoBtn);
         this.addRenderableWidget(redoBtn);
@@ -83,13 +84,13 @@ public class HudEditorScreen extends Screen {
     private void handleResetClick() {
         if (resetButtonState == 0) {
             resetButtonState = 1;
-            resetBtn.setMessage(Component.translatable("gui.confirm").append("?").withColor(0xFFFC887E));
+            resetBtn.setMessage(Component.translatable("gui.confirm").append("?").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
             resetButtonActionTime = System.currentTimeMillis();
         } else if (resetButtonState == 1) {
             resetButtonState = 2;
             resetButtonActionTime = System.currentTimeMillis();
             resetAllModules();
-            resetBtn.setMessage(Component.translatable("text.damage-engine.reset_done").withColor(0xFFB5F0C6));
+            resetBtn.setMessage(Component.translatable("text.damage-engine.reset_done").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFB5F0C6))));
         }
     }
     
@@ -100,12 +101,12 @@ public class HudEditorScreen extends Screen {
         if (resetButtonState == 2) {
             if (System.currentTimeMillis() - resetButtonActionTime > 3000) {
                 resetButtonState = 0;
-                resetBtn.setMessage(Component.translatable("hud.editor.reset").withColor(0xFFFC887E));
+                resetBtn.setMessage(Component.translatable("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
             }
         } else if (resetButtonState == 1) {
              if (System.currentTimeMillis() - resetButtonActionTime > 5000) {
                  resetButtonState = 0;
-                 resetBtn.setMessage(Component.translatable("hud.editor.reset").withColor(0xFFFC887E));
+                 resetBtn.setMessage(Component.translatable("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
              }
         }
     }
@@ -174,7 +175,7 @@ public class HudEditorScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, delta);
+        this.renderBackground(guiGraphics);
         
         for (EditorModule m : modules) {
             renderModule(guiGraphics, m);
@@ -358,8 +359,7 @@ public class HudEditorScreen extends Screen {
     
     @Override
     public void onClose() {
-        config.save();
-        minecraft.setScreen(parent);
+        this.minecraft.setScreen(new ConfirmHudSaveScreen(this, parent, config));
     }
     
     private static class EditorModule {
@@ -373,5 +373,50 @@ public class HudEditorScreen extends Screen {
     private record ModuleSnapshot(float x, float y, float scale, boolean enabled) {
         public ModuleSnapshot(DamageEngineConfig.ModuleConfig c) { this(c.x, c.y, c.scale, c.enabled); }
         public void apply(DamageEngineConfig.ModuleConfig c) { c.x = x; c.y = y; c.scale = scale; c.enabled = enabled; }
+    }
+
+    /** Simple confirmation dialog when closing the HUD editor. */
+    static class ConfirmHudSaveScreen extends Screen {
+        private final Screen hudEditor;
+        private final Screen parent;
+        private final DamageEngineConfig config;
+
+        protected ConfirmHudSaveScreen(Screen hudEditor, Screen parent, DamageEngineConfig config) {
+            super(Component.translatable("text.damage-engine.unsaved_changes"));
+            this.hudEditor = hudEditor;
+            this.parent = parent;
+            this.config = config;
+        }
+
+        @Override
+        protected void init() {
+            int btnW = 80;
+            int btnH = 20;
+            int cx = this.width / 2;
+            int cy = this.height / 2;
+
+            this.addRenderableWidget(new DamageConfigScreen.StyledButton(cx - btnW - 5, cy + 20, btnW, btnH,
+                Component.translatable("gui.done").withStyle(s -> s.withColor(TextColor.fromRgb(0xFFB5F0C6))),
+                () -> {
+                    config.save();
+                    this.minecraft.setScreen(parent);
+                }));
+
+            this.addRenderableWidget(new DamageConfigScreen.StyledButton(cx + 5, cy + 20, btnW, btnH,
+                Component.translatable("gui.cancel").withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFC887E))),
+                () -> this.minecraft.setScreen(parent)));
+        }
+
+        @Override
+        public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+            this.renderBackground(guiGraphics);
+            guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 10, 0xFFFFFFFF);
+            super.render(guiGraphics, mouseX, mouseY, delta);
+        }
+
+        @Override
+        public boolean shouldCloseOnEsc() {
+            return false;
+        }
     }
 }
