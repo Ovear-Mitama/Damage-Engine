@@ -1,0 +1,16 @@
+{
+	"required": false,
+	"package": "damage.engine.mixin",
+	"compatibilityLevel": "JAVA_17",
+	"mixins": [
+		"TaczGunHurtMixin"
+	],
+	"custom": {
+		"fabric-loom:conditional-mixins": [
+			"tacz"
+		]
+	},
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

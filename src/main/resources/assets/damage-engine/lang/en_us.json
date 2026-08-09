@@ -35,6 +35,10 @@
   "text.damage-engine.client_mode_warning": "Client-Only Mode:\n- Cannot identify attacker (all damage tracked)\n- Cannot detect critical hits\n- Damage position is approximate\n- Rating system unavailable",
   "text.damage-engine.client_mode_hint": "Warning: Client-Only Mode\nDamage source unknown\nAccuracy limited",
 
+  "text.damage-engine.update_available": "New version available %s, current version %s",
+  "text.damage-engine.update_latest": "Current version: %s, up to date",
+  "text.damage-engine.update_checking": "Checking for updates...",
+
   "hint.damage-engine.showDamageDisplay": "Show total damage and related info on the UI",
   "hint.damage-engine.resetEnabled": "Enable/Disable combo reset timer",
   "hint.damage-engine.showInfo": "Show entity HP and related info on HUD",
@@ -109,6 +113,7 @@
   "option.damage-engine.total_damage_colors": "Total Damage Display Colors",
   "option.damage-engine.damage_indicator_colors": "Damage Indicator Colors",
   "option.damage-engine.shareDamage": "Share Damage",
+  "option.damage-engine.checkUpdate": "Check Update",
   "option.damage-engine.debugMode": "Debug Mode",
   "option.damage-engine.debugShowDamageInfo": "Show Damage Info",
   "option.damage-engine.debugShowRating": "Show Current Rating",

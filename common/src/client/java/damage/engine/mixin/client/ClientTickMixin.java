@@ -9,6 +9,7 @@ import damage.engine.hud.DamageSessionManager;
 import damage.engine.hud.DamageIndicator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -33,6 +34,10 @@ public class ClientTickMixin {
                             DamageEngineClient.serverHasMod = true;
                         } else {
                             DamageEngineClient.serverHasMod = false;
+                            // Platform-specific handshake: ask server if it has the mod
+                            if (DamageEngineClient.handshakeSender != null) {
+                                DamageEngineClient.handshakeSender.run();
+                            }
                         }
                         DamageEngineClient.serverModChecked = true;
                     }
@@ -42,7 +47,7 @@ public class ClientTickMixin {
             DamageEngineConfig config = DamageEngineConfig.getInstance();
             if (!config.hasShownWelcomeMessage) {
                 client.player.displayClientMessage(
-                    Component.translatable("text.damage-engine.welcome_message").withColor(0xB1EAC2),
+                    Component.translatable("text.damage-engine.welcome_message").withStyle(style -> style.withColor(TextColor.fromRgb(0xB1EAC2))),
                     false
                 );
                 config.hasShownWelcomeMessage = true;
@@ -65,6 +70,15 @@ public class ClientTickMixin {
                     DamageSessionManager.getInstance().reset();
                     DamageIndicator.clearAll();
                 }
+            }
+
+            // TEMP DEBUG (throttled): keybind state diagnostics
+            if ((client.player.tickCount % 100) == 0) {
+                org.slf4j.LoggerFactory.getLogger("damage-engine-keybinds").info(
+                    "[DE-KEY] cfgNonNull={} toggleNonNull={} clearNonNull={}",
+                    ClientKeybindings.configKeyBinding != null,
+                    ClientKeybindings.toggleHudKeyBinding != null,
+                    ClientKeybindings.clearDamageKeyBinding != null);
             }
         }
 

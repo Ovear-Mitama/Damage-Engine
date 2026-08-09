@@ -82,7 +82,7 @@ public class LivingEntityClientMixin {
                         double posX = self.getX();
                         double posY = self.getY() + self.getEyeHeight() * 0.6;
                         double posZ = self.getZ();
-                        DamageIndicator.addIndicator(posX, posY, posZ, healAmount, false, false, true);
+                        DamageIndicator.addIndicator(self.getId(), posX, posY, posZ, healAmount, false, false, true);
                     }
                 }
             }

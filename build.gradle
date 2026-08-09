@@ -1,5 +1,5 @@
 plugins {
-	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'fabric-loom' version "${loom_version}"
 	id 'maven-publish'
 }
 
@@ -16,6 +16,20 @@ repositories {
     maven { url "https://maven.fabricmc.net/" }
     maven { url "https://mirrors.cloud.tencent.com/nexus/repository/maven-public/" }
     maven { url "https://maven.aliyun.com/repository/public" }
+    maven {
+        name = "Curse Maven"
+        url = "https://www.cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content {
+            includeGroup "maven.modrinth"
+        }
+    }
 }
 
 loom {
@@ -28,7 +42,6 @@ loom {
             sourceSet sourceSets.client
         }
     }
-
 }
 
 // Include common shared sources
@@ -57,6 +70,14 @@ dependencies {
     // ModMenu (optional, for config screen integration)
     modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
     modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+    // TaCZ: Refabricated - Fabric port of Timeless and Classics Zero (compileOnly, optional at runtime)
+    // Synced with Forge-side TACZ 1.1.8-hotfix.
+    // NOTE: NOT added to modLocalRuntime - loom does not unpack TACZ's jar-in-jar deps (LuaJ etc.)
+    // on the dev classpath, causing NoClassDefFoundError. Load it from run/mods instead (see README).
+    modCompileOnly "curse.maven:tacz-refabricated-1334246:${project.tacz_refabricated_file_id}"
+    // Forge Config API Port - required runtime dependency of TaCZ: Refabricated
+    modLocalRuntime "maven.modrinth:forge-config-api-port:${project.forge_config_api_port_version}"
 }
 
 processResources {
@@ -68,20 +89,24 @@ processResources {
 }
 
 tasks.withType(JavaCompile).configureEach {
-	it.options.release = 21
+	it.options.release = 17
+}
+
+// MC 1.20.1 / LWJGL 3.3.1 must run on Java 17 (JDK 21 crashes runClient with "Unsupported JNI version")
+tasks.named('runClient', JavaExec) {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
 }
 
 java {
-	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
-	// if it is present.
-	// If you remove this line, sources will not be generated.
 	withSourcesJar()
 
-	sourceCompatibility = JavaVersion.VERSION_21
-	targetCompatibility = JavaVersion.VERSION_21
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
 	
 	toolchain {
-		languageVersion = JavaLanguageVersion.of(21)
+		languageVersion = JavaLanguageVersion.of(17)
 	}
 }
 
@@ -104,11 +129,7 @@ publishing {
 		}
 	}
 
-	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
 	repositories {
 		// Add repositories to publish to here.
-		// Notice: This block does NOT have the same function as the block in the top level.
-		// The repositories here will be used for publishing your artifact, not for
-		// retrieving dependencies.
 	}
 }

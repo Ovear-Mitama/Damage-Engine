@@ -5,8 +5,7 @@ import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.resources.PlayerSkin;
+import net.minecraft.client.gui.components.PlayerFaceRenderer;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -49,20 +48,33 @@ public class DamageHud {
     private boolean infoHasSnapshot = false;
     private String infoName = "";
     private boolean infoIsPlayer = false;
-    private PlayerSkin infoPlayerSkin = null;
-    private PlayerSkin infoPrevPlayerSkin = null;
+    private ResourceLocation infoResourceLocation = null;
+    private ResourceLocation infoPrevResourceLocation = null;
     private float infoHealth = 0f;
     private float infoMaxHealth = 1f;
     private float infoAbsorption = 0f;
 
 
     private long historyAnimStartTime = 0;
-    private long lastNewestTimestamp = 0;
     private int prevAnimSize = 0;
-    private static final long HISTORY_ANIM_MS = 150;
+    private int prevHistorySize = 0;
+    private static final long HISTORY_ANIM_MS = 188;
     private float contentRightX = 20f;
     private String previewGrade = "";
     private int previewGradeColor = 0xFFFFFFFF;
+
+    private static final ResourceLocation STEVE_SKIN = new ResourceLocation("textures/entity/player/wide/steve.png");
+
+    /**
+     * Get the player's skin texture. Uses in-game player if available, otherwise Steve fallback.
+     * When you're in-game, this returns your own skin.
+     */
+    private static ResourceLocation getPlayerSkin(Minecraft client) {
+        if (client.player != null) {
+            return client.player.getSkinTextureLocation();
+        }
+        return new ResourceLocation("textures/entity/player/wide/steve.png");
+    }
 
     public void cyclePreviewGrades() {
         List<DamageEngineConfig.RatingGrade> grades = DamageEngineConfig.getInstance().ratingGrades;
@@ -73,7 +85,7 @@ public class DamageHud {
         }
     }
 
-    public void onHudRender(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
+    public void onHudRender(GuiGraphics guiGraphics, float partialTick) {
         try {
             Minecraft client = Minecraft.getInstance();
             if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
@@ -232,7 +244,7 @@ public class DamageHud {
                         throw new Exception("Failed to read native image");
                     }
 
-                    ResourceLocation texId = ResourceLocation.fromNamespaceAndPath("damage-engine", "rating_" + imagePath);
+                    ResourceLocation texId = new ResourceLocation("damage-engine", "rating_" + imagePath);
                     net.minecraft.client.renderer.texture.DynamicTexture dynamicTexture = new net.minecraft.client.renderer.texture.DynamicTexture(nativeImage);
                     client.getTextureManager().register(texId, dynamicTexture);
 
@@ -425,33 +437,27 @@ public class DamageHud {
         List<DamageSessionManager.DamageEntry> renderList = (history != null) ? new java.util.ArrayList<>(history) : java.util.Collections.emptyList();
 
         long now = System.currentTimeMillis();
-        long newestTs = renderList.isEmpty() ? 0 : renderList.get(renderList.size() - 1).timestamp();
-        if (newestTs != lastNewestTimestamp) {
-            prevAnimSize = (lastNewestTimestamp == 0) ? renderList.size() : Math.max(0, renderList.size() - 1);
+        if (renderList.size() != prevHistorySize) {
+            prevAnimSize = prevHistorySize;
             historyAnimStartTime = now;
-            lastNewestTimestamp = newestTs;
+            prevHistorySize = renderList.size();
             if (renderList.size() <= 1) prevAnimSize = 0;
         }
 
-        float animProgress = isPreview ? 1.0f : Mth.clamp((now - historyAnimStartTime) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
-        int growthAmount = Math.max(0, renderList.size() - prevAnimSize);
+        // No slide/fade animation: new entries appear instantly and existing rows
+        // stay put. The old per-hit slide-in animation restarted on every new
+        // damage record, which looked like flicker during rapid hits.
+        float animProgress = 1.0f;
+        int growthAmount = 0;
 
         int baseY = 15;
 
-        // Player avatar for preview when recording other players
-        PlayerSkin previewSkin = null;
-        if (isPreview && recordOtherPlayers) {
-            if (client.player != null) {
-                previewSkin = client.player.getSkin();
-            }
-            if (previewSkin == null) {
-                com.mojang.authlib.GameProfile profile = client.getGameProfile();
-                if (profile != null) {
-                    previewSkin = client.getSkinManager().getInsecureSkin(profile);
-                }
-            }
+        // Player avatar for preview
+        ResourceLocation previewSkin = null;
+        if (isPreview) {
+            previewSkin = getPlayerSkin(client);
         }
-        int avatarGap = (previewSkin != null) ? 11 : 0;
+        int avatarGap = (isPreview && previewSkin != null && recordOtherPlayers) ? 11 : 0;
 
         for (int i = renderList.size() - 1; i >= 0; i--) {
             if (renderIndex >= limit) break;
@@ -472,10 +478,10 @@ public class DamageHud {
                 }
             }
 
-            boolean isNewest = (i == renderList.size() - 1) && !isPreview && animProgress < 1.0f;
+            boolean isNewEntry = !isPreview && renderIndex < growthAmount && animProgress < 1.0f;
             float slideOffsetX = 0f;
             float slideAlphaMul = 1.0f;
-            if (isNewest) {
+            if (isNewEntry) {
                 slideOffsetX = (1.0f - animProgress) * 20f;
                 slideAlphaMul = animProgress;
             }
@@ -495,7 +501,6 @@ public class DamageHud {
             int textWidth = font.width(valText);
 
             float targetY = baseY + renderIndex * 10;
-            boolean isNewEntry = renderIndex < growthAmount;
             float yPos;
             if (!isPreview && growthAmount > 0 && !isNewEntry && animProgress < 1.0f) {
                 float oldY = targetY - growthAmount * 10;
@@ -506,24 +511,25 @@ public class DamageHud {
 
             float xPos = contentRightX - textWidth + slideOffsetX;
 
-            // Draw player avatar for other players' damage entries
+            // Draw the OTHER player's avatar next to their damage entry (own entries get no avatar)
             if (!isPreview && recordOtherPlayers && entry.attackerId() > 0 && client.level != null) {
                 Entity attackerEntity = client.level.getEntity(entry.attackerId());
                 if (attackerEntity instanceof AbstractClientPlayer attackerPlayer) {
-                    PlayerSkin skin = attackerPlayer.getSkin();
+                    ResourceLocation skin = attackerPlayer.getSkinTextureLocation();
                     if (skin != null) {
-                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
-                        drawPlayerFace(guiGraphics, skin.texture(), (int)(xPos - 11), (int)yPos, 8, true);
-                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+                        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
+                        // drawString's y is the text top; align the avatar's top with it
+                        PlayerFaceRenderer.draw(guiGraphics, skin, (int)(xPos - 11), (int)yPos, 8);
+                        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
                     }
                 }
             }
 
             // Draw player avatar for preview mode
             if (avatarGap > 0 && previewSkin != null) {
-                guiGraphics.setColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
-                drawPlayerFace(guiGraphics, previewSkin.texture(), (int)(xPos - avatarGap), (int)yPos, 8, true);
-                guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+                com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
+                PlayerFaceRenderer.draw(guiGraphics, previewSkin, (int)(xPos - avatarGap), (int)yPos, 8);
+                com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             }
 
             guiGraphics.drawString(font, valText, (int)xPos, (int)yPos, itemColorWithAlpha);
@@ -560,7 +566,7 @@ public class DamageHud {
                     infoPrevLagRatio = infoLagRatio;
                     infoPrevHealRatio = infoHealRatio;
                     infoPrevDamageTailActive = infoDamageTailActive;
-                    infoPrevPlayerSkin = infoPlayerSkin;
+                    infoPrevResourceLocation = infoResourceLocation;
                     infoSwitching = true;
                     infoSwitchStartMs = now;
                 } else {
@@ -575,6 +581,9 @@ public class DamageHud {
                 infoDamageTailActive = false;
                 infoDamageTailPending = false;
                 infoHealthLastUpdateMs = 0;
+                // Update avatar state when target changes
+                infoAvatarFactor = targetAvatar ? 1.0f : 0.0f;
+                infoAvatarAlpha = infoAvatarFactor;
             }
 
             captureInfoSnapshot(target);
@@ -582,9 +591,7 @@ public class DamageHud {
             infoAlpha = 1.0f;
             infoDeathDrain = false;
             if (wasInactive) {
-                infoAvatarFactor = targetAvatar ? 1.0f : 0.0f;
-                infoAvatarAlpha = infoAvatarFactor;
-                infoPrevPlayerSkin = null;
+                infoPrevResourceLocation = null;
             }
             return;
         }
@@ -596,7 +603,7 @@ public class DamageHud {
                 infoHasSnapshot = true;
                 infoName = "";
                 infoIsPlayer = false;
-                infoPlayerSkin = null;
+                infoResourceLocation = null;
                 infoMaxHealth = 1f;
             }
             infoHealth = 0f;
@@ -662,9 +669,9 @@ public class DamageHud {
         infoName = target.getName().getString();
         infoIsPlayer = target instanceof AbstractClientPlayer;
         if (infoIsPlayer) {
-            infoPlayerSkin = ((AbstractClientPlayer) target).getSkin();
+            infoResourceLocation = ((AbstractClientPlayer) target).getSkinTextureLocation();
         } else {
-            infoPlayerSkin = null;
+            infoResourceLocation = null;
         }
         infoHealth = target.getHealth();
         float newMaxHealth = target.getMaxHealth();
@@ -682,24 +689,18 @@ public class DamageHud {
         float absorption;
         String fullName;
         boolean isPlayer;
-        PlayerSkin playerSkin;
+        ResourceLocation playerSkin;
 
         if (isPreview) {
             health = 10.0f;
             maxHealth = 20.0f;
             absorption = 0.0f;
             isPlayer = true;
-            com.mojang.authlib.GameProfile profile = client.getGameProfile();
             fullName = client.player != null ? client.player.getName().getString() : "Player";
-            if (client.player != null) {
-                playerSkin = client.player.getSkin();
-            } else if (profile != null) {
-                playerSkin = client.getSkinManager().getInsecureSkin(profile);
-            } else {
-                playerSkin = null;
-            }
+            playerSkin = getPlayerSkin(client);
             infoAvatarFactor = 1.0f;
             infoAvatarAlpha = 1.0f;
+            infoSwitching = false;
         } else {
             if (!infoHasSnapshot) return;
             health = infoHealth;
@@ -707,7 +708,7 @@ public class DamageHud {
             absorption = infoAbsorption;
             fullName = infoName;
             isPlayer = infoIsPlayer;
-            playerSkin = infoPlayerSkin;
+            playerSkin = infoResourceLocation;
         }
 
         int hp = Math.max(0, Math.round(health + absorption));
@@ -772,7 +773,7 @@ public class DamageHud {
         int avatarDrawX = (int)Math.round(contentLeft + avatarSlot - avatarSlotFull);
         int avatarY = (int)Math.round(baseY + (panelH - avatarSize) / 2.0);
 
-        PlayerSkin skinToDraw = playerSkin;
+        ResourceLocation skinToDraw = playerSkin;
 
         float switchT = 1.0f;
         if (infoSwitching) {
@@ -780,7 +781,7 @@ public class DamageHud {
             if (switchT >= 1.0f) {
                 switchT = 1.0f;
                 infoSwitching = false;
-                infoPrevPlayerSkin = null;
+                infoPrevResourceLocation = null;
             } else if (switchT < 0.0f) {
                 switchT = 0.0f;
             }
@@ -788,7 +789,7 @@ public class DamageHud {
             switchT = 1.0f;
         }
 
-        boolean isSameSkin = (infoPrevPlayerSkin != null && skinToDraw != null && infoPrevPlayerSkin.texture().equals(skinToDraw.texture()));
+        boolean isSameSkin = (infoPrevResourceLocation != null && skinToDraw != null && infoPrevResourceLocation.equals(skinToDraw));
 
         if (infoAvatarAlpha > 0.01f) {
             guiGraphics.pose().pushPose();
@@ -800,28 +801,28 @@ public class DamageHud {
             if (isSameSkin || !infoSwitching) {
                 if (skinToDraw != null) {
                     float fade = infoAvatarAlpha * globalAlpha;
-                    guiGraphics.setColor(1.0f, 1.0f, 1.0f, fade);
-                    drawPlayerFace(guiGraphics, skinToDraw.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
+                    com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, fade);
+                    PlayerFaceRenderer.draw(guiGraphics, skinToDraw, avatarDrawX + 1, avatarY + 1, 16);
                 }
             } else {
                 if (switchT < 0.5f) {
-                    if (infoPrevPlayerSkin != null) {
+                    if (infoPrevResourceLocation != null) {
                         float localT = switchT * 2.0f;
                         float alpha = infoAvatarAlpha * (1.0f - localT) * globalAlpha;
-                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
-                        drawPlayerFace(guiGraphics, infoPrevPlayerSkin.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
+                        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
+                        PlayerFaceRenderer.draw(guiGraphics, infoPrevResourceLocation, avatarDrawX + 1, avatarY + 1, 16);
                     }
                 } else {
                     if (skinToDraw != null) {
                         float localT = (switchT - 0.5f) * 2.0f;
                         float alpha = infoAvatarAlpha * localT * globalAlpha;
-                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
-                        drawPlayerFace(guiGraphics, skinToDraw.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
+                        com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
+                        PlayerFaceRenderer.draw(guiGraphics, skinToDraw, avatarDrawX + 1, avatarY + 1, 16);
                     }
                 }
             }
 
-            guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
+            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
             guiGraphics.pose().popPose();
         }
@@ -981,12 +982,18 @@ public class DamageHud {
         }
 
         boolean hasAbsorption = absorption > 0.01f;
-        ResourceLocation heartTexture = ResourceLocation.withDefaultNamespace(hasAbsorption ? "hud/heart/absorbing_full" : "hud/heart/full");
+        ResourceLocation GUI_ICONS = new ResourceLocation("textures/gui/icons.png");
 
         Component hpText = Component.literal(hp + "/" + maxHp);
         guiGraphics.drawString(font, hpText, textX + 10, textYHp, textColor);
-        guiGraphics.blitSprite(ResourceLocation.withDefaultNamespace("hud/heart/container"), textX, textYHp, 9, 9);
-        guiGraphics.blitSprite(heartTexture, textX, textYHp, 9, 9);
+        // Container heart (u=16, v=0, 9x9)
+        guiGraphics.blit(GUI_ICONS, textX, textYHp, 16, 0, 9, 9);
+        // Full heart: normal (u=52, v=0) or absorbing (u=160, v=45)
+        if (hasAbsorption) {
+            guiGraphics.blit(GUI_ICONS, textX, textYHp, 160, 45, 9, 9);
+        } else {
+            guiGraphics.blit(GUI_ICONS, textX, textYHp, 52, 0, 9, 9);
+        }
     }
 
     private float oldAlphaMul() {
@@ -1049,13 +1056,6 @@ public class DamageHud {
         for (int i = 0; i < r; i++) {
             int indent = r - i - 1;
             guiGraphics.fill(x, y + h - i - 1, x + w - indent, y + h - i, color);
-        }
-    }
-
-    private static void drawPlayerFace(GuiGraphics guiGraphics, ResourceLocation skinTexture, int x, int y, int size, boolean hatVisible) {
-        guiGraphics.blit(skinTexture, x, y, size, size, 8, 8, 8, 8, 64, 64);
-        if (hatVisible) {
-            guiGraphics.blit(skinTexture, x, y, size, size, 40, 8, 8, 8, 64, 64);
         }
     }
 }

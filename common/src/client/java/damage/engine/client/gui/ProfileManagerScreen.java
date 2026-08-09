@@ -8,6 +8,7 @@ import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -55,7 +56,7 @@ public class ProfileManagerScreen extends Screen {
         int buttonY = this.height - 35;
         this.addRenderableWidget(new StyledButton(
             this.width - buttonWidth - 10, buttonY, buttonWidth, 20,
-            Component.translatable("gui.done").withColor(0xFFB5F0C6),
+            Component.translatable("gui.done").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFB5F0C6))),
             () -> {
                 if (selectedProfile != null) {
                     DamageEngineConfig.setCurrentProfile(selectedProfile);
@@ -81,7 +82,7 @@ public class ProfileManagerScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics, mouseX, mouseY, delta);
+        this.renderBackground(guiGraphics);
 
         // Title
         String titleText = Component.translatable("title.damage-engine.profile_manager").getString();
