@@ -99,5 +99,9 @@
   "modmenu.summaryTranslation.damage-engine": "在UI上顯示傷害資訊。",
   "text.damage-engine.welcome_message": "[傷害引擎]當你在攻擊實體時，螢幕上會顯示傷害和相關生物資訊，如果你想關閉，請打開該mod配置介面進行配置。",
   "text.damage-engine.client_mode_warning": "目前為用戶端模式：\n- 無法區分攻擊者（會追蹤所有傷害）\n- 無法判斷爆擊\n- 傷害位置不精確\n- 評分系統不可用",
-  "text.damage-engine.client_mode_hint": "警告:目前為用戶端模式\n傷害歸屬無法判斷\n傷害精度受限"
+  "text.damage-engine.client_mode_hint": "警告:目前為用戶端模式\n傷害歸屬無法判斷\n傷害精度受限",
+  "text.damage-engine.checking_update": "正在檢查更新...",
+  "text.damage-engine.update_latest": "目前版本：%s，已是最新版本",
+  "text.damage-engine.update_available": "發現新版本：%s，目前版本：%s",
+  "text.damage-engine.update_check_failed": "檢查更新失敗"
 }

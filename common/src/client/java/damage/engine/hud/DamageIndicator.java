@@ -265,11 +265,7 @@ public class DamageIndicator {
     }
 
     private static String formatDamage(float damage, int decimalPlaces) {
-        if (decimalPlaces <= 0) {
-            return String.valueOf(Math.round(damage));
-        }
-        String format = "%." + decimalPlaces + "f";
-        return String.format(format, damage);
+        return DamageNumberFormat.formatDamage(damage, decimalPlaces);
     }
 
     private record RenderedIndicator(String text, float x, float y, float scale, int color, boolean isKill) {}

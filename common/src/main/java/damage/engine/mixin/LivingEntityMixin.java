@@ -31,7 +31,7 @@ public abstract class LivingEntityMixin extends Entity {
         if (this.level().isClientSide()) return;
         if ((Object) this instanceof Player) return;
 
-        damageEngine$snap = DamageTrackerHelper.capturePreDamage((LivingEntity) (Object) this, source);
+        damageEngine$snap = DamageTrackerHelper.capturePreDamage((LivingEntity) (Object) this, source, amount);
     }
 
     @Inject(method = "hurt", at = @At("RETURN"), require = 0)
@@ -40,7 +40,8 @@ public abstract class LivingEntityMixin extends Entity {
         if ((Object) this instanceof Player) return;
 
         if (damageEngine$snap != null) {
-            DamageTrackerHelper.broadcastPostDamage((LivingEntity) (Object) this, source, damageEngine$snap, LOGGER);
+            boolean accepted = ci.getReturnValue() != null && ci.getReturnValue();
+            DamageTrackerHelper.broadcastPostDamage((LivingEntity) (Object) this, source, damageEngine$snap, LOGGER, accepted);
             damageEngine$snap = null;
         }
     }

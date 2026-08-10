@@ -1,6 +1,10 @@
 package damage.engine.client.gui;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import damage.engine.DamageEngineConfig;
+import damage.engine.DamageEngineMeta;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.AbstractWidget;
@@ -8,11 +12,29 @@ import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.Mth;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
 
 public class HomeScreen extends Screen {
     private final Screen parent;
     private final DamageEngineConfig config;
+    private int buttonsLeftX;
+
+    private enum UpdateState { IDLE, CHECKING, LATEST, OUTDATED, ERROR }
+
+    private UpdateState updateState = UpdateState.IDLE;
+    private String updateFoundVersion = "";
+    private boolean updateChecked = false;
+
+    private static final String UPDATE_URL =
+        "https://api.modrinth.com/v2/project/damage-engine/version?game_versions=%5B%221.21.1%22%5D";
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(5))
+        .build();
 
     public HomeScreen(Screen parent) {
         super(Component.translatable("title.damage-engine.home"));
@@ -28,14 +50,17 @@ public class HomeScreen extends Screen {
         int buttonWidth = 100;
         int buttonHeight = 22;
         int buttonSpacing = 8;
-        int totalButtonsWidth = buttonWidth * 3 + buttonSpacing * 2;
+        int totalButtonsWidth = buttonWidth * 2 + buttonSpacing;
 
         // Buttons placed lower on screen
         int buttonY = this.height / 2 + 30;
 
+        // Left edge of the centered button row; the title above is aligned to it
+        this.buttonsLeftX = centerX - totalButtonsWidth / 2;
+
         // Settings button
         this.addRenderableWidget(new StyledButton(
-            centerX - totalButtonsWidth / 2, buttonY,
+            this.buttonsLeftX, buttonY,
             buttonWidth, buttonHeight,
             Component.translatable("button.damage-engine.settings"),
             () -> this.minecraft.setScreen(new DamageConfigScreen(this))
@@ -43,22 +68,105 @@ public class HomeScreen extends Screen {
 
         // Config Management button
         this.addRenderableWidget(new StyledButton(
-            centerX - totalButtonsWidth / 2 + buttonWidth + buttonSpacing, buttonY,
+            this.buttonsLeftX + buttonWidth + buttonSpacing, buttonY,
             buttonWidth, buttonHeight,
             Component.translatable("button.damage-engine.config_management"),
             () -> this.minecraft.setScreen(new ProfileManagerScreen(this))
         ));
 
-        // Material Editor button (greyed out, shows tooltip)
-        StyledButton materialBtn = new StyledButton(
-            centerX - totalButtonsWidth / 2 + (buttonWidth + buttonSpacing) * 2, buttonY,
-            buttonWidth, buttonHeight,
-            Component.translatable("button.damage-engine.material_editor"),
-            () -> {}
-        );
-        materialBtn.active = false;
-        materialBtn.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.material_editor_wip")));
-        this.addRenderableWidget(materialBtn);
+        // Auto-check for updates once on entering the home screen
+        // (init() re-runs on window resize; guard so we don't re-request every time)
+        if (!updateChecked) {
+            updateChecked = true;
+            this.checkForUpdates();
+        }
+    }
+
+    private void checkForUpdates() {
+        if (updateState == UpdateState.CHECKING) return;
+        updateState = UpdateState.CHECKING;
+
+        Thread thread = new Thread(() -> {
+            String latest = null;
+            try {
+                HttpRequest request = HttpRequest.newBuilder(URI.create(UPDATE_URL))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("User-Agent", "damage-engine/" + DamageEngineMeta.VERSION)
+                    .GET()
+                    .build();
+                HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                if (response.statusCode() == 200) {
+                    JsonArray array = JsonParser.parseString(response.body()).getAsJsonArray();
+                    if (!array.isEmpty()) {
+                        // Take the highest version_number across all returned versions (both
+                        // Fabric/NeoForge releases share the same project), instead of the most
+                        // recently published one, so a lower hotfix never masks a newer version.
+                        for (int i = 0; i < array.size(); i++) {
+                            JsonObject entry = array.get(i).getAsJsonObject();
+                            if (entry.has("version_number") && !entry.get("version_number").isJsonNull()) {
+                                String v = entry.get("version_number").getAsString();
+                                if (latest == null || compareVersions(v, latest) > 0) {
+                                    latest = v;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+                // network / parse failure -> error state
+            }
+
+            String found = latest;
+            Minecraft.getInstance().execute(() -> {
+                if (found == null || found.isEmpty()) {
+                    updateState = UpdateState.ERROR;
+                } else if (compareVersions(found, DamageEngineMeta.VERSION) > 0) {
+                    updateFoundVersion = found;
+                    updateState = UpdateState.OUTDATED;
+                } else {
+                    updateState = UpdateState.LATEST;
+                }
+            });
+        });
+        thread.setDaemon(true);
+        thread.start();
+    }
+
+    private static int compareVersions(String a, String b) {
+        // Strip pre-release/build metadata suffixes (e.g. "1.4.3-fabric", "1.4.3+build5")
+        // so pure version numbers compare numerically
+        String[] pa = stripSuffix(a).split("\\.");
+        String[] pb = stripSuffix(b).split("\\.");
+        int n = Math.max(pa.length, pb.length);
+        for (int i = 0; i < n; i++) {
+            String sa = i < pa.length ? pa[i] : "";
+            String sb = i < pb.length ? pb[i] : "";
+            // Missing segments count as 0, so "1.4.3" == "1.4.3.0" and "1.4" == "1.4.0"
+            Integer na = sa.isEmpty() ? 0 : parseNumOrNull(sa);
+            Integer nb = sb.isEmpty() ? 0 : parseNumOrNull(sb);
+            if (na != null && nb != null) {
+                if (!na.equals(nb)) return Integer.compare(na, nb);
+            } else {
+                int cmp = sa.compareTo(sb);
+                if (cmp != 0) return cmp;
+            }
+        }
+        return 0;
+    }
+
+    private static String stripSuffix(String s) {
+        int idx = s.indexOf('-');
+        if (idx < 0) idx = s.indexOf('+');
+        return idx < 0 ? s : s.substring(0, idx);
+    }
+
+    private static Integer parseNumOrNull(String s) {
+        if (s.isEmpty()) return null;
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @Override
@@ -67,8 +175,8 @@ public class HomeScreen extends Screen {
 
         int centerX = this.width / 2;
         int titleY = this.height / 4;
-        // Title left-aligned near upper-center
-        int titleLeftX = centerX - 130;
+        // Title left-aligned to the left edge of the centered button row below
+        int titleLeftX = this.buttonsLeftX;
 
         // Bigger "Damage Engine" title with scale + scan overlay on top
         guiGraphics.pose().pushPose();
@@ -85,11 +193,40 @@ public class HomeScreen extends Screen {
         int greenColor = 0xFFB5F0C6;
         guiGraphics.drawString(this.font, devText, titleLeftX, titleY + (int)(this.font.lineHeight * titleScale) + 6, greenColor);
 
+        // Update status text at the bottom of the screen
+        if (updateState != UpdateState.IDLE) {
+            String statusText = "";
+            int statusColor = 0xFFA0A0A0; // grey
+            switch (updateState) {
+                case CHECKING -> {
+                    statusText = Component.translatable("text.damage-engine.checking_update").getString();
+                    statusColor = 0xFFA0A0A0; // grey
+                }
+                case LATEST -> {
+                    statusText = Component.translatable("text.damage-engine.update_latest", DamageEngineMeta.VERSION).getString();
+                    statusColor = greenColor; // green
+                }
+                case OUTDATED -> {
+                    statusText = Component.translatable("text.damage-engine.update_available", updateFoundVersion, DamageEngineMeta.VERSION).getString();
+                    statusColor = 0xFFFFB74D; // orange
+                }
+                case ERROR -> {
+                    statusText = Component.translatable("text.damage-engine.update_check_failed").getString();
+                    statusColor = 0xFFFF7E7E; // red
+                }
+            }
+            guiGraphics.drawCenteredString(this.font, statusText, centerX, this.height - 30, statusColor);
+        }
+
         // Render widgets + tooltips manually (avoid super.render() blur)
         for (var child : this.children()) {
             if (child instanceof AbstractWidget w) {
                 w.render(guiGraphics, mouseX, mouseY, delta);
-                if (w.isMouseOver(mouseX, mouseY) && w.getTooltip() != null) {
+                // Use bounding-box hover check instead of isMouseOver(), which returns false
+                // for inactive widgets
+                if (mouseX >= w.getX() && mouseX < w.getX() + w.getWidth()
+                    && mouseY >= w.getY() && mouseY < w.getY() + w.getHeight()
+                    && w.getTooltip() != null) {
                     guiGraphics.renderTooltip(this.font, w.getTooltip().toCharSequence(this.minecraft), mouseX, mouseY);
                 }
             }

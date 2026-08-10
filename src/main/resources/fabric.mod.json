@@ -23,7 +23,7 @@
 			"damage.engine.DamageEngineClient"
 		],
 		"modmenu": [
-			"damage.engine.compat.ModMenuIntegration"
+			"damage.engine.compat.modmenu.ModMenuIntegration"
 		]
 	},
 	"mixins": [
@@ -34,7 +34,8 @@
 		}
 	],
 	"depends": {
-		"fabricloader": ">=0.18.4",
+		"fabricloader": ">=0.15.11",
+		"fabric-api": "*",
 		"minecraft": ">=1.21 <=1.21.8",
 		"java": ">=21"
 	},

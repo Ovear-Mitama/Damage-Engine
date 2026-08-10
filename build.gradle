@@ -18,6 +18,45 @@ repositories {
     maven { url "https://maven.aliyun.com/repository/public" }
 }
 
+// ---------------------------------------------------------------------------
+// Modrinth 编译期依赖
+// Modrinth 官方 maven 仓库已停用,改用 CDN 直链下载 jar。
+// TaCZ: Refabricated 发布 jar 用 jar-in-jar 内置依赖,loom dev classpath 不会展开
+// 嵌套 jar,所以编译期直接把完整 jar 放到 libs/ 并以 modCompileOnly 引用。
+// TaCZ 仅用于编译(爆头->暴击兼容),运行时不加载,因此不放进 run/mods/。
+// ---------------------------------------------------------------------------
+def modrinthCompileMods = [
+    // TaCZ: Refabricated 1.21.1 (Timeless and Classics Zero) - 编译期需要,用于爆头->暴击兼容
+    [file: 'TACZ-Refabricated-1.21.1-0.7.0-forge1.1.8-hotfix.jar',
+     url : 'https://cdn.modrinth.com/data/1j76DVHU/versions/sqMweCpe/TACZ-Refabricated-1.21.1-0.7.0-forge1.1.8-hotfix.jar'],
+]
+
+def modrinthModsDir = file('libs')
+
+tasks.register('downloadModrinthMods') {
+    outputs.dir(modrinthModsDir)
+    doLast {
+        modrinthModsDir.mkdirs()
+        modrinthCompileMods.each { m ->
+            def dest = new File(modrinthModsDir, m.file)
+            if (!dest.exists() || dest.length() == 0L) {
+                logger.lifecycle("Downloading {} from Modrinth ...", m.file)
+                URLConnection conn = new URL(m.url).openConnection()
+                conn.setConnectTimeout(15000)
+                conn.setReadTimeout(120000)
+                conn.connect()
+                conn.inputStream.withCloseable { ins ->
+                    dest.withOutputStream { out -> out << ins }
+                }
+            }
+        }
+    }
+}
+
+// 编译期需要 TaCZ jar 在场(modCompileOnly files(...));IDE 首次 sync 若报 jar 缺失,
+// 先手动执行一次 ./gradlew downloadModrinthMods 即可
+tasks.named('compileJava') { dependsOn 'downloadModrinthMods' }
+
 loom {
     splitEnvironmentSourceSets()
     accessWidenerPath = file("src/main/resources/damage-engine.accesswidener")
@@ -57,6 +96,10 @@ dependencies {
     // ModMenu (optional, for config screen integration)
     modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
     modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+    // TaCZ: Refabricated (Timeless and Classics Zero) - compile only, for crit (headshot) compat.
+    // jar 由 downloadModrinthMods 任务从 Modrinth CDN 下载到 libs/(仅编译,不随运行时加载)
+    modCompileOnly files('libs/TACZ-Refabricated-1.21.1-0.7.0-forge1.1.8-hotfix.jar')
 }
 
 processResources {

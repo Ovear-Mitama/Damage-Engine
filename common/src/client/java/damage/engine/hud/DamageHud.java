@@ -55,11 +55,8 @@ public class DamageHud {
     private float infoMaxHealth = 1f;
     private float infoAbsorption = 0f;
 
-
-    private long historyAnimStartTime = 0;
-    private long lastNewestTimestamp = 0;
-    private int prevAnimSize = 0;
     private static final long HISTORY_ANIM_MS = 150;
+
     private float contentRightX = 20f;
     private String previewGrade = "";
     private int previewGradeColor = 0xFFFFFFFF;
@@ -425,16 +422,12 @@ public class DamageHud {
         List<DamageSessionManager.DamageEntry> renderList = (history != null) ? new java.util.ArrayList<>(history) : java.util.Collections.emptyList();
 
         long now = System.currentTimeMillis();
-        long newestTs = renderList.isEmpty() ? 0 : renderList.get(renderList.size() - 1).timestamp();
-        if (newestTs != lastNewestTimestamp) {
-            prevAnimSize = (lastNewestTimestamp == 0) ? renderList.size() : Math.max(0, renderList.size() - 1);
-            historyAnimStartTime = now;
-            lastNewestTimestamp = newestTs;
-            if (renderList.size() <= 1) prevAnimSize = 0;
-        }
 
-        float animProgress = isPreview ? 1.0f : Mth.clamp((now - historyAnimStartTime) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
-        int growthAmount = Math.max(0, renderList.size() - prevAnimSize);
+        // Vertical push-down animation: when a newer entry arrives, older entries
+        // slide down one slot over the same duration as the horizontal entrance,
+        // so a new damage record never hard-cuts an entry that is in motion.
+        long newestTs = renderList.isEmpty() ? now : renderList.get(renderList.size() - 1).timestamp();
+        float downProgress = isPreview ? 1.0f : Mth.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
 
         int baseY = 15;
 
@@ -472,12 +465,17 @@ public class DamageHud {
                 }
             }
 
-            boolean isNewest = (i == renderList.size() - 1) && !isPreview && animProgress < 1.0f;
+            // Per-entry entrance animation: each entry animates from its own
+            // birth time, so new hits never interrupt entries that are already
+            // animating. Entries born in the same instant animate together.
+            float entryAnimProgress = isPreview ? 1.0f
+                : Mth.clamp(timeAlive / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
             float slideOffsetX = 0f;
             float slideAlphaMul = 1.0f;
-            if (isNewest) {
-                slideOffsetX = (1.0f - animProgress) * 20f;
-                slideAlphaMul = animProgress;
+            if (entryAnimProgress < 1.0f) {
+                // Purely horizontal right-to-left slide + fade-in.
+                slideOffsetX = (1.0f - entryAnimProgress) * 20f;
+                slideAlphaMul = entryAnimProgress;
             }
 
             finalItemAlpha *= globalAlpha * slideAlphaMul;
@@ -495,13 +493,15 @@ public class DamageHud {
             int textWidth = font.width(valText);
 
             float targetY = baseY + renderIndex * 10;
-            boolean isNewEntry = renderIndex < growthAmount;
+            // Newest entry sits in its final slot (its entrance is the horizontal
+            // slide above); older entries smoothly push down one slot when a newer
+            // entry arrives, instead of teleporting mid-animation.
             float yPos;
-            if (!isPreview && growthAmount > 0 && !isNewEntry && animProgress < 1.0f) {
-                float oldY = targetY - growthAmount * 10;
-                yPos = Mth.lerp(animProgress, oldY, targetY);
-            } else {
+            if (renderIndex == 0 || downProgress >= 1.0f) {
                 yPos = targetY;
+            } else {
+                float oldY = targetY - 10;
+                yPos = Mth.lerp(downProgress, oldY, targetY);
             }
 
             float xPos = contentRightX - textWidth + slideOffsetX;
@@ -1004,11 +1004,7 @@ public class DamageHud {
     }
 
     private String formatDamage(float damage, int decimalPlaces) {
-        if (decimalPlaces <= 0) {
-            return String.valueOf(Math.round(damage));
-        }
-        String format = "%." + decimalPlaces + "f";
-        return String.format(format, damage);
+        return DamageNumberFormat.formatDamage(damage, decimalPlaces);
     }
 
     private static void drawRoundedRect(GuiGraphics guiGraphics, int x, int y, int w, int h, int radius, int color) {

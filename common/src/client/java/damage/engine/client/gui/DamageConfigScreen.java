@@ -153,6 +153,27 @@ public class DamageConfigScreen extends Screen {
         addOption(new IntegerSliderEntry("option.damage-engine.decimalPlaces", config.decimalPlaces, 0, 10, v -> { config.decimalPlaces = v; markChanged(); }, true));
         addOption(new HexColorEntry("option.damage-engine.normalColor", config.normalColor, v -> { config.normalColor = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.critColor", config.critColor, v -> { config.critColor = v; markChanged(); }));
+        // Total damage colors by reached-damage thresholds (damage-reach value + color)
+        addOption(new ExpandableHeaderEntry("option.damage-engine.total_damage_colors", "total_damage_colors", v -> refreshOptions()));
+        if (isExpanded("total_damage_colors")) {
+            config.damageThresholds.sort((a, b) -> Float.compare(a.threshold, b.threshold));
+            for (DamageEngineConfig.DamageThreshold dt : new ArrayList<>(config.damageThresholds)) {
+                addOption(new DamageThresholdEntry(dt, () -> {
+                    config.damageThresholds.remove(dt);
+                    markChanged();
+                    refreshOptions();
+                }));
+            }
+            addOption(new AddButtonEntry(() -> {
+                float nextVal = 0f;
+                if (!config.damageThresholds.isEmpty()) {
+                    nextVal = config.damageThresholds.get(config.damageThresholds.size() - 1).threshold + 50f;
+                }
+                config.damageThresholds.add(new DamageEngineConfig.DamageThreshold(nextVal, 0xFFFFFFFF));
+                markChanged();
+                refreshOptions();
+            }));
+        }
         addOption(new BooleanOptionEntry("option.damage-engine.resetEnabled", config.resetEnabled, v -> { config.resetEnabled = v; markChanged(); }));
         addOption(new NumericEntry("option.damage-engine.resetTime", config.resetTime, v -> { config.resetTime = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showProgressBar", config.showProgressBar, v -> { config.showProgressBar = v; markChanged(); }));
@@ -249,28 +270,6 @@ public class DamageConfigScreen extends Screen {
             for (DamageEngineConfig.RatingGrade g : new ArrayList<>(config.ratingGrades)) {
                 addOption(new RatingGradeAppearanceEntry(g, config));
             }
-        }
-        
-        // Damage thresholds
-        addOption(new ExpandableHeaderEntry("option.damage-engine.total_damage_colors", "total_damage_colors", v -> refreshOptions()));
-        if (isExpanded("total_damage_colors")) {
-            config.damageThresholds.sort((a, b) -> Float.compare(a.threshold, b.threshold));
-            for (DamageEngineConfig.DamageThreshold dt : new ArrayList<>(config.damageThresholds)) {
-                addOption(new DamageThresholdEntry(dt, () -> {
-                    config.damageThresholds.remove(dt);
-                    markChanged();
-                    refreshOptions();
-                }));
-            }
-            addOption(new AddButtonEntry(() -> {
-                float nextVal = 0f;
-                if (!config.damageThresholds.isEmpty()) {
-                    nextVal = config.damageThresholds.get(config.damageThresholds.size() - 1).threshold + 50f;
-                }
-                config.damageThresholds.add(new DamageEngineConfig.DamageThreshold(nextVal, 0xFFFFFFFF));
-                markChanged();
-                refreshOptions();
-            }));
         }
     }
 

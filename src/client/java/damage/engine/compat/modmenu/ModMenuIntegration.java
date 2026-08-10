@@ -1,4 +1,4 @@
-package damage.engine.compat;
+package damage.engine.compat.modmenu;
 
 import com.terraformersmc.modmenu.api.ConfigScreenFactory;
 import com.terraformersmc.modmenu.api.ModMenuApi;
