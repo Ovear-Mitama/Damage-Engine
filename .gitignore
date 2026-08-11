@@ -12,3 +12,7 @@ bin/
 .settings/
 .classpath
 .project
+# 编译期 Modrinth 依赖(由 downloadModrinthMods 任务下载到 libs/,不入库)
+libs/
+# Reasonix 工具目录
+.reasonix/

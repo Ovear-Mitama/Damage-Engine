@@ -29,6 +29,44 @@ repositories {
     // Add here additional repositories if required by some of the dependencies below.
 }
 
+// ---------------------------------------------------------------------------
+// Modrinth 编译期依赖
+// Modrinth 官方 maven 仓库已停用,改用 CDN 直链下载 jar。
+// TaCZ(NeoForge 原生移植版)仅用于编译(爆头->暴击兼容),运行时不加载,
+// 因此不放进 run/mods/,也不作为 runtime 依赖。
+// ---------------------------------------------------------------------------
+def modrinthCompileMods = [
+    // [UNOFFICIAL] TaCZ 1.21.1 NeoForge Port (https://modrinth.com/mod/tacz-1.21.1)
+    [file: 'tacz-neoforge-1.21.1-1.1.8-hotfix-r6.jar',
+     url : 'https://cdn.modrinth.com/data/OypNE65K/versions/wPvGWIj9/tacz-neoforge-1.21.1-1.1.8-hotfix-r6.jar'],
+]
+
+def modrinthModsDir = file('libs')
+
+tasks.register('downloadModrinthMods') {
+    outputs.dir(modrinthModsDir)
+    doLast {
+        modrinthModsDir.mkdirs()
+        modrinthCompileMods.each { m ->
+            def dest = new File(modrinthModsDir, m.file)
+            if (!dest.exists() || dest.length() == 0L) {
+                logger.lifecycle("Downloading {} from Modrinth ...", m.file)
+                URLConnection conn = new URL(m.url).openConnection()
+                conn.setConnectTimeout(15000)
+                conn.setReadTimeout(120000)
+                conn.connect()
+                conn.inputStream.withCloseable { ins ->
+                    dest.withOutputStream { out -> out << ins }
+                }
+            }
+        }
+    }
+}
+
+// 编译期需要 TaCZ jar 在场(compileOnly files(...));IDE 首次 sync 若报 jar 缺失,
+// 先手动执行一次 ./gradlew downloadModrinthMods 即可
+tasks.named('compileJava') { dependsOn 'downloadModrinthMods' }
+
 base {
     archivesName = mod_id
 }
@@ -115,6 +153,10 @@ dependencies {
     // And its provides the option to then use net.minecraft as the group, and one of; client, server or joined as the module name, plus the game version as version.
     // For all intends and purposes: You can treat this dependency as if it is a normal library you would use.
     implementation "net.neoforged:neoforge:${neo_version}"
+
+    // TaCZ: Timeless and Classics Zero (NeoForge port) - compile only, for crit (headshot) compat.
+    // jar 由 downloadModrinthMods 任务从 Modrinth CDN 下载到 libs/(仅编译,不随运行时加载)
+    compileOnly files('libs/tacz-neoforge-1.21.1-1.1.8-hotfix-r6.jar')
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
