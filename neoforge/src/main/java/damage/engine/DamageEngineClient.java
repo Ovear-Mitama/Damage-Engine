@@ -4,8 +4,6 @@ import damage.engine.client.gui.HomeScreen;
 import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.client.Minecraft;
-import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
@@ -76,11 +74,6 @@ public class DamageEngineClient {
     }
     
     public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
-        Minecraft client = Minecraft.getInstance();
-        if (client.hitResult instanceof EntityHitResult ehr && ehr.getEntity() != null 
-            && ehr.getEntity().getId() == entityId) {
-            return ehr.getLocation();
-        }
-        return new Vec3(baseX, baseY + 1.5, baseZ);
+        return damage.engine.client.IndicatorPos.blend(baseX, baseY, baseZ, entityId);
     }
 }

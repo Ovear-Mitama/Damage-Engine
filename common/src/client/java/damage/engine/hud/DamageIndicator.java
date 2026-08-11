@@ -18,7 +18,6 @@ import java.util.Random;
 
 public class DamageIndicator {
     private static final List<Indicator> indicators = new ArrayList<>();
-    private static final int MAX_INDICATORS = 60;
     private static final Random RANDOM = new Random();
 
     // Animation timing constants
@@ -50,6 +49,8 @@ public class DamageIndicator {
         final float moveSpeed;
         // Same angle used for both ring spawn position and drift direction
         final float spawnAngle;
+        // Random ring radius: distance from the crosshair center where this indicator spawns
+        final float ringRadius;
 
         Indicator(double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
             this.x = x;
@@ -60,13 +61,14 @@ public class DamageIndicator {
             this.isKill = isKill;
             this.isHeal = isHeal;
             this.spawnTime = System.currentTimeMillis();
-            // Consistent angle for both ring spawn and drift direction
-            int seed = (int)(this.spawnTime % 1000);
-            this.spawnAngle = ((seed * 17) % 360) * (float) Math.PI / 180f;
+            // Random angle for both ring spawn and drift direction
+            this.spawnAngle = RANDOM.nextFloat() * (float) (Math.PI * 2);
             this.moveDirX = (float) Math.cos(spawnAngle);
             this.moveDirY = (float) Math.sin(spawnAngle);
             // Speed: 15-30 pixels per second
             this.moveSpeed = 15f + RANDOM.nextFloat() * 15f;
+            // Random ring radius: 12-28 px from the crosshair center, no fixed inner-to-outer distance
+            this.ringRadius = 12f + RANDOM.nextFloat() * 16f;
         }
     }
 
@@ -76,10 +78,8 @@ public class DamageIndicator {
 
     public static void addIndicator(double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
         synchronized (indicators) {
+            // No performance cap on indicator count
             indicators.add(new Indicator(x, y, z, damage, isCrit, isKill, isHeal));
-            while (indicators.size() > MAX_INDICATORS) {
-                indicators.remove(0);
-            }
         }
     }
 
@@ -136,36 +136,35 @@ public class DamageIndicator {
                 float totalDuration = TOTAL_DURATION;
                 if (age > totalDuration) continue;
 
-                // Only skip if entity is behind the camera
+                // 世界坐标投影到屏幕:跳字锚定在准心命中点(世界 pos),而非实体中心
                 Vector4f worldPos = new Vector4f((float) ind.x, (float) ind.y, (float) ind.z, 1.0f);
                 worldPos.mul(viewProjMatrix);
-                if (worldPos.w() <= 0.001f) continue;
+                if (worldPos.w() <= 0.001f) continue; // 命中点在相机后则不显示
 
-                // Still compute NDC for blending, but don't cull based on off-screen position
+                // NDC -> 屏幕坐标;不过度剔除屏幕外位置(clamp 保底)
                 float ndcX = worldPos.x() / worldPos.w();
                 float ndcY = worldPos.y() / worldPos.w();
-
-                // Clamp NDC to keep indicator within screen bounds
                 ndcX = Mth.clamp(ndcX, -2.0f, 2.0f);
                 ndcY = Mth.clamp(ndcY, -2.0f, 2.0f);
+                float anchorX = (ndcX * 0.5f + 0.5f) * screenW;
+                float anchorY = (1.0f - (ndcY * 0.5f + 0.5f)) * screenH;
 
-                // Entity screen position from world projection
-                float entityScreenX = (ndcX * 0.5f + 0.5f) * screenW;
-                float entityScreenY = (1.0f - (ndcY * 0.5f + 0.5f)) * screenH;
-
-                // Distance factor: far entities get smaller drift/ring
+                // Distance factor affects drift distance / text scale
                 float distW = Math.abs(worldPos.w());
                 float distFactor = Mth.clamp(5f / distW, 0.3f, 1.0f); // 0.3-1.0, small = far
 
-                // Indicator follows entity screen position exactly - no center pull
-                float screenX = entityScreenX;
-                float screenY = entityScreenY;
-
-                // Ring area offset from entity, scaled by distance (slightly offset from crosshair)
-                int seed = (int)(ind.spawnTime % 1000);
-                float ringRadius = (12f + (seed * 13) % 12) * distFactor;
-                screenX += ind.moveDirX * ringRadius;
-                screenY += ind.moveDirY * ringRadius;
+                // Spawn around the crosshair hit point (anchored in world space),
+                // each indicator at its own random ring radius.
+                // Kill 标记固定显示在命中点上方,避免与随机散布的伤害数字重叠。
+                float screenX;
+                float screenY;
+                if (ind.isKill) {
+                    screenX = anchorX;
+                    screenY = anchorY - 20;
+                } else {
+                    screenX = anchorX + ind.moveDirX * ind.ringRadius;
+                    screenY = anchorY + ind.moveDirY * ind.ringRadius;
+                }
 
                 // Animation phases
                 float scale;
@@ -225,10 +224,6 @@ public class DamageIndicator {
 
                 float finalX = screenX + moveOffsetX;
                 float finalY = screenY + moveOffsetY;
-                // Offset kill text above damage numbers to avoid overlap
-                if (ind.isKill) {
-                    finalY -= 12;
-                }
 
                 float finalScale = scale * baseScale;
                 // Slight size variation based on damage amount

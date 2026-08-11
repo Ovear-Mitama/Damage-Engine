@@ -31,7 +31,7 @@ public class HomeScreen extends Screen {
     private boolean updateChecked = false;
 
     private static final String UPDATE_URL =
-        "https://api.modrinth.com/v2/project/damage-engine/version?game_versions=%5B%221.21.1%22%5D";
+        "https://api.modrinth.com/v2/project/damage-engine/version?game_versions=%5B%221.21.1%22%5D&loaders=%5B%22" + DamageEngineMeta.PLATFORM + "%22%5D";
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5))
         .build();
@@ -98,11 +98,12 @@ public class HomeScreen extends Screen {
                 if (response.statusCode() == 200) {
                     JsonArray array = JsonParser.parseString(response.body()).getAsJsonArray();
                     if (!array.isEmpty()) {
-                        // Take the highest version_number across all returned versions (both
-                        // Fabric/NeoForge releases share the same project), instead of the most
-                        // recently published one, so a lower hotfix never masks a newer version.
+                        // Only consider versions for the current loader platform (Fabric/NeoForge
+                        // releases share the same project on Modrinth). The URL already filters by
+                        // loaders; this is a defensive second check.
                         for (int i = 0; i < array.size(); i++) {
                             JsonObject entry = array.get(i).getAsJsonObject();
+                            if (!hasLoader(entry, DamageEngineMeta.PLATFORM)) continue;
                             if (entry.has("version_number") && !entry.get("version_number").isJsonNull()) {
                                 String v = entry.get("version_number").getAsString();
                                 if (latest == null || compareVersions(v, latest) > 0) {
@@ -130,6 +131,20 @@ public class HomeScreen extends Screen {
         });
         thread.setDaemon(true);
         thread.start();
+    }
+
+    private static boolean hasLoader(JsonObject entry, String platform) {
+        if (!entry.has("loaders") || entry.get("loaders").isJsonNull()) {
+            return true; // No loader info: accept defensively
+        }
+        JsonArray loaders = entry.get("loaders").getAsJsonArray();
+        for (int i = 0; i < loaders.size(); i++) {
+            var el = loaders.get(i);
+            if (el.isJsonPrimitive() && platform.equals(el.getAsString())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private static int compareVersions(String a, String b) {

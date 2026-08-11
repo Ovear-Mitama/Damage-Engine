@@ -46,7 +46,7 @@ public class ClientHealthTracker {
                 double dz = entity.getZ() - client.player.getZ();
                 double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                if (distance <= config.globalIndicatorMaxDistance) {
+                if (config.globalIndicatorMaxDistance <= 0 || distance <= config.globalIndicatorMaxDistance) {
                     Vec3 pos = DamageEngineClient.blendIndicatorPos(
                         entity.getX(),
                         entity.getY() + entity.getEyeHeight() * 0.6,
@@ -54,7 +54,7 @@ public class ClientHealthTracker {
                         entity.getId()
                     );
 
-                    if (config.showDamageIndicator && damageAmount > 0 && !killed) {
+                    if (config.showDamageIndicator && damageAmount > 0) {
                         DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
                             damageAmount,
                             false,  // Cannot detect crit in client-only mode
@@ -96,21 +96,26 @@ public class ClientHealthTracker {
             entity.getId()
         );
 
-        // Add damage indicator using blended position
-        if (config.showDamageIndicator && damageAmount > 0 && !killed) {
-            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                damageAmount,
-                false,  // Cannot detect crit in client-only mode
-                false
-            );
-        }
+        // Add damage indicator using blended position, capped by the configured max distance
+        if (client.player != null) {
+            double maxDist = config.globalIndicatorMaxDistance;
+            if (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist) {
+                if (config.showDamageIndicator && damageAmount > 0) {
+                    DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                        damageAmount,
+                        false,  // Cannot detect crit in client-only mode
+                        false
+                    );
+                }
 
-        if (config.showKillIndicator && killed) {
-            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                damageAmount,
-                false,
-                true
-            );
+                if (config.showKillIndicator && killed) {
+                    DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                        damageAmount,
+                        false,
+                        true
+                    );
+                }
+            }
         }
     }
 }
