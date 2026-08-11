@@ -4,9 +4,11 @@
 	"compatibilityLevel": "JAVA_21",
 	"client": [
 		"LivingEntityClientMixin",
+		"HudRenderMixin",
+		"ClientTickMixin",
+		"KeyBindingMixin",
 		"PlayerAttackMixin",
-		"ProjectileHitMixin",
-		"ClientTickMixin"
+		"ProjectileHitMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

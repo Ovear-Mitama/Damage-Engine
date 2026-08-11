@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version "${loom_version}"
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
 	id 'maven-publish'
 }
 
@@ -11,58 +11,53 @@ base {
 }
 
 repositories {
-	// Add repositories to retrieve artifacts from in here.
-	// You should only use this when depending on other mods because
-	// Loom adds the essential maven repositories to download Minecraft and libraries from automatically.
-	// See https://docs.gradle.org/current/userguide/declaring_repositories.html
-	// for more information about repositories.
+    mavenLocal()
     maven { url "https://maven.terraformersmc.com/releases/" }
-    
-    // Modrinth Maven for Jade
-    maven {
-        name = "Modrinth"
-        url = "https://api.modrinth.com/maven"
-        content {
-            includeGroup "maven.modrinth"
-        }
-    }
-    
-    // CurseMaven
-    maven {
-        url "https://www.cursemaven.com"
-        content {
-            includeGroup "curse.maven"
-        }
-    }
+    maven { url "https://maven.fabricmc.net/" }
+    maven { url "https://mirrors.cloud.tencent.com/nexus/repository/maven-public/" }
+    maven { url "https://maven.aliyun.com/repository/public" }
 }
 
 loom {
-	splitEnvironmentSourceSets()
+    splitEnvironmentSourceSets()
+    accessWidenerPath = file("src/main/resources/damage-engine.accesswidener")
 
-	mods {
-		"damage-engine" {
-			sourceSet sourceSets.main
-			sourceSet sourceSets.client
-		}
-	}
+    mods {
+        "damage-engine" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
 
 }
 
-dependencies {
-	// To change the versions see the gradle.properties file
-	minecraft "com.mojang:minecraft:${project.minecraft_version}"
-	mappings loom.officialMojangMappings()
-	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+// Include common shared sources
+sourceSets {
+    main {
+        java {
+            srcDir 'common/src/main/java'
+        }
+    }
+    client {
+        java {
+            srcDir 'common/src/client/java'
+        }
+    }
+}
 
-	// Fabric API. This is technically optional, but you probably want it anyway.
-	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
-	
-    // ModMenu (dev environment only, not a hard dependency)
+dependencies {
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Fabric API (required for networking)
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    // ModMenu (optional, for config screen integration)
     modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
     modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
 
-    // Jade (from Modrinth)
-    modImplementation "maven.modrinth:jade:${project.jade_version}"
 }
 
 processResources {
