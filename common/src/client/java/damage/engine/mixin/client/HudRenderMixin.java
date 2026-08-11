@@ -4,7 +4,7 @@ import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageIndicator;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -15,8 +15,8 @@ public class HudRenderMixin {
 
     private static final DamageHud damageHud = new DamageHud();
 
-    @Inject(method = "render", at = @At("TAIL"))
-    private void damageEngine$onHudRender(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    private void damageEngine$onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         damageHud.onHudRender(guiGraphics, deltaTracker);
         DamageIndicator.render(guiGraphics, deltaTracker.getGameTimeDeltaPartialTick(false));
     }

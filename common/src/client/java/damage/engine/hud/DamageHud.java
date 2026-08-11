@@ -4,7 +4,7 @@ import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.world.entity.player.PlayerSkin;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -71,7 +71,7 @@ public class DamageHud {
         }
     }
 
-    public void onHudRender(GuiGraphics guiGraphics, DeltaTracker deltaTracker) {
+    public void onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker) {
         try {
             Minecraft client = Minecraft.getInstance();
             if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
@@ -122,7 +122,7 @@ public class DamageHud {
         }
     }
 
-    public void renderPreview(GuiGraphics guiGraphics, int centerX, int centerY) {
+    public void renderPreview(GuiGraphicsExtractor guiGraphics, int centerX, int centerY) {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         Minecraft client = Minecraft.getInstance();
 
@@ -154,7 +154,7 @@ public class DamageHud {
         }
     }
 
-    private void renderDamageContent(GuiGraphics guiGraphics, float total, int combo, float targetProgress, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha) {
+    private void renderDamageContent(GuiGraphicsExtractor guiGraphics, float total, int combo, float targetProgress, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha) {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         Minecraft client = Minecraft.getInstance();
 
@@ -176,7 +176,35 @@ public class DamageHud {
         }
     }
 
-    public void renderRating(GuiGraphics guiGraphics, boolean isPreview, float globalAlpha, Minecraft client) {
+    // 26.1+ 渲染状态提取阶段不允许做文件 I/O 与纹理上传（Vulkan 后端要求纹理预上传到 GPU），
+    // 评级图片按 imagePath 缓存：仅首次加载并注册纹理，之后每帧直接复用。
+    private static final java.util.Map<String, RatingTexture> RATING_TEXTURES = new java.util.HashMap<>();
+
+    private record RatingTexture(Identifier texId, int width, int height) {}
+
+    private static RatingTexture loadRatingTexture(String imagePath, Minecraft client) {
+        try {
+            java.io.File imageFile = new java.io.File(client.gameDirectory, "config/damage-engine/images/" + imagePath + ".png");
+            if (!imageFile.exists()) {
+                throw new Exception("Image file not found: " + imageFile.getAbsolutePath());
+            }
+            java.io.FileInputStream fis = new java.io.FileInputStream(imageFile);
+            com.mojang.blaze3d.platform.NativeImage nativeImage = com.mojang.blaze3d.platform.NativeImage.read(fis);
+            fis.close();
+            if (nativeImage == null) {
+                throw new Exception("Failed to read native image");
+            }
+            Identifier texId = Identifier.fromNamespaceAndPath("damage-engine", "rating_" + imagePath);
+            net.minecraft.client.renderer.texture.DynamicTexture dynamicTexture = new net.minecraft.client.renderer.texture.DynamicTexture(() -> "damage-engine/rating_" + imagePath, nativeImage);
+            client.getTextureManager().register(texId, dynamicTexture);
+            return new RatingTexture(texId, nativeImage.getWidth(), nativeImage.getHeight());
+        } catch (Exception e) {
+            DamageEngineClient.LOGGER.error("Failed to load rating image: " + e.getMessage());
+            return null;
+        }
+    }
+
+    public void renderRating(GuiGraphicsExtractor guiGraphics, boolean isPreview, float globalAlpha, Minecraft client) {
         Font font = client.font;
         RatingManager rm = RatingManager.getInstance();
         int baseAlpha = (int)(255 * globalAlpha);
@@ -215,42 +243,22 @@ public class DamageHud {
             int rColor = (ratingColor & 0x00FFFFFF) | (rAlpha << 24);
 
             if (DamageEngineConfig.getInstance().ratingUseImages && imagePath != null && !imagePath.isEmpty()) {
-                try {
-                    java.io.File imageFile = new java.io.File(client.gameDirectory, "config/damage-engine/images/" + imagePath + ".png");
-
-                    if (!imageFile.exists()) {
-                        throw new Exception("Image file not found: " + imageFile.getAbsolutePath());
-                    }
-
-                    java.io.FileInputStream fis = new java.io.FileInputStream(imageFile);
-                    com.mojang.blaze3d.platform.NativeImage nativeImage = com.mojang.blaze3d.platform.NativeImage.read(fis);
-                    fis.close();
-
-                    if (nativeImage == null) {
-                        throw new Exception("Failed to read native image");
-                    }
-
-                    Identifier texId = Identifier.fromNamespaceAndPath("damage-engine", "rating_" + imagePath);
-                    final String texName = "damage-engine/rating_" + imagePath;
-                    net.minecraft.client.renderer.texture.DynamicTexture dynamicTexture = new net.minecraft.client.renderer.texture.DynamicTexture(() -> texName, nativeImage);
-                    client.getTextureManager().register(texId, dynamicTexture);
-
+                RatingTexture rt = RATING_TEXTURES.computeIfAbsent(imagePath, p -> loadRatingTexture(p, client));
+                if (rt != null) {
                     guiGraphics.pose().pushMatrix();
                     guiGraphics.pose().scale(0.15f, 0.15f);
 
-                    int imgWidth = nativeImage.getWidth();
-                    int imgHeight = nativeImage.getHeight();
                     int imgColor = (rAlpha << 24) | 0xFFFFFF;
-                    guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texId, -imgWidth / 2, -imgHeight / 2, 0.0f, 0.0f, imgWidth, imgHeight, imgWidth, imgHeight, imgWidth, imgHeight, imgColor);
+                    guiGraphics.blit(RenderPipelines.GUI_TEXTURED, rt.texId(), -rt.width() / 2, -rt.height() / 2, 0.0f, 0.0f, rt.width(), rt.height(), rt.width(), rt.height(), rt.width(), rt.height(), imgColor);
 
                     guiGraphics.pose().popMatrix();
-                } catch (Exception e) {
-                    DamageEngineClient.LOGGER.error("Failed to load rating image: " + e.getMessage());
+                } else {
+                    // Image load failed once — fall back to text rendering (do not retry every frame)
                     float rs = 1.2f;
                     guiGraphics.pose().pushMatrix();
                     guiGraphics.pose().scale(rs, rs);
                     int gw = font.width(ratingText);
-                    guiGraphics.drawString(font, ratingText, -gw / 2, -font.lineHeight / 2, rColor);
+                    guiGraphics.text(font, ratingText, -gw / 2, -font.lineHeight / 2, rColor);
                     guiGraphics.pose().popMatrix();
                 }
             } else {
@@ -258,13 +266,13 @@ public class DamageHud {
                 guiGraphics.pose().pushMatrix();
                 guiGraphics.pose().scale(rs, rs);
                 int gw = font.width(ratingText);
-                guiGraphics.drawString(font, ratingText, -gw / 2, -font.lineHeight / 2, rColor);
+                guiGraphics.text(font, ratingText, -gw / 2, -font.lineHeight / 2, rColor);
                 guiGraphics.pose().popMatrix();
             }
         }
     }
 
-    public void renderModule(GuiGraphics guiGraphics, DamageEngineConfig.ModuleConfig moduleConfig, Minecraft client, float globalAlpha, Runnable renderAction) {
+    public void renderModule(GuiGraphicsExtractor guiGraphics, DamageEngineConfig.ModuleConfig moduleConfig, Minecraft client, float globalAlpha, Runnable renderAction) {
         if (!moduleConfig.enabled) return;
 
         int x = moduleConfig.x == -1.0f ? client.getWindow().getGuiScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getGuiScaledWidth());
@@ -279,7 +287,7 @@ public class DamageHud {
         guiGraphics.pose().popMatrix();
     }
 
-    public void renderTotalDamage(GuiGraphics guiGraphics, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
+    public void renderTotalDamage(GuiGraphicsExtractor guiGraphics, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
         Font font = client.font;
         int baseAlpha = (int)(255 * globalAlpha);
 
@@ -331,13 +339,13 @@ public class DamageHud {
         boolean hasProgressBar = DamageEngineConfig.getInstance().showProgressBar && DamageEngineConfig.getInstance().resetEnabled;
         int labelY = hasProgressBar ? -15 : -12;
         if (showCombo && combo > 0) {
-            guiGraphics.drawString(font, damageLabel, -fullLabelWidth / 2, labelY, labelColor);
+            guiGraphics.text(font, damageLabel, -fullLabelWidth / 2, labelY, labelColor);
             String comboText = "x" + combo;
             int comboColorCfg = DamageEngineConfig.getInstance().comboColor;
             int comboColor = (comboColorCfg & 0x00FFFFFF) | (labelAlpha << 24);
-            guiGraphics.drawString(font, comboText, fullLabelWidth / 2 - font.width(comboText), labelY, comboColor);
+            guiGraphics.text(font, comboText, fullLabelWidth / 2 - font.width(comboText), labelY, comboColor);
         } else {
-            guiGraphics.drawString(font, damageLabel, -fullLabelWidth / 2 + (fullLabelWidth - lblW), labelY, labelColor);
+            guiGraphics.text(font, damageLabel, -fullLabelWidth / 2 + (fullLabelWidth - lblW), labelY, labelColor);
         }
         guiGraphics.pose().popMatrix();
 
@@ -404,11 +412,11 @@ public class DamageHud {
         int textWidth = font.width(totalText);
         float rightEdgeInScale = contentHalfWidth / damageScale;
         float textX = rightEdgeInScale - textWidth;
-        guiGraphics.drawString(font, totalText, (int)textX, 0, colorWithAlpha);
+        guiGraphics.text(font, totalText, (int)textX, 0, colorWithAlpha);
         guiGraphics.pose().popMatrix();
     }
 
-    public void renderHistory(GuiGraphics guiGraphics, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha, Minecraft client) {
+    public void renderHistory(GuiGraphicsExtractor guiGraphics, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha, Minecraft client) {
         Font font = client.font;
         int limit = DamageEngineConfig.getInstance().historyLimit;
         int decimalPlaces = DamageEngineConfig.getInstance().historyDecimalPlaces;
@@ -514,7 +522,7 @@ public class DamageHud {
                 drawPlayerFace(guiGraphics, previewSkin, (int)(xPos - avatarGap), (int)yPos, 8, true, faceColor);
             }
 
-            guiGraphics.drawString(font, valText, (int)xPos, (int)yPos, itemColorWithAlpha);
+            guiGraphics.text(font, valText, (int)xPos, (int)yPos, itemColorWithAlpha);
             renderIndex++;
         }
     }
@@ -684,7 +692,7 @@ public class DamageHud {
         return null;
     }
 
-    public void renderInfo(GuiGraphics guiGraphics, DamageSessionManager session, boolean isPreview, float globalAlpha, Minecraft client) {
+    public void renderInfo(GuiGraphicsExtractor guiGraphics, DamageSessionManager session, boolean isPreview, float globalAlpha, Minecraft client) {
         float health;
         float maxHealth;
         float absorption;
@@ -839,7 +847,7 @@ public class DamageHud {
         }
 
         int textColor = (0x00FFFFFF) | (baseAlpha << 24);
-        guiGraphics.drawString(font, Component.literal(name), textX, textYName, textColor);
+        guiGraphics.text(font, Component.literal(name), textX, textYName, textColor);
 
         int barBg = ((int)(128 * globalAlpha) << 24);
         boolean rounded = !DamageEngineConfig.getInstance().infoNoRoundedBorder;
@@ -982,7 +990,7 @@ public class DamageHud {
         // so the HUD never shows a misleading "0" after defeating a mob.
         if (maxHp > 0) {
             Component hpText = Component.literal(hp + "/" + maxHp);
-            guiGraphics.drawString(font, hpText, textX + 10, textYHp, textColor);
+            guiGraphics.text(font, hpText, textX + 10, textYHp, textColor);
         }
         guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, Identifier.withDefaultNamespace("hud/heart/container"), textX, textYHp, 9, 9);
         guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, heartTexture, textX, textYHp, 9, 9);
@@ -1006,7 +1014,7 @@ public class DamageHud {
         return DamageNumberFormat.formatDamage(damage, decimalPlaces);
     }
 
-    private static void drawRoundedRect(GuiGraphics guiGraphics, int x, int y, int w, int h, int radius, int color) {
+    private static void drawRoundedRect(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int radius, int color) {
         if (radius <= 0 || w < radius * 2 || h < radius * 2) {
             guiGraphics.fill(x, y, x + w, y + h, color);
             return;
@@ -1022,7 +1030,7 @@ public class DamageHud {
         }
     }
 
-    private static void drawBarFill(GuiGraphics guiGraphics, int x, int y, int w, int h, int color, boolean rounded) {
+    private static void drawBarFill(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int color, boolean rounded) {
         if (rounded && w > 0) {
             drawRoundedRect(guiGraphics, x, y, w, h, h / 2, color);
         } else {
@@ -1030,7 +1038,7 @@ public class DamageHud {
         }
     }
 
-    private static void drawBarSegment(GuiGraphics guiGraphics, int x, int y, int w, int h, int color, boolean rounded) {
+    private static void drawBarSegment(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int color, boolean rounded) {
         if (!rounded || w <= 0 || h < 4) {
             guiGraphics.fill(x, y, x + w, y + h, color);
             return;
@@ -1047,7 +1055,7 @@ public class DamageHud {
         }
     }
 
-    private static void drawPlayerFace(GuiGraphics guiGraphics, Identifier skinTexture, int x, int y, int size, boolean hatVisible, int color) {
+    private static void drawPlayerFace(GuiGraphicsExtractor guiGraphics, Identifier skinTexture, int x, int y, int size, boolean hatVisible, int color) {
         guiGraphics.blit(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 8.0f, 8.0f, size, size, 8, 8, 64, 64, color);
         if (hatVisible) {
             guiGraphics.blit(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 40.0f, 8.0f, size, size, 8, 8, 64, 64, color);

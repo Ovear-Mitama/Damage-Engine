@@ -2,7 +2,7 @@ package damage.engine.client.gui;
 
 import damage.engine.DamageEngineConfig;
 import net.minecraft.util.Util;import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
 import net.minecraft.client.gui.screens.Screen;
@@ -79,22 +79,22 @@ public class ProfileManagerScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.renderPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics, delta);
         }
 
         // Title
         String titleText = Component.translatable("title.damage-engine.profile_manager").getString();
-        guiGraphics.drawCenteredString(this.font, titleText, this.width / 2, 15, 0xFFFFFFFF);
+        guiGraphics.centeredText(this.font, titleText, this.width / 2, 15, 0xFFFFFFFF);
 
         // Render widgets manually (avoid super.render() blur); tooltips are rendered
         // automatically by the widget system in 1.21.11
         for (var child : this.children()) {
             if (child instanceof AbstractWidget w) {
-                w.render(guiGraphics, mouseX, mouseY, delta);
+                w.extractRenderState(guiGraphics, mouseX, mouseY, delta);
             }
         }
     }
@@ -127,7 +127,7 @@ public class ProfileManagerScreen extends Screen {
         }
 
         @Override
-        protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
             if (isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
             int x = getX(); int y = getY(); int w = getWidth(); int h = getHeight();
 
@@ -144,10 +144,10 @@ public class ProfileManagerScreen extends Screen {
             }
 
             int color = isSelected ? 0xFFB5F0C6 : 0xFFFFFFFF;
-            guiGraphics.drawString(Minecraft.getInstance().font, profileName, x + 10, y + (h - 8) / 2, color);
+            guiGraphics.text(Minecraft.getInstance().font, profileName, x + 10, y + (h - 8) / 2, color);
 
             if (isSelected) {
-                guiGraphics.drawString(Minecraft.getInstance().font, "✓", x + w - 20, y + (h - 8) / 2, 0xFFB5F0C6);
+                guiGraphics.text(Minecraft.getInstance().font, "✓", x + w - 20, y + (h - 8) / 2, 0xFFB5F0C6);
             }
         }
 
@@ -178,7 +178,7 @@ public class ProfileManagerScreen extends Screen {
         }
 
         @Override
-        protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
             if (isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
             guiGraphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), 0x20000000);
 
@@ -189,7 +189,7 @@ public class ProfileManagerScreen extends Screen {
             guiGraphics.fill(x, y, x + 1, y + h, borderColor);
             guiGraphics.fill(x + w - 1, y, x + w, y + h, borderColor);
 
-            guiGraphics.drawCenteredString(Minecraft.getInstance().font, getMessage(), getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, 0xFFFFFFFF);
+            guiGraphics.centeredText(Minecraft.getInstance().font, getMessage(), getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, 0xFFFFFFFF);
         }
 
         @Override

@@ -19,10 +19,10 @@ public class DamageEngine implements ModInitializer {
 		DamageEngineConfig.getInstance().load();
 
 		// codec 注册用 Fabric API
-		PayloadTypeRegistry.playS2C().register(
+		PayloadTypeRegistry.clientboundPlay().register(
 			damage.engine.network.DamagePayload.TYPE,
 			damage.engine.network.DamagePayload.STREAM_CODEC);
-		PayloadTypeRegistry.playC2S().register(
+		PayloadTypeRegistry.serverboundPlay().register(
 			HandshakePayload.TYPE,
 			HandshakePayload.STREAM_CODEC);
 

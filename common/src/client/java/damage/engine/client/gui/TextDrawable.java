@@ -1,6 +1,6 @@
 package damage.engine.client.gui;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Renderable;
 
 public class TextDrawable implements Renderable {
@@ -18,7 +18,7 @@ public class TextDrawable implements Renderable {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        guiGraphics.drawString(font, text, x, y, color);
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+        guiGraphics.text(font, text, x, y, color);
     }
 }

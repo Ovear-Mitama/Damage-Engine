@@ -57,18 +57,16 @@ public class DamageEngineClient implements ClientModInitializer {
                 if (config.debugShowDamageInfo) {
                     DamagePayload dp = payload;
                     if (dp.debugInfo() != null && !dp.debugInfo().isEmpty()) {
-                        mc.player.displayClientMessage(
+                        mc.player.sendSystemMessage(
                             Component.literal("[DE Debug] ").withColor(0xB3EDC4)
-                                .append(Component.literal(dp.debugInfo()).withColor(0xFFFFFF)),
-                            false
+                                .append(Component.literal(dp.debugInfo()).withColor(0xFFFFFF))
                         );
                     }
-                    mc.player.displayClientMessage(
+                    mc.player.sendSystemMessage(
                         Component.literal("[DE Debug] ").withColor(0xB3EDC4)
                             .append(Component.literal("伤害: " + String.format("%.1f", dp.amount()) 
                             + (dp.isCrit() ? " 暴击" : "") + " | 实体: " + dp.entityId()
-                            + " | 投射物: " + (dp.isProjectile() ? "是" : "否")).withColor(0xFFFFFF)),
-                        false
+                            + " | 投射物: " + (dp.isProjectile() ? "是" : "否")).withColor(0xFFFFFF))
                     );
                 }
 
@@ -144,10 +142,9 @@ public class DamageEngineClient implements ClientModInitializer {
                 if (config.debugShowRating && mc.player != null) {
                     RatingManager rm = RatingManager.getInstance();
                     if (rm.isVisible()) {
-                        mc.player.displayClientMessage(
+                        mc.player.sendOverlayMessage(
                             Component.literal("[DE Debug] ").withColor(0xB3EDC4)
-                                .append(Component.literal("当前评分: " + rm.getGrade() + " | 分数: " + String.format("%.1f", rm.getScore())).withColor(0xFFFFFF)),
-                            true
+                                .append(Component.literal("当前评分: " + rm.getGrade() + " | 分数: " + String.format("%.1f", rm.getScore())).withColor(0xFFFFFF))
                         );
                     }
                 }
