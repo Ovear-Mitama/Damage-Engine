@@ -41,9 +41,8 @@ public class ClientTickMixin {
             
             DamageEngineConfig config = DamageEngineConfig.getInstance();
             if (!config.hasShownWelcomeMessage) {
-                client.player.displayClientMessage(
-                    Component.translatable("text.damage-engine.welcome_message").withColor(0xB1EAC2),
-                    false
+                client.player.sendSystemMessage(
+                    Component.translatable("text.damage-engine.welcome_message").withColor(0xB1EAC2)
                 );
                 config.hasShownWelcomeMessage = true;
                 config.save();

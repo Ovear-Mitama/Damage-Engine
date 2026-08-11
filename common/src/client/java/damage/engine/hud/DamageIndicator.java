@@ -3,7 +3,7 @@ package damage.engine.hud;
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.Camera;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
@@ -88,7 +88,7 @@ public class DamageIndicator {
         }
     }
 
-    public static void render(GuiGraphics guiGraphics, float tickDelta) {
+    public static void render(GuiGraphicsExtractor guiGraphics, float tickDelta) {
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null) return;
         if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
@@ -105,16 +105,11 @@ public class DamageIndicator {
             Camera camera = client.gameRenderer.getMainCamera();
             Vec3 camPos = camera.position();
 
-            // Get projection matrix from GameRenderer (takes FOV in degrees)
-            double fov = client.options.fov().get();
-            Matrix4f projectionMatrix = client.gameRenderer.getProjectionMatrix((float) fov);
-
-            Matrix4f viewMatrix = new Matrix4f()
-                .translate((float) camPos.x, (float) camPos.y, (float) camPos.z)
-                .rotate(camera.rotation())
-                .invert();
-
-            Matrix4f viewProjMatrix = new Matrix4f(projectionMatrix).mul(viewMatrix);
+            // 26.1: projection matrices are managed by the render pipeline.
+            // Build view-projection = projection * viewRotation * T(-cameraPos)
+            Matrix4f viewProjMatrix = new Matrix4f()
+                .translate((float) -camPos.x, (float) -camPos.y, (float) -camPos.z);
+            viewProjMatrix = camera.getViewRotationProjectionMatrix(new Matrix4f()).mul(viewProjMatrix, new Matrix4f());
 
             int screenW = client.getWindow().getGuiScaledWidth();
             int screenH = client.getWindow().getGuiScaledHeight();
@@ -250,10 +245,10 @@ public class DamageIndicator {
                     // Use Minecraft's built-in bold formatting
                     var boldText = Component.literal(ri.text).withStyle(ChatFormatting.BOLD).getVisualOrderText();
                     int textWidth = font.width(boldText);
-                    guiGraphics.drawString(font, boldText, -textWidth / 2, textY, ri.color);
+                    guiGraphics.text(font, boldText, -textWidth / 2, textY, ri.color);
                 } else {
                     int textWidth = font.width(ri.text);
-                    guiGraphics.drawString(font, ri.text, -textWidth / 2, textY, ri.color);
+                    guiGraphics.text(font, ri.text, -textWidth / 2, textY, ri.color);
                 }
 
                 guiGraphics.pose().popMatrix();

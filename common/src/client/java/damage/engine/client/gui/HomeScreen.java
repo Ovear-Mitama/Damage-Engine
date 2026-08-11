@@ -6,7 +6,7 @@ import com.google.gson.JsonParser;
 import damage.engine.DamageEngineConfig;
 import damage.engine.DamageEngineMeta;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.narration.NarrationElementOutput;
@@ -170,12 +170,12 @@ public class HomeScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
         // On the main menu (no world) draw the panorama background without blur.
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.renderPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics, delta);
         }
 
         int centerX = this.width / 2;
@@ -190,13 +190,13 @@ public class HomeScreen extends Screen {
         String titleText = Component.translatable("title.damage-engine.home").getString();
         int scaledX = (int)(titleLeftX / titleScale);
         int scaledY = (int)(titleY / titleScale);
-        guiGraphics.drawString(this.font, titleText, scaledX, scaledY, 0xFFFFFFFF);
+        guiGraphics.text(this.font, titleText, scaledX, scaledY, 0xFFFFFFFF);
         guiGraphics.pose().popMatrix();
 
         // "Developed by mitama" - left aligned below title
         String devText = Component.translatable("text.damage-engine.developed_by").getString();
         int greenColor = 0xFFB5F0C6;
-        guiGraphics.drawString(this.font, devText, titleLeftX, titleY + (int)(this.font.lineHeight * titleScale) + 6, greenColor);
+        guiGraphics.text(this.font, devText, titleLeftX, titleY + (int)(this.font.lineHeight * titleScale) + 6, greenColor);
 
         // Update status text at the bottom of the screen
         if (updateState != UpdateState.IDLE) {
@@ -220,13 +220,13 @@ public class HomeScreen extends Screen {
                     statusColor = 0xFFFF7E7E; // red
                 }
             }
-            guiGraphics.drawCenteredString(this.font, statusText, centerX, this.height - 30, statusColor);
+            guiGraphics.centeredText(this.font, statusText, centerX, this.height - 30, statusColor);
         }
 
         // Render widgets + tooltips manually (avoid super.render() blur)
         for (var child : this.children()) {
             if (child instanceof AbstractWidget w) {
-                w.render(guiGraphics, mouseX, mouseY, delta);
+                w.extractRenderState(guiGraphics, mouseX, mouseY, delta);
                 // Tooltip is rendered automatically by the widget system in 1.21.11
             }
         }
@@ -258,7 +258,7 @@ public class HomeScreen extends Screen {
         }
 
         @Override
-        protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
             if (this.active && isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
             int bgColor = this.active ? 0x20000000 : 0x10000000;
             guiGraphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), bgColor);
@@ -278,7 +278,7 @@ public class HomeScreen extends Screen {
             guiGraphics.fill(x + w - 1, y, x + w, y + h, borderColor);
 
             int textColor = this.active ? 0xFFFFFFFF : 0xFF808080;
-            guiGraphics.drawCenteredString(Minecraft.getInstance().font, getMessage(), getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, textColor);
+            guiGraphics.centeredText(Minecraft.getInstance().font, getMessage(), getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, textColor);
         }
 
         @Override

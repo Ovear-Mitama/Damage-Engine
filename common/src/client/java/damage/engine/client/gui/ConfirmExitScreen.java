@@ -2,7 +2,7 @@ package damage.engine.client.gui;
 
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 
@@ -44,21 +44,21 @@ public class ConfirmExitScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.renderPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics, delta);
         }
 
         // Warning message
         String msg = Component.translatable("text.damage-engine.unsaved_changes").getString();
-        guiGraphics.drawCenteredString(this.font, msg, this.width / 2, this.height / 2 - 25, 0xFFFFFFFF);
+        guiGraphics.centeredText(this.font, msg, this.width / 2, this.height / 2 - 25, 0xFFFFFFFF);
 
         // Render widgets manually (avoid super.render() blur)
         for (var child : this.children()) {
             if (child instanceof net.minecraft.client.gui.components.Renderable r) {
-                r.render(guiGraphics, mouseX, mouseY, delta);
+                r.extractRenderState(guiGraphics, mouseX, mouseY, delta);
             }
         }
     }

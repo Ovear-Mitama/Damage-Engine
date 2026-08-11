@@ -3,7 +3,7 @@ package damage.engine.client.gui;
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageSessionManager;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -173,11 +173,11 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.renderPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics, delta);
         }
 
         // 1.21.11 cursor styles:
@@ -205,7 +205,7 @@ public class HudEditorScreen extends Screen {
         
         for (net.minecraft.client.gui.components.events.GuiEventListener element : this.children()) {
             if (element instanceof net.minecraft.client.gui.components.Renderable) {
-                ((net.minecraft.client.gui.components.Renderable) element).render(guiGraphics, mouseX, mouseY, delta);
+                ((net.minecraft.client.gui.components.Renderable) element).extractRenderState(guiGraphics, mouseX, mouseY, delta);
             }
         }
     }
@@ -213,7 +213,7 @@ public class HudEditorScreen extends Screen {
 
 
     
-    private void renderModule(GuiGraphics guiGraphics, EditorModule m) {
+    private void renderModule(GuiGraphicsExtractor guiGraphics, EditorModule m) {
         damageHud.renderModule(guiGraphics, m.config, this.minecraft, 1.0f, () -> {
             switch (m.type) {
                 case TOTAL:
@@ -240,7 +240,7 @@ public class HudEditorScreen extends Screen {
         });
     }
     
-    private void drawSelection(GuiGraphics guiGraphics, EditorModule m) {
+    private void drawSelection(GuiGraphicsExtractor guiGraphics, EditorModule m) {
         int[] b = getBounds(m);
         int greenColor = 0xFFB5F0C6;
         
@@ -252,7 +252,7 @@ public class HudEditorScreen extends Screen {
         guiGraphics.fill(hx, hy, hx + handleSize, hy + handleSize, greenColor);
     }
     
-    private void drawBorder(GuiGraphics guiGraphics, int x, int y, int width, int height, int color) {
+    private void drawBorder(GuiGraphicsExtractor guiGraphics, int x, int y, int width, int height, int color) {
         guiGraphics.fill(x, y, x + width, y + 1, color);
         guiGraphics.fill(x, y + height - 1, x + width, y + height, color);
         guiGraphics.fill(x, y + 1, x + 1, y + height - 1, color);
