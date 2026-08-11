@@ -1,28 +1,16 @@
 package damage.engine;
 
-import damage.engine.client.gui.DamageConfigScreen;
+import damage.engine.hud.DamageSessionManager;
+import damage.engine.hud.DamageIndicator;
+import damage.engine.hud.RatingManager;
 import damage.engine.network.DamagePayload;
-import damage.engine.network.HandshakePayload;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
-import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
-import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
-import org.lwjgl.glfw.GLFW;
-
-import damage.engine.hud.DamageHud;
-import damage.engine.hud.DamageIndicator;
-import damage.engine.hud.DamageSessionManager;
-import damage.engine.hud.RatingManager;
-import net.fabricmc.fabric.api.client.rendering.v1.HudRenderCallback;
-// import net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents; // Not available in this Fabric API version
 import net.minecraft.network.chat.Component;
 
 import org.slf4j.Logger;
@@ -33,184 +21,130 @@ public class DamageEngineClient implements ClientModInitializer {
     public static KeyMapping toggleHudKeyBinding;
     public static KeyMapping clearDamageKeyBinding;
     
-    /** Whether the server has Damage Engine installed. Only valid after serverModChecked is true. */
-    public static boolean serverHasMod = false;
-    /** Whether we have completed the server mod presence check. */
-    public static boolean serverModChecked = false;
-    private static int joinCheckTicks = -1;
+    public static volatile boolean serverHasMod = false;
+    public static volatile boolean serverModChecked = false;
+    public static int joinCheckTicks = -1;
     
     public static final Logger LOGGER = LoggerFactory.getLogger("damage-engine");
-    private static final KeyMapping.Category KEYBIND_CATEGORY = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("damage-engine", "general"));
 
-    private static KeyMapping registerKeyBinding(String translationKey, int defaultKeyCode) {
-        return KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            translationKey,
-            defaultKeyCode,
-            KEYBIND_CATEGORY
-        ));
-    }
-    
     @Override
     public void onInitializeClient() {
-        HudRenderCallback.EVENT.register(new DamageHud());
-        HudRenderCallback.EVENT.register((context, tickCounter) -> {
-            DamageIndicator.render(context, tickCounter.getGameTimeDeltaTicks());
-        });
-        
-        // Capture world projection matrix for FOV/zoom compatibility
-        // WorldRenderEvents not available in this Fabric API version
-        /* WorldRenderEvents.AFTER_TRANSLUCENT.register(context -> {
-            DamageIndicator.captureProjection(new org.joml.Matrix4f(com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix()));
-        }); */
-        
-        // 检测服务端是否安装了本 mod
+        configKeyBinding = ClientKeybindings.configKeyBinding;
+        toggleHudKeyBinding = ClientKeybindings.toggleHudKeyBinding;
+        clearDamageKeyBinding = ClientKeybindings.clearDamageKeyBinding;
+        KeyMapping.resetMapping();
+
+        // 进入服务器/世界时重置服务端 mod 检测状态；单机世界由 ClientTickMixin 直接标记
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             serverHasMod = false;
             serverModChecked = false;
-            joinCheckTicks = 40; // 2 seconds delay before checking
+            joinCheckTicks = 40;
         });
 
-        configKeyBinding = registerKeyBinding("key.damage_engine.config", GLFW.GLFW_KEY_UNKNOWN);
-        toggleHudKeyBinding = registerKeyBinding("key.damage_engine.toggle_hud", GLFW.GLFW_KEY_UNKNOWN);
-        clearDamageKeyBinding = registerKeyBinding("key.damage_engine.clear_damage", GLFW.GLFW_KEY_UNKNOWN);
-        
-        ClientTickEvents.END_CLIENT_TICK.register(minecraft -> {
-            if (minecraft.player != null) {
-                // 检测服务端 mod 安装状态
-                if (joinCheckTicks > 0) {
-                    joinCheckTicks--;
-                    if (joinCheckTicks == 0) {
-                        if (minecraft.getSingleplayerServer() != null) {
-                            // 单人游戏：集成服务器一定安装了本 mod
-                            serverHasMod = true;
-                        } else {
-                            // 多人游戏：通过握手包检测
-                            serverHasMod = ClientPlayNetworking.canSend(HandshakePayload.ID);
-                        }
-                        serverModChecked = true;
-                    }
-                }
-                
-                // 首次进入世界时显示提示信息
-                DamageEngineConfig config = DamageEngineConfig.getInstance();
-                if (!config.hasShownWelcomeMessage) {
-                    minecraft.player.displayClientMessage(
-                        Component.translatable("text.damage-engine.welcome_message").withColor(0xB1EAC2),
-                        false
-                    );
-                    config.hasShownWelcomeMessage = true;
-                    config.save();
-                }
-                
-                if (configKeyBinding != null) {
-                    while (configKeyBinding.consumeClick()) {
-                        minecraft.setScreen(new DamageConfigScreen(minecraft.screen));
-                    }
-                }
-                if (toggleHudKeyBinding != null) {
-                    while (toggleHudKeyBinding.consumeClick()) {
-                        config.showDamage = !config.showDamage;
-                        config.save();
-                    }
-                }
-                if (clearDamageKeyBinding != null) {
-                    while (clearDamageKeyBinding.consumeClick()) {
-                        DamageSessionManager.getInstance().reset();
-                        DamageIndicator.clearAll();
-                    }
-                }
+        // 标准 Fabric API 接收 S2C 伤害包
+        ClientPlayNetworking.registerGlobalReceiver(DamagePayload.TYPE, (payload, context) -> {
+            if (!serverHasMod) {
+                serverHasMod = true;
+                serverModChecked = true;
             }
 
-            if (!minecraft.isPaused()) {
-                DamageSessionManager.getInstance().tick();
-                DamageIndicator.tickAndCleanup();
-            }
-        });
-        
-        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) -> {
-            dispatcher.register(ClientCommandManager.literal("damage_engine")
-                .then(ClientCommandManager.literal("clear")
-                    .executes(ctx -> {
-                        DamageSessionManager.getInstance().reset();
-                        DamageIndicator.clearAll();
-                        if (ctx.getSource().getPlayer() != null) {
-                            ctx.getSource().getPlayer().displayClientMessage(
-                                Component.literal("[Damage Engine] " ).withColor(0xB3EDC4).append(Component.translatable("text.damage-engine.cleared").withColor(0xFFFFFF)),
-                                false
-                            );
-                        }
-                        return 1;
-                    }))
-
-            );
-            
-
-        });
-
-        ClientPlayNetworking.registerGlobalReceiver(DamagePayload.ID, (payload, context) -> {
-            context.client().execute(() -> {
-                if (context.client().level == null || context.client().player == null) return;
-                
-                // 收到了 DamagePayload 说明服务端安装了本 mod
-                if (!serverModChecked) {
-                    serverHasMod = true;
-                    serverModChecked = true;
-                }
+            Minecraft mc = Minecraft.getInstance();
+            mc.execute(() -> {
+                if (mc.level == null || mc.player == null) return;
                 
                 DamageEngineConfig config = DamageEngineConfig.getInstance();
                 
-                // Debug: show damage info (includes server-side debugInfo)
                 if (config.debugShowDamageInfo) {
-                    if (payload.debugInfo() != null && !payload.debugInfo().isEmpty()) {
-                        context.client().player.displayClientMessage(
-                            Component.literal("[DE Debug] ").withColor(0xB3EDC4).append(Component.literal(payload.debugInfo()).withColor(0xFFFFFF)),
+                    DamagePayload dp = payload;
+                    if (dp.debugInfo() != null && !dp.debugInfo().isEmpty()) {
+                        mc.player.displayClientMessage(
+                            Component.literal("[DE Debug] ").withColor(0xB3EDC4)
+                                .append(Component.literal(dp.debugInfo()).withColor(0xFFFFFF)),
                             false
                         );
                     }
-                    context.client().player.displayClientMessage(
+                    mc.player.displayClientMessage(
                         Component.literal("[DE Debug] ").withColor(0xB3EDC4)
-                            .append(Component.literal("伤害: " + String.format("%.1f", payload.amount()) 
-                            + (payload.isCrit() ? " 暴击" : "") + " | 实体: " + payload.entityId()
-                            + " | 投射物: " + (payload.isProjectile() ? "是" : "否")).withColor(0xFFFFFF)),
+                            .append(Component.literal("伤害: " + String.format("%.1f", dp.amount()) 
+                            + (dp.isCrit() ? " 暴击" : "") + " | 实体: " + dp.entityId()
+                            + " | 投射物: " + (dp.isProjectile() ? "是" : "否")).withColor(0xFFFFFF)),
                         false
                     );
                 }
 
-                if (payload.attackerId() != context.client().player.getId()) {
+                DamagePayload dp = payload;
+                boolean isSelfDamage = dp.attackerId() == mc.player.getId();
+
+                // Handle global damage indicators (damage caused by others)
+                if (!isSelfDamage && config.showGlobalDamageIndicator) {
+                    // Skip if attacker is invisible
+                    if (dp.attackerId() > 0 && mc.level != null) {
+                        net.minecraft.world.entity.Entity attackerEntity = mc.level.getEntity(dp.attackerId());
+                        if (attackerEntity instanceof net.minecraft.world.entity.LivingEntity le && le.isInvisible()) {
+                            return;
+                        }
+                    }
+
+                    // Calculate distance for culling
+                    double dx = dp.posX() - mc.player.getX();
+                    double dy = dp.posY() - mc.player.getY();
+                    double dz = dp.posZ() - mc.player.getZ();
+                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    if (distance <= config.globalIndicatorMaxDistance) {
+                        if (config.showDamageIndicator && dp.amount() > 0 && !dp.killed()) {
+                            Vec3 pos = dp.isProjectile()
+                                ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
+                                : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                dp.amount(), dp.isCrit(), false);
+                        }
+                        if (config.showKillIndicator && dp.killed()) {
+                            Vec3 pos = dp.isProjectile()
+                                ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
+                                : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                dp.amount(), false, true);
+                        }
+                    }
+                }
+
+                // Only process self damage for session tracking
+                if (!isSelfDamage) {
+                    if (config.recordOtherPlayers) {
+                        DamageSessionManager.getInstance().addOtherPlayerDamage(dp.amount(), dp.isCrit(), dp.attackerId());
+                    }
                     return;
                 }
                 
                 boolean preferSwitchTarget = false;
                 try {
-                    if (context.client().hitResult instanceof EntityHitResult ehr) {
-                        preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
+                    if (mc.hitResult instanceof EntityHitResult ehr) {
+                        preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == dp.entityId();
                     }
-                } catch (Exception ignored) {
-                }
+                } catch (Exception ignored) {}
                 
-                DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
+                DamageSessionManager.getInstance().addDamage(dp.amount(), dp.isCrit(), dp.entityId(), preferSwitchTarget);
                 
-                // Add damage indicator
-                if (config.showDamageIndicator && payload.amount() > 0) {
-                    Vec3 pos = payload.isProjectile() 
-                        ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                        : blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                if (config.showDamageIndicator && dp.amount() > 0) {
+                    Vec3 pos = dp.isProjectile() 
+                        ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
+                        : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                     DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                        payload.amount(), payload.isCrit(), false);
+                        dp.amount(), dp.isCrit(), false);
                 }
-                if (config.showKillIndicator && payload.killed()) {
-                    Vec3 pos = payload.isProjectile() 
-                        ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                        : blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                if (config.showKillIndicator && dp.killed()) {
+                    Vec3 pos = dp.isProjectile() 
+                        ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
+                        : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                     DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                        payload.amount(), false, true);
+                        dp.amount(), false, true);
                 }
                 
-                // Debug: show rating
-                if (config.debugShowRating && context.client().player != null) {
+                if (config.debugShowRating && mc.player != null) {
                     RatingManager rm = RatingManager.getInstance();
                     if (rm.isVisible()) {
-                        context.client().player.displayClientMessage(
+                        mc.player.displayClientMessage(
                             Component.literal("[DE Debug] ").withColor(0xB3EDC4)
                                 .append(Component.literal("当前评分: " + rm.getGrade() + " | 分数: " + String.format("%.1f", rm.getScore())).withColor(0xFFFFFF)),
                             true
@@ -219,27 +153,16 @@ public class DamageEngineClient implements ClientModInitializer {
                 }
             });
         });
-        
-
     }
     
-    /**
-     * Blend indicator position toward crosshair hit point for non-projectile attacks.
-     * Moves the indicator ~35% toward where the player is aiming, so it doesn't always
-     * appear at the entity center but also doesn't block the crosshair.
-     */
     public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
         Minecraft client = Minecraft.getInstance();
+        // If entity is targeted by crosshair → use hit point (near crosshair)
         if (client.hitResult instanceof EntityHitResult ehr && ehr.getEntity() != null 
             && ehr.getEntity().getId() == entityId) {
-            Vec3 hit = ehr.getLocation();
-            double blend = 0.35;
-            return new Vec3(
-                baseX + (hit.x - baseX) * blend,
-                baseY + (hit.y - baseY) * blend,
-                baseZ + (hit.z - baseZ) * blend
-            );
+            return ehr.getLocation();
         }
+        // Not targeted: use body center position (baseY is already the bounding box center)
         return new Vec3(baseX, baseY, baseZ);
     }
 }
