@@ -134,8 +134,12 @@ public class HomeScreen extends Screen {
     }
 
     private static boolean hasLoader(JsonObject entry, String platform) {
+        // Strict: require explicit loader info - a release that does not declare
+        // its loaders must not be offered to any platform (Fabric/NeoForge versions
+        // share one Modrinth project, so a missing/unknown loader could leak a
+        // cross-platform update suggestion).
         if (!entry.has("loaders") || entry.get("loaders").isJsonNull()) {
-            return true; // No loader info: accept defensively
+            return false;
         }
         JsonArray loaders = entry.get("loaders").getAsJsonArray();
         for (int i = 0; i < loaders.size(); i++) {

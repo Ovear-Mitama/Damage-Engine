@@ -72,6 +72,7 @@ public class ClientTickMixin {
             DamageSessionManager.getInstance().tick();
             DamageIndicator.tickAndCleanup();
             ClientAttackTracker.getInstance().cleanup();
+            damage.engine.client.ClientHealthMonitor.cleanup();
         }
     }
 }

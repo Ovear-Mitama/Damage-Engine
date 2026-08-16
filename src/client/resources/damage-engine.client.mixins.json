@@ -13,6 +13,7 @@
 		"KeyBindingCategoryMixin",
 		"PlayerAttackMixin",
 		"ProjectileHitMixin",
+		"MultiPlayerGameModeMixin",
 		"ClientPayloadMixin"
 	],
 	"injectors": {
