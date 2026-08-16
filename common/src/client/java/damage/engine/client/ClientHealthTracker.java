@@ -7,6 +7,7 @@ import damage.engine.hud.DamageSessionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 
 /**
  * Client-side health tracker that detects damage by monitoring entity health changes.
@@ -45,16 +46,21 @@ public class ClientHealthTracker {
                 double dz = entity.getZ() - client.player.getZ();
                 double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                if (distance <= config.globalIndicatorMaxDistance) {
+                if (config.globalIndicatorMaxDistance <= 0 || distance <= config.globalIndicatorMaxDistance) {
+                    Vec3 pos = DamageEngineClient.blendIndicatorPos(
+                        entity.getX(),
+                        entity.getY() + entity.getEyeHeight() * 0.6,
+                        entity.getZ(),
+                        entity.getId()
+                    );
+
                     if (config.showDamageIndicator && damageAmount > 0) {
-                        DamageIndicator.addIndicator(entity.getId(), entity.getX(),
-                            entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(),
-                            damageAmount, false, killed);
+                        DamageIndicator.addIndicator(entity.getId(), pos.x, pos.y, pos.z,
+                            damageAmount, false, false);
                     }
 
                     if (config.showKillIndicator && killed) {
-                        DamageIndicator.addIndicator(entity.getId(), entity.getX(),
-                            entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(),
+                        DamageIndicator.addIndicator(entity.getId(), pos.x, pos.y, pos.z,
                             damageAmount, false, true);
                     }
                 }
@@ -76,17 +82,26 @@ public class ClientHealthTracker {
 
         DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(), preferSwitchTarget);
 
-        // Blend indicator position toward crosshair hit point
-        if (config.showDamageIndicator && damageAmount > 0) {
-            DamageIndicator.addIndicator(entity.getId(), entity.getX(),
-                entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(),
-                damageAmount, false, killed);
-        }
+        // Blend indicator position toward crosshair hit point, capped by the configured max distance
+        if (client.player != null) {
+            Vec3 pos = DamageEngineClient.blendIndicatorPos(
+                entity.getX(),
+                entity.getY() + entity.getEyeHeight() * 0.6,
+                entity.getZ(),
+                entity.getId()
+            );
+            double maxDist = config.globalIndicatorMaxDistance;
+            if (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist) {
+                if (config.showDamageIndicator && damageAmount > 0) {
+                    DamageIndicator.addIndicator(entity.getId(), pos.x, pos.y, pos.z,
+                        damageAmount, false, false);
+                }
 
-        if (config.showKillIndicator && killed) {
-            DamageIndicator.addIndicator(entity.getId(), entity.getX(),
-                entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(),
-                damageAmount, false, true);
+                if (config.showKillIndicator && killed) {
+                    DamageIndicator.addIndicator(entity.getId(), pos.x, pos.y, pos.z,
+                        damageAmount, false, true);
+                }
+            }
         }
     }
 }

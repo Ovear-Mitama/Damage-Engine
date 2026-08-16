@@ -51,6 +51,14 @@ public class DamageConfigScreen extends Screen {
     private boolean isBinding = false;
     private String configSnapshot;
 
+    /**
+     * Widget currently being interacted with (slider dragged / edit box focused).
+     * DamageConfigScreen drives it directly from mouseDragged/keyPressed/charTyped,
+     * because AbstractSelectionList's default event routing does not reliably reach
+     * row children for press-and-hold drags or text input.
+     */
+    private GuiEventListener activeWidget = null;
+
     public DamageConfigScreen(Screen parent) {
         super(Component.translatable("title.damage-engine.config"));
         this.parent = parent;
@@ -358,11 +366,58 @@ public class DamageConfigScreen extends Screen {
                 return true;
             }
         }
+        // Forward keys to the active edit box (the box is focused via mouseClicked).
+        if (activeWidget instanceof EditBox box) {
+            box.setFocused(true);
+            if (box.keyPressed(keyCode, scanCode, modifiers)) {
+                return true;
+            }
+        }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
     @Override
+    public boolean charTyped(char codePoint, int modifiers) {
+        if (activeWidget instanceof EditBox box) {
+            box.setFocused(true);
+            if (box.charTyped(codePoint, modifiers)) {
+                return true;
+            }
+        }
+        return super.charTyped(codePoint, modifiers);
+    }
+
+    @Override
+    public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        // Drive the active slider directly for the whole press-and-hold drag,
+        // even when the cursor leaves the slider bar (AbstractSelectionList's
+        // default routing can stop reaching row children).
+        if (activeWidget instanceof StyledSliderWidget slider && button == 0) {
+            slider.updateValueFromMouse(mouseX);
+            return true;
+        }
+        return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+    }
+
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        // Drive the slider release directly so the release-click sound always fires,
+        // even if the default event chain does not reach the row child. The second
+        // call through super.mouseReleased is a no-op (pendingReleaseSound consumed).
+        if (activeWidget instanceof StyledSliderWidget slider) {
+            slider.mouseReleased(mouseX, mouseY, button);
+        }
+        // NOTE: keep activeWidget so an edit box stays the keyboard target after the
+        // mouse is released (until the user clicks somewhere else).
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
+
+    @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        // Reset the active widget on every click; re-set below when a slider / edit
+        // box is hit.
+        activeWidget = null;
+
         // Tab clicks
         int tabY = 0;
         int tabHeight = 24;
@@ -406,17 +461,43 @@ public class DamageConfigScreen extends Screen {
         // rendered absolute rect - this keeps clicking in sync with what is drawn on screen.
         if (button == 0 && optionList != null) {
             java.util.List<OptionEntry> entries = optionList.children();
+            int listTop = optionList.listTop();
+            int listBottom = optionList.listBottom();
             for (int i = 0; i < entries.size(); i++) {
+                OptionEntry entry = entries.get(i);
                 int rowTop = optionList.rowTop(i);
                 int rowBottom = optionList.rowBottom(i);
-                if (mouseY < rowTop || mouseY >= rowBottom) continue;
-                for (GuiEventListener c : entries.get(i).children()) {
+                // Only process rows intersecting the visible list area, so stale
+                // widget rects of scrolled-away rows can never capture the click.
+                if (rowBottom <= listTop || rowTop >= listBottom) continue;
+                for (GuiEventListener c : entry.children()) {
                     if (c instanceof AbstractWidget w && w.active && w.visible) {
                         if (mouseX >= w.getX() && mouseX < w.getX() + w.getWidth()
                             && mouseY >= w.getY() && mouseY < w.getY() + w.getHeight()) {
+                            // Record the interacted widget (slider / edit box) so this
+                            // screen can drive press-and-hold drags and text input
+                            // directly, without relying on AbstractSelectionList's
+                            // default event routing.
+                            if (c instanceof EditBox || c instanceof StyledSliderWidget) {
+                                activeWidget = c;
+                                if (c instanceof EditBox) {
+                                    // Build the 屏幕→列表→行 焦点链 so keyboard events reach the box
+                                    this.setFocused(optionList);
+                                    optionList.setFocused(entry);
+                                }
+                            }
                             return c.mouseClicked(mouseX, mouseY, button);
                         }
                     }
+                }
+                // No child widget hit: if the click is inside this row, hand it to the
+                // entry itself (whole-row click targets like the expand/collapse
+                // headers, which must toggle even when clicking the label area).
+                if (mouseY >= rowTop && mouseY < rowBottom) {
+                    if (entry.mouseClicked(mouseX, mouseY, button)) {
+                        return true;
+                    }
+                    return super.mouseClicked(mouseX, mouseY, button);
                 }
             }
         }
@@ -425,6 +506,9 @@ public class DamageConfigScreen extends Screen {
 
     @Override
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+        // Keep the active edit box focused so its cursor stays visible while typing.
+        // (Caret blink itself is driven by EditBoxCursorMixin using wall-clock time.)
+        if (activeWidget instanceof EditBox box) box.setFocused(true);
         this.renderBackground(guiGraphics);
         
         // Render tabs
@@ -639,6 +723,10 @@ public class DamageConfigScreen extends Screen {
         @Override public int getRowLeft() { return 10; }
         public int getScrollbarX() { return this.width - 6; }
         public int listWidth() { return this.width; }
+        /** Top of the visible list area (y0 of AbstractSelectionList). */
+        public int listTop() { return this.y0; }
+        /** Bottom of the visible list area (y1 of AbstractSelectionList). */
+        public int listBottom() { return this.y1; }
         public int rowTop(int index) { return this.getRowTop(index); }
         public int rowBottom(int index) { return this.getRowBottom(index); }
         @Override public void updateNarration(NarrationElementOutput n) {}
@@ -1286,6 +1374,10 @@ public class DamageConfigScreen extends Screen {
         private final boolean showValue, soundOnPress, soundOnRelease;
         private boolean pendingReleaseSound;
         private double valueBeforeInteraction;
+        // Track an in-progress drag: MC's AbstractSliderButton only updates while the
+        // mouse is over the widget, so a press-and-hold drag that moves past the edge
+        // of the 100px slider bar stops following. We keep dragging until release.
+        private boolean sliderDragging;
         public StyledSliderWidget(int x, int y, int w, int h, Component text, double value, boolean showValue, boolean soundOnPress, boolean soundOnRelease) {
             super(x, y, w, h, text, value);
             this.showValue = showValue; this.soundOnPress = soundOnPress; this.soundOnRelease = soundOnRelease;
@@ -1298,14 +1390,32 @@ public class DamageConfigScreen extends Screen {
         }
         @Override public void playDownSound(net.minecraft.client.sounds.SoundManager sm) { if (!soundOnPress) return; playClick(); }
         @Override public boolean mouseClicked(double mx, double my, int btn) {
+            double before = this.value;
             boolean h = super.mouseClicked(mx, my, btn);
-            if (h && soundOnRelease) { pendingReleaseSound = true; valueBeforeInteraction = this.value; }
+            if (h) { sliderDragging = true; if (soundOnRelease) { pendingReleaseSound = true; valueBeforeInteraction = before; } }
             return h;
         }
         @Override public boolean mouseReleased(double mx, double my, int btn) {
+            sliderDragging = false;
             boolean h = super.mouseReleased(mx, my, btn);
             if (soundOnRelease && pendingReleaseSound) { pendingReleaseSound = false; if (Math.abs(this.value - valueBeforeInteraction) > 1.0E-9) playClick(); }
             return h;
+        }
+        @Override public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
+            // Keep following the mouse for the whole press-and-hold drag, even when the
+            // cursor leaves the slider bar (MC's default requires isMouseOver).
+            if (sliderDragging && btn == 0) {
+                updateValueFromMouse(mx);
+                return true;
+            }
+            return super.mouseDragged(mx, my, btn, dx, dy);
+        }
+        /** Drag the slider to the given mouse X (screen coords), regardless of hover. */
+        public void updateValueFromMouse(double mx) {
+            // setValue/setValueFromMouse are private in 1.20.1; replicate the formula.
+            this.value = Mth.clamp((mx - (double) (this.getX() + 4)) / (double) (this.getWidth() - 8), 0.0, 1.0);
+            this.updateMessage();
+            this.applyValue();
         }
         @Override public void renderWidget(GuiGraphics g, int mx, int my, float d) {
             int x = getX(), y = getY(), w = getWidth(), h = getHeight();

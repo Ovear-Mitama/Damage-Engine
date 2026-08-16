@@ -11,6 +11,7 @@ import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 
 import io.netty.buffer.Unpooled;
 
@@ -115,12 +116,14 @@ public class DamageEngineClient implements ClientModInitializer {
                         double dz = posZ - client.player.getZ();
                         double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                        if (distance <= config.globalIndicatorMaxDistance) {
+                        if (config.globalIndicatorMaxDistance <= 0 || distance <= config.globalIndicatorMaxDistance) {
                             if (config.showDamageIndicator && amount > 0) {
-                                DamageIndicator.addIndicator(entityId, posX, posY, posZ, amount, isCrit, killed);
+                                Vec3 pos = blendIndicatorPos(posX, posY, posZ, entityId);
+                                DamageIndicator.addIndicator(entityId, pos.x, pos.y, pos.z, amount, isCrit, false);
                             }
                             if (config.showKillIndicator && killed) {
-                                DamageIndicator.addIndicator(entityId, posX, posY, posZ, amount, false, true);
+                                Vec3 pos = blendIndicatorPos(posX, posY, posZ, entityId);
+                                DamageIndicator.addIndicator(entityId, pos.x, pos.y, pos.z, amount, false, true);
                             }
                         }
                     }
@@ -141,11 +144,15 @@ public class DamageEngineClient implements ClientModInitializer {
 
                     DamageSessionManager.getInstance().addDamage(amount, isCrit, entityId, preferSwitchTarget);
 
-                    if (config.showDamageIndicator && amount > 0) {
-                        DamageIndicator.addIndicator(entityId, posX, posY, posZ, amount, isCrit, killed);
-                    }
-                    if (config.showKillIndicator && killed) {
-                        DamageIndicator.addIndicator(entityId, posX, posY, posZ, amount, false, true);
+                    Vec3 pos = blendIndicatorPos(posX, posY, posZ, entityId);
+                    double maxDist = config.globalIndicatorMaxDistance;
+                    if (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist) {
+                        if (config.showDamageIndicator && amount > 0) {
+                            DamageIndicator.addIndicator(entityId, pos.x, pos.y, pos.z, amount, isCrit, false);
+                        }
+                        if (config.showKillIndicator && killed) {
+                            DamageIndicator.addIndicator(entityId, pos.x, pos.y, pos.z, amount, false, true);
+                        }
                     }
 
                     if (config.debugShowRating && client.player != null) {
@@ -160,6 +167,10 @@ public class DamageEngineClient implements ClientModInitializer {
                     }
                 });
             });
+    }
+
+    public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
+        return damage.engine.client.IndicatorPos.blend(baseX, baseY, baseZ, entityId);
     }
     
 }

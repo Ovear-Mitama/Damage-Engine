@@ -16,7 +16,7 @@ import java.time.Duration;
 public class UpdateChecker {
     private static final String MODRINTH_PROJECT_SLUG = "damage-engine";
     private static final String MODRINTH_API_URL = "https://api.modrinth.com/v2/project/" + MODRINTH_PROJECT_SLUG + "/version";
-    private static final String CURRENT_VERSION = "1.4.3";
+    private static final String CURRENT_VERSION = damage.engine.DamageEngineMeta.VERSION;
     // Minecraft version this mod is built for
     private static final String MC_VERSION = "1.20.1";
 
@@ -31,7 +31,10 @@ public class UpdateChecker {
 
         new Thread(() -> {
             try {
-                String url = MODRINTH_API_URL + "?game_versions=[%22" + URLEncoder.encode(MC_VERSION, StandardCharsets.UTF_8) + "%22]";
+                // Only consider versions for the current loader platform (Fabric/Forge
+                // releases share the same project on Modrinth). The URL already filters by
+                // loaders; this is a defensive second check.
+                String url = MODRINTH_API_URL + "?game_versions=[%22" + URLEncoder.encode(MC_VERSION, StandardCharsets.UTF_8) + "%22]&loaders=[%22" + damage.engine.DamageEngineMeta.PLATFORM + "%22]";
                 HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(10))
                     .build();
@@ -49,6 +52,7 @@ public class UpdateChecker {
                         // Find the latest version for this Minecraft version
                         for (int i = 0; i < versions.size(); i++) {
                             JsonObject ver = versions.get(i).getAsJsonObject();
+                            if (!hasLoader(ver, damage.engine.DamageEngineMeta.PLATFORM)) continue;
                             String versionNumber = ver.get("version_number").getAsString();
                             JsonArray gameVersions = ver.getAsJsonArray("game_versions");
                             boolean matchesMc = false;
@@ -72,6 +76,20 @@ public class UpdateChecker {
             }
             checked = true;
         }, "DamageEngine-UpdateCheck").start();
+    }
+
+    private static boolean hasLoader(JsonObject entry, String platform) {
+        if (!entry.has("loaders") || entry.get("loaders").isJsonNull()) {
+            return true; // No loader info: accept defensively
+        }
+        JsonArray loaders = entry.get("loaders").getAsJsonArray();
+        for (int i = 0; i < loaders.size(); i++) {
+            var el = loaders.get(i);
+            if (el.isJsonPrimitive() && platform.equals(el.getAsString())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**

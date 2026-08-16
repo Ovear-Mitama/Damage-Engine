@@ -55,9 +55,6 @@ public class DamageHud {
     private float infoAbsorption = 0f;
 
 
-    private long historyAnimStartTime = 0;
-    private int prevAnimSize = 0;
-    private int prevHistorySize = 0;
     private static final long HISTORY_ANIM_MS = 188;
     private float contentRightX = 20f;
     private String previewGrade = "";
@@ -95,6 +92,16 @@ public class DamageHud {
 
             if (config.hideOnF1 && client.options.hideGui) return;
             if (!config.showDamage) return;
+
+            // TaCZ's crosshair hit feedback enables depth test / blend and never
+            // restores them, so HUD draws that run after it (ours included) inherit
+            // polluted state and flicker in sync with the crosshair. Force a stable
+            // 2D state for every module rendered below, and keep it that way for the
+            // rest of the frame.
+            com.mojang.blaze3d.systems.RenderSystem.enableBlend();
+            com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
+            com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
+            com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
             DamageSessionManager session = DamageSessionManager.getInstance();
             
@@ -437,18 +444,12 @@ public class DamageHud {
         List<DamageSessionManager.DamageEntry> renderList = (history != null) ? new java.util.ArrayList<>(history) : java.util.Collections.emptyList();
 
         long now = System.currentTimeMillis();
-        if (renderList.size() != prevHistorySize) {
-            prevAnimSize = prevHistorySize;
-            historyAnimStartTime = now;
-            prevHistorySize = renderList.size();
-            if (renderList.size() <= 1) prevAnimSize = 0;
-        }
 
-        // No slide/fade animation: new entries appear instantly and existing rows
-        // stay put. The old per-hit slide-in animation restarted on every new
-        // damage record, which looked like flicker during rapid hits.
-        float animProgress = 1.0f;
-        int growthAmount = 0;
+        // Vertical push-down: when a newer entry arrives, older entries slide down
+        // one slot over the same duration as the horizontal entrance, so a new
+        // damage record never hard-cuts an entry that is in motion.
+        long newestTs = renderList.isEmpty() ? now : renderList.get(renderList.size() - 1).timestamp();
+        float downProgress = isPreview ? 1.0f : Mth.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
 
         int baseY = 15;
 
@@ -478,12 +479,17 @@ public class DamageHud {
                 }
             }
 
-            boolean isNewEntry = !isPreview && renderIndex < growthAmount && animProgress < 1.0f;
+            // Per-entry entrance animation: each entry animates from its own birth
+            // time, so new hits never interrupt entries that are already animating.
+            // Entries born in the same instant animate together.
+            float entryAnimProgress = isPreview ? 1.0f
+                : Mth.clamp(timeAlive / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
             float slideOffsetX = 0f;
             float slideAlphaMul = 1.0f;
-            if (isNewEntry) {
-                slideOffsetX = (1.0f - animProgress) * 20f;
-                slideAlphaMul = animProgress;
+            if (entryAnimProgress < 1.0f) {
+                // Purely horizontal right-to-left slide + fade-in.
+                slideOffsetX = (1.0f - entryAnimProgress) * 20f;
+                slideAlphaMul = entryAnimProgress;
             }
 
             finalItemAlpha *= globalAlpha * slideAlphaMul;
@@ -501,12 +507,15 @@ public class DamageHud {
             int textWidth = font.width(valText);
 
             float targetY = baseY + renderIndex * 10;
+            // Newest entry sits in its final slot (its entrance is the horizontal
+            // slide above); older entries smoothly push down one slot when a newer
+            // entry arrives, instead of teleporting mid-animation.
             float yPos;
-            if (!isPreview && growthAmount > 0 && !isNewEntry && animProgress < 1.0f) {
-                float oldY = targetY - growthAmount * 10;
-                yPos = Mth.lerp(animProgress, oldY, targetY);
-            } else {
+            if (renderIndex == 0 || downProgress >= 1.0f) {
                 yPos = targetY;
+            } else {
+                float oldY = targetY - 10;
+                yPos = Mth.lerp(downProgress, oldY, targetY);
             }
 
             float xPos = contentRightX - textWidth + slideOffsetX;
@@ -600,11 +609,13 @@ public class DamageHud {
             if (target != null) {
                 captureInfoSnapshot(target);
             } else if (!infoHasSnapshot) {
-                infoHasSnapshot = true;
-                infoName = "";
-                infoIsPlayer = false;
-                infoResourceLocation = null;
-                infoMaxHealth = 1f;
+                // 目标已从世界移除且此前从未显示过:没有可显示的 HP 信息。
+                // 不再硬编码 "0/1",直接淡出。
+                infoFading = true;
+                infoFadeStartMs = now;
+                infoLastTargetId = -1;
+                session.clearInfo();
+                return;
             }
             infoHealth = 0f;
             infoAbsorption = 0f;
@@ -675,10 +686,10 @@ public class DamageHud {
         }
         infoHealth = target.getHealth();
         float newMaxHealth = target.getMaxHealth();
+        // 只在拿到有效最大值时更新;死亡实体的 getMaxHealth() 可能返回 0,
+        // 保留上次有效值,避免血条数字退化成 "0/1"。
         if (newMaxHealth > 0) {
             infoMaxHealth = newMaxHealth;
-        } else if (infoMaxHealth <= 0) {
-            infoMaxHealth = 1f;
         }
         infoAbsorption = target.getAbsorptionAmount();
     }
@@ -823,7 +834,8 @@ public class DamageHud {
             }
 
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-            com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
+            // NOTE: do NOT re-enable depth test here - onHudRender forces a stable
+            // 2D state (depth test off) for all modules and the rest of the frame.
             guiGraphics.pose().popPose();
         }
 
@@ -1011,11 +1023,7 @@ public class DamageHud {
     }
 
     private String formatDamage(float damage, int decimalPlaces) {
-        if (decimalPlaces <= 0) {
-            return String.valueOf(Math.round(damage));
-        }
-        String format = "%." + decimalPlaces + "f";
-        return String.format(format, damage);
+        return DamageNumberFormat.formatDamage(damage, decimalPlaces);
     }
 
     private static void drawRoundedRect(GuiGraphics guiGraphics, int x, int y, int w, int h, int radius, int color) {

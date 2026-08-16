@@ -76,9 +76,9 @@ public class LivingEntityClientMixin {
                     double dz = self.getZ() - client.player.getZ();
                     double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
                     
-                    // For heal indicators, use global indicator distance if configured, otherwise show all
+                    // For heal indicators, use the indicator distance (0 = unlimited)
                     float maxDistance = config.globalIndicatorMaxDistance;
-                    if (distance <= maxDistance) {
+                    if (maxDistance <= 0 || distance <= maxDistance) {
                         double posX = self.getX();
                         double posY = self.getY() + self.getEyeHeight() * 0.6;
                         double posZ = self.getZ();

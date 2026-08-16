@@ -292,7 +292,10 @@ public class DamageEngineConfig {
         this.healIndicatorColor = loaded.healIndicatorColor;
         this.indicatorPrefixSign = loaded.indicatorPrefixSign;
         this.showGlobalDamageIndicator = loaded.showGlobalDamageIndicator;
-        this.globalIndicatorMaxDistance = loaded.globalIndicatorMaxDistance > 0 ? loaded.globalIndicatorMaxDistance : 128.0f;
+        // 0 = unlimited is a valid configured value (see hint text); keep it as-is
+        // instead of forcing the 128 default back, which made "set 0 for unlimited"
+        // silently reset to the default on reload.
+        this.globalIndicatorMaxDistance = loaded.globalIndicatorMaxDistance;
         this.killText = loaded.killText != null ? loaded.killText : "Kill!";
         this.killTextColor = loaded.killTextColor;
         this.showKillIndicator = loaded.showKillIndicator;

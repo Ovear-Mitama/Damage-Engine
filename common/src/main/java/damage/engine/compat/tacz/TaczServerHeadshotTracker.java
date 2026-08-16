@@ -1,12 +1,13 @@
 package damage.engine.compat.tacz;
 
 /**
- * Server-side tracker for TaCZ's official headshot result. A conditional mixin
- * (Fabric) or the forge event hook (Forge) marks the victim here, and
- * flushPendingDamage consumes the mark once so the crit flag travels inside our
- * own payload - exactly one headshot mark, consumed exactly once. A short time
- * window guards against the mark being set after a pending payload was already
- * flushed (multi-target ticks), so it can never leak into a later body shot.
+ * Server-side tracker for TaCZ's official headshot result. The Fabric event
+ * hook (TaczFabricCompat, subscribing to EntityHurtByGunEvent.PRE) and the
+ * Forge event hook (TaczForgeCompat) mark the victim here right before hurt(),
+ * and flushPendingDamage consumes the mark once so the crit flag travels inside
+ * our own payload. Per-entity storage keeps concurrent hits on different
+ * targets from overwriting each other. A short time window guards against a
+ * stale mark being consumed by a later body shot.
  */
 public class TaczServerHeadshotTracker {
 

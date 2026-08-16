@@ -72,12 +72,11 @@ dependencies {
     modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
 
     // TaCZ: Refabricated - Fabric port of Timeless and Classics Zero (compileOnly, optional at runtime)
-    // Synced with Forge-side TACZ 1.1.8-hotfix.
-    // NOTE: NOT added to modLocalRuntime - loom does not unpack TACZ's jar-in-jar deps (LuaJ etc.)
-    // on the dev classpath, causing NoClassDefFoundError. Load it from run/mods instead (see README).
+    // Synced with Forge-side TACZ 1.1.8-hotfix. Compile-only: TACZ is NOT loaded in
+    // the dev runtime (jar-in-jar deps are not unpacked on the dev classpath and the
+    // dependency chain is heavy). Headshot->crit compatibility activates only when the
+    // player has TaCZ installed in their own game.
     modCompileOnly "curse.maven:tacz-refabricated-1334246:${project.tacz_refabricated_file_id}"
-    // Forge Config API Port - required runtime dependency of TaCZ: Refabricated
-    modLocalRuntime "maven.modrinth:forge-config-api-port:${project.forge_config_api_port_version}"
 }
 
 processResources {

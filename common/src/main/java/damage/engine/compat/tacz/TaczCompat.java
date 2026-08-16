@@ -12,6 +12,23 @@ public class TaczCompat {
 
     private static final String BULLET_CLASS_NAME = "com.tacz.guns.entity.EntityKineticBullet";
 
+    // Cache the Class lookup once TACZ is present; Class.forName on every hit is wasteful.
+    private static volatile Class<?> cachedBulletClass = null;
+    private static volatile boolean bulletClassResolved = false;
+
+    private static Class<?> bulletClass() {
+        if (bulletClassResolved) {
+            return cachedBulletClass;
+        }
+        try {
+            cachedBulletClass = Class.forName(BULLET_CLASS_NAME);
+        } catch (ClassNotFoundException e) {
+            cachedBulletClass = null;
+        }
+        bulletClassResolved = true;
+        return cachedBulletClass;
+    }
+
     /**
      * @return true if the given entity is a TACZ bullet.
      * TACZ bullets are regular Projectile subclasses in most versions, but this
@@ -21,14 +38,9 @@ public class TaczCompat {
      */
     public static boolean isTaczBullet(Entity entity) {
         if (entity == null) return false;
-        try {
-            Class<?> bulletClass = Class.forName(BULLET_CLASS_NAME);
-            return bulletClass.isInstance(entity);
-        } catch (ClassNotFoundException e) {
-            return false;
-        } catch (Exception e) {
-            return false;
-        }
+        Class<?> bulletClass = bulletClass();
+        if (bulletClass == null) return false;
+        return bulletClass.isInstance(entity);
     }
 
     /**
@@ -39,8 +51,9 @@ public class TaczCompat {
      */
     public static Entity tryGetTaczShooter(Entity directSource) {
         if (directSource == null) return null;
+        Class<?> bulletClass = bulletClass();
+        if (bulletClass == null) return null;
         try {
-            Class<?> bulletClass = Class.forName(BULLET_CLASS_NAME);
             if (bulletClass.isInstance(directSource)) {
                 // EntityKineticBullet extends Projectile, so getOwner() works via the
                 // standard API, but try the TACZ-specific method first for reliability.
@@ -54,8 +67,6 @@ public class TaczCompat {
                     // Fall back to standard Projectile.getOwner() (handled by callers)
                 }
             }
-        } catch (ClassNotFoundException e) {
-            // TACZ not loaded
         } catch (Exception e) {
             // Reflection error, ignore
         }
