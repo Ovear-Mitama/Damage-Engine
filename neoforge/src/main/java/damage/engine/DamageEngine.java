@@ -38,9 +38,12 @@ public class DamageEngine {
 		LOGGER.info("TACZ compatibility attacker resolver registered.");
 
 		// TaCZ (NeoForge port) compatibility (headshot -> crit). Only when TaCZ is installed.
+		// Reflective call: TaczNeoCompat may be excluded from the build when the TaCZ
+		// jar is unavailable (see build.gradle), so a hard reference would break it.
 		if (ModList.get().isLoaded("tacz")) {
 			try {
-				damage.engine.compat.tacz.TaczNeoCompat.init();
+				Class<?> cls = Class.forName("damage.engine.compat.tacz.TaczNeoCompat");
+				cls.getMethod("init").invoke(null);
 			} catch (Throwable t) {
 				LOGGER.warn("Failed to enable TaCZ compatibility: {}", t.toString());
 			}

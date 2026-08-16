@@ -63,9 +63,11 @@ tasks.register('downloadModrinthMods') {
     }
 }
 
-// 编译期需要 TaCZ jar 在场(compileOnly files(...));IDE 首次 sync 若报 jar 缺失,
-// 先手动执行一次 ./gradlew downloadModrinthMods 即可
-tasks.named('compileJava') { dependsOn 'downloadModrinthMods' }
+// 编译期需要 TaCZ jar 在场(compileOnly files(...))。jar 缺失时 build 会排除
+// TaczNeoCompat 并继续(见 dependencies 块);downloadModrinthMods 任务保留供
+// 手动执行 ./gradlew downloadModrinthMods 下载。不要自动 dependsOn,以免网络
+// 不可用时构建被下载卡住。
+//tasks.named('compileJava') { dependsOn 'downloadModrinthMods' }
 
 base {
     archivesName = mod_id
@@ -155,8 +157,15 @@ dependencies {
     implementation "net.neoforged:neoforge:${neo_version}"
 
     // TaCZ: Timeless and Classics Zero (NeoForge port) - compile only, for crit (headshot) compat.
-    // jar 由 downloadModrinthMods 任务从 Modrinth CDN 下载到 libs/(仅编译,不随运行时加载)
-    compileOnly files('libs/tacz-neoforge-1.21.1-1.1.8-hotfix-r6.jar')
+    // jar 由 downloadModrinthMods 任务从 Modrinth CDN 下载到 libs/(仅编译,不随运行时加载)。
+    // jar 缺失时(例如网络不可用)排除硬引用 TACZ 的兼容类,保证构建仍可通过;有 jar 才启用兼容。
+    def taczJar = file('libs/tacz-neoforge-1.21.1-1.1.8-hotfix-r6.jar')
+    if (taczJar.exists()) {
+        compileOnly files(taczJar)
+    } else {
+        sourceSets.main.java.exclude('damage/engine/compat/tacz/TaczNeoCompat.java')
+        logger.lifecycle('TaCZ jar not found in neoforge/libs - TaczNeoCompat excluded, TACZ compat disabled for this build.')
+    }
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
