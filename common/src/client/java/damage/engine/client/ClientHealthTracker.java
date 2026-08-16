@@ -33,8 +33,18 @@ public class ClientHealthTracker {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         if (!config.showDamage) return;
 
-        // Check if player recently attacked this entity
+        // Check if player recently attacked this entity (melee via the
+        // MultiPlayerGameMode mixin; singleplayer also via Player.attack).
         boolean isSelfDamage = ClientAttackTracker.getInstance().wasRecentlyAttacked(entity.getId());
+
+        // Client-only mode (server without Damage Engine): bows / TaCZ bullets are
+        // resolved on the SERVER, so the client cannot attribute projectile hits to
+        // the player. Treat every observed health drop as the player's own damage so
+        // damage floats work on training dummies and mobs; melee stays precisely
+        // tracked by the attack tracker above.
+        if (!isSelfDamage) {
+            isSelfDamage = true;
+        }
 
         // Handle global damage indicators (damage caused by others)
         if (!isSelfDamage && config.showGlobalDamageIndicator) {

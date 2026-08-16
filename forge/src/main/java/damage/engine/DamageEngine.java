@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.4.4";
+	public static final String MOD_VERSION = "1.4.4.2";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	// NOTE: keyed by entity id, NOT LivingEntity - referencing LivingEntity in a
@@ -26,6 +26,9 @@ public class DamageEngine {
 	// client mixin config (Mixins.addConfiguration below) is prepared, which
 	// crashes with "MixinTargetAlreadyLoadedException: loaded too early".
 	private static final Map<Integer, DamageTrackerHelper.Snapshot> PRE_DAMAGE_SNAPS = new ConcurrentHashMap<>();
+	// Level per pending snapshot so the delayed end-of-tick broadcast can resolve
+	// the (possibly dead) victim entity from its id.
+	private static final Map<Integer, net.minecraft.server.level.ServerLevel> PRE_DAMAGE_LEVELS = new ConcurrentHashMap<>();
 
 	public DamageEngine() {
 		LOGGER.info("Initializing Damage Engine (Forge 1.20.1)...");
@@ -65,24 +68,37 @@ public class DamageEngine {
 
 		IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
-		// Track damage using Forge events
+		// Track damage using Forge events. LivingDamageEvent fires BEFORE the victim's
+		// health is actually reduced, so a health-diff there is always 0 and the code
+		// falls back to the raw source amount (pre-armor). Instead, remember the
+		// pre-hit snapshot here (first hit of the tick wins) and broadcast at the end
+		// of the server tick, when setHealth() has already run - the health diff is
+		// then the REAL damage the target took (armor/enchantment/resistance applied).
 		MinecraftForge.EVENT_BUS.addListener((LivingHurtEvent event) -> {
-			PRE_DAMAGE_SNAPS.put(event.getEntity().getId(),
-				DamageTrackerHelper.capturePreDamage(event.getEntity(), event.getSource(), event.getAmount()));
-		});
-
-		MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.LivingDamageEvent event) -> {
-			DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.remove(event.getEntity().getId());
-			if (snap != null) {
-				DamageTrackerHelper.broadcastPostDamage(event.getEntity(), event.getSource(), snap, LOGGER, true);
+			if (event.getEntity().level() instanceof net.minecraft.server.level.ServerLevel sl) {
+				int id = event.getEntity().getId();
+				PRE_DAMAGE_LEVELS.put(id, sl);
+				PRE_DAMAGE_SNAPS.putIfAbsent(id,
+					DamageTrackerHelper.capturePreDamage(event.getEntity(), event.getSource(), event.getAmount()));
 			}
 		});
 
-		// Flush any pending (merged) damage payload at the end of each server tick.
+		// Broadcast pending damage at the end of each server tick, after the victim's
+		// health was actually reduced, then flush any merged payload.
 		MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.TickEvent.ServerTickEvent event) -> {
-			if (event.phase == net.minecraftforge.event.TickEvent.Phase.END) {
-				DamageTrackerHelper.flushPendingDamage();
+			if (event.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
+			if (!PRE_DAMAGE_SNAPS.isEmpty()) {
+				for (Integer id : new java.util.ArrayList<>(PRE_DAMAGE_SNAPS.keySet())) {
+					DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.remove(id);
+					net.minecraft.server.level.ServerLevel level = PRE_DAMAGE_LEVELS.remove(id);
+					if (snap == null || level == null) continue;
+					net.minecraft.world.entity.Entity e = level.getEntity(id);
+					if (e instanceof net.minecraft.world.entity.LivingEntity le) {
+						DamageTrackerHelper.broadcastPostDamage(le, null, snap, LOGGER, true);
+					}
+				}
 			}
+			DamageTrackerHelper.flushPendingDamage();
 		});
 	}
 }

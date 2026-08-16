@@ -202,7 +202,7 @@ public class DamageTrackerHelper {
 
         String debugInfo = "";
         if (DamageEngineConfig.getInstance().debugMode) {
-            String attackerName = source.type().msgId();
+            String attackerName = source != null ? source.type().msgId() : "unknown";
             if (snap.attackerId != 0 && self.level() instanceof ServerLevel serverWorld) {
                 Entity attacker = serverWorld.getEntity(snap.attackerId);
                 if (attacker != null) {
@@ -218,7 +218,7 @@ public class DamageTrackerHelper {
 
         if ((actualDamage > 0 || killed) && broadcaster != null && self.level() instanceof ServerLevel sw) {
             int tick = (int) sw.getGameTime();
-            int directId = source.getDirectEntity() != null ? source.getDirectEntity().getId() : -1;
+            int directId = source != null && source.getDirectEntity() != null ? source.getDirectEntity().getId() : -1;
             int targetId = self.getId();
 
             // Same tick + same direct source + same target: this is the second (or
