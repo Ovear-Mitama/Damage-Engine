@@ -4,7 +4,8 @@
 	"package": "damage.engine.mixin.client",
 	"compatibilityLevel": "JAVA_17",
 	"client": [
-		"EditBoxCursorMixin"
+		"EditBoxCursorMixin",
+		"MultiPlayerGameModeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

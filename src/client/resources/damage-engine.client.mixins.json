@@ -12,6 +12,7 @@
 		"KeyBindingCategoryMixin",
 		"PlayerAttackMixin",
 		"ProjectileHitMixin",
+		"MultiPlayerGameModeMixin",
 		"EditBoxCursorMixin"
 	],
 	"injectors": {

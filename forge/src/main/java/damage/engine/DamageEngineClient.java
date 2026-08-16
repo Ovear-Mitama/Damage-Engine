@@ -115,10 +115,17 @@ public class DamageEngineClient {
                 }
             });
 
+        // Client-only mode health monitor (replaces LivingEntityClientMixin, which
+        // Forge 1.20.1 cannot apply - LivingEntity loads too early). LivingTickEvent
+        // fires on the client render thread whenever a client-side entity ticks.
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent ev) -> {
+                damage.engine.client.ClientHealthMonitor.onTick(ev.getEntity());
+            });
+
         // Client tick (replaces ClientTickMixin): server-mod check + keybinds + cleanup
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
-            (net.minecraftforge.event.TickEvent.ClientTickEvent ev) -> {
-                if (ev.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
+            (net.minecraftforge.event.TickEvent.ClientTickEvent ev) -> {                if (ev.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.player == null) return;
 
@@ -162,6 +169,7 @@ public class DamageEngineClient {
                     damage.engine.hud.DamageSessionManager.getInstance().tick();
                     damage.engine.hud.DamageIndicator.tickAndCleanup();
                     damage.engine.client.ClientAttackTracker.getInstance().cleanup();
+                    damage.engine.client.ClientHealthMonitor.cleanup();
                 }
             });
     }

@@ -49,7 +49,11 @@ public class UpdateChecker {
                 if (response.statusCode() == 200) {
                     JsonArray versions = JsonParser.parseString(response.body()).getAsJsonArray();
                     if (versions.size() > 0) {
-                        // Find the latest version for this Minecraft version
+                        // Find the highest version number that matches BOTH this MC
+                        // version and the current loader platform (Fabric/Forge share
+                        // the same Modrinth project). Traverse all returned versions
+                        // instead of stopping at the first (date) match.
+                        String best = null;
                         for (int i = 0; i < versions.size(); i++) {
                             JsonObject ver = versions.get(i).getAsJsonObject();
                             if (!hasLoader(ver, damage.engine.DamageEngineMeta.PLATFORM)) continue;
@@ -62,12 +66,14 @@ public class UpdateChecker {
                                     break;
                                 }
                             }
-                            if (matchesMc) {
-                                latestVersion = versionNumber;
-                                // Compare versions: latestVersion > CURRENT_VERSION means update available
-                                updateAvailable = compareVersions(latestVersion, CURRENT_VERSION) > 0;
-                                break;
+                            if (matchesMc && (best == null || compareVersions(versionNumber, best) > 0)) {
+                                best = versionNumber;
                             }
+                        }
+                        if (best != null) {
+                            latestVersion = best;
+                            // Compare versions: latestVersion > CURRENT_VERSION means update available
+                            updateAvailable = compareVersions(latestVersion, CURRENT_VERSION) > 0;
                         }
                     }
                 }
@@ -79,8 +85,12 @@ public class UpdateChecker {
     }
 
     private static boolean hasLoader(JsonObject entry, String platform) {
+        // Strict: require explicit loader info - a release that does not declare
+        // its loaders must not be offered to any platform (Fabric/Forge versions
+        // share one Modrinth project, so a missing/unknown loader could leak a
+        // cross-platform update suggestion).
         if (!entry.has("loaders") || entry.get("loaders").isJsonNull()) {
-            return true; // No loader info: accept defensively
+            return false;
         }
         JsonArray loaders = entry.get("loaders").getAsJsonArray();
         for (int i = 0; i < loaders.size(); i++) {
