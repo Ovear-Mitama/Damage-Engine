@@ -11,7 +11,8 @@
 		"KeyBindingAccessor",
 		"KeyBindingCategoryMixin",
 		"PlayerAttackMixin",
-		"ProjectileHitMixin"
+		"ProjectileHitMixin",
+		"EditBoxCursorMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

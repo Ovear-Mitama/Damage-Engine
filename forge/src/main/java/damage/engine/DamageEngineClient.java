@@ -6,6 +6,7 @@ import com.mojang.blaze3d.platform.InputConstants;
 import com.mojang.logging.LogUtils;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.client.ConfigScreenHandler;
 import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -169,5 +170,9 @@ public class DamageEngineClient {
         event.register(configKeyBinding);
         event.register(toggleHudKeyBinding);
         event.register(clearDamageKeyBinding);
+    }
+
+    public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
+        return damage.engine.client.IndicatorPos.blend(baseX, baseY, baseZ, entityId);
     }
 }

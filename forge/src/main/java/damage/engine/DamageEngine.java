@@ -4,7 +4,6 @@ import com.mojang.logging.LogUtils;
 import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.NetworkHandler;
 import damage.engine.util.DamageTrackerHelper;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -19,24 +18,26 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.4.3";
+	public static final String MOD_VERSION = "1.4.4";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
-	private static final Map<LivingEntity, DamageTrackerHelper.Snapshot> PRE_DAMAGE_SNAPS = new ConcurrentHashMap<>();
+	// NOTE: keyed by entity id, NOT LivingEntity - referencing LivingEntity in a
+	// static field's generic signature can trigger its class load before the
+	// client mixin config (Mixins.addConfiguration below) is prepared, which
+	// crashes with "MixinTargetAlreadyLoadedException: loaded too early".
+	private static final Map<Integer, DamageTrackerHelper.Snapshot> PRE_DAMAGE_SNAPS = new ConcurrentHashMap<>();
 
 	public DamageEngine() {
 		LOGGER.info("Initializing Damage Engine (Forge 1.20.1)...");
 
-		// Vanilla Forge 1.20.1 does NOT support `mods.toml [[mixins]]` (that is a
-		// NeoForge feature) - the declarations were silently ignored, so none of our
-		// client mixins (HUD render, keybinds, matrix capture, handshake) ever
-		// loaded. Register the client mixin config from code instead. Server-side
-		// damage tracking uses Forge events (see below), not server mixins.
+		// Register the client mixin config from code (Vanilla Forge 1.20.1 does not
+		// support mods.toml [[mixins]]). This config ONLY contains EditBoxCursorMixin
+		// whose target (EditBox) loads late at GUI-open time - NOT the entity mixins
+		// (LivingEntity etc.) that are already loaded during mod construction and
+		// crashed with "MixinTargetAlreadyLoadedException: loaded too early".
 		DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
 			() -> () -> {
-				LOGGER.info("[DE-FORGE] registering client mixin config...");
 				org.spongepowered.asm.mixin.Mixins.addConfiguration("damage-engine.client.mixins.json");
-				LOGGER.info("[DE-FORGE] client mixin config registered");
 			});
 
 		DamageEngineConfig.getInstance().load();
@@ -66,12 +67,12 @@ public class DamageEngine {
 
 		// Track damage using Forge events
 		MinecraftForge.EVENT_BUS.addListener((LivingHurtEvent event) -> {
-			PRE_DAMAGE_SNAPS.put(event.getEntity(),
+			PRE_DAMAGE_SNAPS.put(event.getEntity().getId(),
 				DamageTrackerHelper.capturePreDamage(event.getEntity(), event.getSource(), event.getAmount()));
 		});
 
 		MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.entity.living.LivingDamageEvent event) -> {
-			DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.remove(event.getEntity());
+			DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.remove(event.getEntity().getId());
 			if (snap != null) {
 				DamageTrackerHelper.broadcastPostDamage(event.getEntity(), event.getSource(), snap, LOGGER, true);
 			}

@@ -19,7 +19,7 @@ Display damage info on the UI.
 [[dependencies.${mod_id}]]
     modId="forge"
     mandatory=true
-    versionRange="[${forge_version},)"
+    versionRange="${loader_version_range}"
     ordering="NONE"
     side="BOTH"
 

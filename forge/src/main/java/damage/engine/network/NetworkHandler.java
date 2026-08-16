@@ -15,6 +15,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
@@ -148,12 +149,14 @@ public class NetworkHandler {
                     double dz = payload.posZ() - mc.player.getZ();
                     double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                    if (distance <= config.globalIndicatorMaxDistance) {
-                        if (config.showDamageIndicator && payload.amount() > 0 && !payload.killed()) {
-                            DamageIndicator.addIndicator(payload.entityId(), payload.posX(), payload.posY(), payload.posZ(), payload.amount(), payload.isCrit(), false);
+                    if (config.globalIndicatorMaxDistance <= 0 || distance <= config.globalIndicatorMaxDistance) {
+                        if (config.showDamageIndicator && payload.amount() > 0) {
+                            Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                            DamageIndicator.addIndicator(payload.entityId(), pos.x, pos.y, pos.z, payload.amount(), payload.isCrit(), false);
                         }
                         if (config.showKillIndicator && payload.killed()) {
-                            DamageIndicator.addIndicator(payload.entityId(), payload.posX(), payload.posY(), payload.posZ(), payload.amount(), false, true);
+                            Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                            DamageIndicator.addIndicator(payload.entityId(), pos.x, pos.y, pos.z, payload.amount(), false, true);
                         }
                     }
                 }
@@ -175,11 +178,15 @@ public class NetworkHandler {
 
                 DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
 
-                if (config.showDamageIndicator && payload.amount() > 0) {
-                    DamageIndicator.addIndicator(payload.entityId(), payload.posX(), payload.posY(), payload.posZ(), payload.amount(), payload.isCrit(), payload.killed());
-                }
-                if (config.showKillIndicator && payload.killed()) {
-                    DamageIndicator.addIndicator(payload.entityId(), payload.posX(), payload.posY(), payload.posZ(), payload.amount(), false, true);
+                Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                double maxDist = config.globalIndicatorMaxDistance;
+                if (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist) {
+                    if (config.showDamageIndicator && payload.amount() > 0) {
+                        DamageIndicator.addIndicator(payload.entityId(), pos.x, pos.y, pos.z, payload.amount(), payload.isCrit(), false);
+                    }
+                    if (config.showKillIndicator && payload.killed()) {
+                        DamageIndicator.addIndicator(payload.entityId(), pos.x, pos.y, pos.z, payload.amount(), false, true);
+                    }
                 }
 
                 if (config.debugShowRating && mc.player != null) {
