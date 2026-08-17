@@ -53,9 +53,11 @@ tasks.register('downloadModrinthMods') {
     }
 }
 
-// 编译期需要 TaCZ jar 在场(modCompileOnly files(...));IDE 首次 sync 若报 jar 缺失,
-// 先手动执行一次 ./gradlew downloadModrinthMods 即可
-tasks.named('compileJava') { dependsOn 'downloadModrinthMods' }
+// 编译期需要 TaCZ jar 在场(modCompileOnly files(...))。jar 缺失时 build 会排除
+// TaczFabricCompat 并继续(见 dependencies 块);downloadModrinthMods 任务保留供
+// 手动执行 ./gradlew downloadModrinthMods 下载。不要自动 dependsOn,以免网络
+// 不可用时构建被下载卡住。
+//tasks.named('compileJava') { dependsOn 'downloadModrinthMods' }
 
 loom {
     splitEnvironmentSourceSets()
@@ -98,8 +100,15 @@ dependencies {
     modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
 
     // TaCZ: Refabricated (Timeless and Classics Zero) - compile only, for crit (headshot) compat.
-    // jar 由 downloadModrinthMods 任务从 Modrinth CDN 下载到 libs/(仅编译,不随运行时加载)
-    modCompileOnly files('libs/TACZ-Refabricated-1.21.1-0.7.0-forge1.1.8-hotfix.jar')
+    // jar 由 downloadModrinthMods 任务从 Modrinth CDN 下载到 libs/(仅编译,不随运行时加载)。
+    // jar 缺失时(如网络不可用)排除硬引用 TACZ 的兼容类,保证构建仍可通过;有 jar 才启用兼容。
+    def taczJar = file('libs/TACZ-Refabricated-1.21.1-0.7.0-forge1.1.8-hotfix.jar')
+    if (taczJar.exists()) {
+        modCompileOnly files(taczJar)
+    } else {
+        sourceSets.main.java.exclude('damage/engine/compat/tacz/TaczFabricCompat.java')
+        logger.lifecycle('TaCZ jar not found in libs - TaczFabricCompat excluded, TACZ compat disabled for this build.')
+    }
 }
 
 processResources {

@@ -7,7 +7,7 @@ import net.minecraft.world.entity.player.Player;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
  * Records melee attacks for client-only mode (server without Damage Engine).
@@ -17,13 +17,14 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
  * empty - the client-only damage floats would never show. {@link
  * MultiPlayerGameMode#attack} is the CLIENT-side entry point that runs every
  * time the local player swings at an entity (both in singleplayer and on a
- * remote server), so it reliably marks the target as recently attacked.</p>
+ * remote server), so it reliably marks the target as recently attacked.
+ * (1.21.x {@code MultiPlayerGameMode.attack} returns void -> {@link CallbackInfo}.)</p>
  */
 @Mixin(MultiPlayerGameMode.class)
 public class MultiPlayerGameModeMixin {
 
     @Inject(method = "attack", at = @At("HEAD"))
-    private void damageEngine$recordClientAttack(Player player, Entity target, CallbackInfoReturnable<Boolean> ci) {
+    private void damageEngine$recordClientAttack(Player player, Entity target, CallbackInfo ci) {
         if (target != null) {
             ClientAttackTracker.getInstance().recordAttack(target.getId());
         }

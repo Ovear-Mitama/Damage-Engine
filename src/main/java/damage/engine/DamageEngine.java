@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 
 public class DamageEngine implements ModInitializer {
 	public static final String MOD_ID = "damage-engine";
-	public static final String MOD_VERSION = "1.4.4.1";
+	public static final String MOD_VERSION = "1.4.4.2";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
 	@Override
@@ -35,7 +35,11 @@ public class DamageEngine implements ModInitializer {
 		// TaCZ: Refabricated compatibility (headshot -> crit). Only when TaCZ is installed.
 		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("tacz")) {
 			try {
-				damage.engine.compat.tacz.TaczFabricCompat.init();
+				// Reflective call: TaczFabricCompat may be excluded from the build when
+				// the TaCZ jar is unavailable (see build.gradle), so a hard reference
+				// would break it.
+				Class<?> cls = Class.forName("damage.engine.compat.tacz.TaczFabricCompat");
+				cls.getMethod("init").invoke(null);
 			} catch (Throwable t) {
 				LOGGER.warn("Failed to enable TaCZ compatibility: {}", t.toString());
 			}
