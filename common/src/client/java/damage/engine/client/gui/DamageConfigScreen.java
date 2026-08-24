@@ -58,6 +58,10 @@ public class DamageConfigScreen extends Screen {
     private ConfigOptionListWidget optionList;
     private double lastScroll = 0;
     private boolean hasUnsavedChanges = false;
+    private String validationError = null;
+    private ColorPickerPopup colorPicker = null;
+    /** 每个标签页输入框的文本快照(按渲染顺序),切页/校验时保留用户编辑状态 */
+    private final Map<Integer, List<String>> tabFieldTexts = new HashMap<>();
     
     // Expand state trackers
     private final Map<String, Boolean> expandStates = new HashMap<>();
@@ -78,7 +82,11 @@ public class DamageConfigScreen extends Screen {
     @Override
     protected void init() {
         try {
-            if (optionList != null) lastScroll = optionList.scrollAmount();
+            if (optionList != null) {
+                lastScroll = optionList.scrollAmount();
+                saveTabFieldTexts(selectedTab); // 切页/重建前保存当前页输入框文本
+            }
+            closeColorPicker(); // 重建界面时关闭悬浮颜色选择器
             this.clearWidgets();
             
             int tabHeight = 24;
@@ -90,6 +98,7 @@ public class DamageConfigScreen extends Screen {
             this.addWidget(optionList);
             
             initOptionEntries();
+            restoreTabFieldTexts(selectedTab); // 回填当前页输入框文本(保留用户编辑状态)
             
             if (optionList != null && lastScroll > 0) optionList.setScrollAmount(lastScroll);
             
@@ -100,6 +109,17 @@ public class DamageConfigScreen extends Screen {
             // Save & Close (green)
             this.addRenderableWidget(new StyledButton(this.width - buttonWidth - 10, buttonY, buttonWidth, 20,
                 Component.translatable("button.damage-engine.save_close").withColor(0xFFB7F3C8), () -> {
+                    List<String> invalids = validateAllTabs();
+                    if (!invalids.isEmpty()) {
+                        StringBuilder sb = new StringBuilder();
+                        for (String s : invalids) {
+                            if (sb.length() > 0) sb.append("\n");
+                            sb.append(Component.translatable("text.damage-engine.invalid_config", s).getString());
+                        }
+                        validationError = sb.toString();
+                        return; // 阻止保存
+                    }
+                    validationError = null;
                     config.save();
                     hasUnsavedChanges = false;
                     this.minecraft.setScreen(parent);
@@ -219,10 +239,46 @@ public class DamageConfigScreen extends Screen {
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorBold", config.indicatorBold, v -> { config.indicatorBold = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showHealIndicator", config.showHealIndicator, v -> { config.showHealIndicator = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.healIndicatorColor", config.healIndicatorColor, v -> { config.healIndicatorColor = v; markChanged(); }));
-        addOption(new BooleanOptionEntry("option.damage-engine.showGlobalDamageIndicator", config.showGlobalDamageIndicator, v -> { config.showGlobalDamageIndicator = v; markChanged(); }));
-        addOption(new NumericEntry("option.damage-engine.globalIndicatorMaxDistance", config.globalIndicatorMaxDistance,
-            v -> { config.globalIndicatorMaxDistance = v; markChanged(); },
-            Component.translatable("hint.damage-engine.globalIndicatorMaxDistance")));
+
+        // 全局伤害跳字 - 分项设置
+        addOption(new ExpandableHeaderEntry("option.damage-engine.global_damage_numbers", "global_damage_numbers", v -> refreshOptions()));
+        if (isExpanded("global_damage_numbers")) {
+            addOption(new BooleanOptionEntry("option.damage-engine.showGlobalDamageIndicator", config.showGlobalDamageIndicator, v -> { config.showGlobalDamageIndicator = v; markChanged(); }));
+            // (1) 玩家 显示距离
+            addOption(new NumericEntry("option.damage-engine.global_player_distance", config.globalIndicatorMaxDistance,
+                v -> { config.globalIndicatorMaxDistance = v; markChanged(); },
+                Component.translatable("hint.damage-engine.globalIndicatorMaxDistance")));
+            // (2) 非玩家实体(可展开;悬停提示:通过添加实体注册名来显示/屏蔽)
+            addOption(new ExpandableHeaderEntry("option.damage-engine.non_player_entities", "non_player_entities", v -> refreshOptions(),
+                Component.translatable("hint.damage-engine.non_player_entities")));
+            if (isExpanded("non_player_entities")) {
+                // 整体模式:屏蔽/显示
+                addOption(new ModeSelectorEntry("option.damage-engine.entity_mode", config.globalEntityBlockMode,
+                    v -> { config.globalEntityBlockMode = v; markChanged(); }));
+                boolean hasAll = false;
+                for (DamageEngineConfig.GlobalEntityRule r : config.globalEntityRules) {
+                    if (r != null && r.isAll()) { hasAll = true; break; }
+                }
+                for (DamageEngineConfig.GlobalEntityRule r : new ArrayList<>(config.globalEntityRules)) {
+                    if (r == null) continue;
+                    addOption(new GlobalEntityRuleEntry(r, () -> {
+                        config.globalEntityRules.remove(r);
+                        markChanged();
+                        refreshOptions();
+                    }));
+                }
+                // 添加项注册名默认空(由用户输入);存在 All 时禁用添加(悬停提示)
+                AddButtonEntry addBtn = new AddButtonEntry(() -> {
+                    config.globalEntityRules.add(new DamageEngineConfig.GlobalEntityRule("", 0f));
+                    markChanged();
+                    refreshOptions();
+                });
+                if (hasAll) {
+                    addBtn.setDisabled(Component.translatable("hint.damage-engine.all_rule_locked"));
+                }
+                addOption(addBtn);
+            }
+        }
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorPrefixSign", config.indicatorPrefixSign, v -> { config.indicatorPrefixSign = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showKillIndicator", config.showKillIndicator, v -> { config.showKillIndicator = v; markChanged(); }));
         addOption(new TextEntry("option.damage-engine.killText", config.killText, v -> { config.killText = v; markChanged(); }));
@@ -250,6 +306,23 @@ public class DamageConfigScreen extends Screen {
             addOption(new WeightEntry("option.damage-engine.comboPoints", config.comboPoints, v -> { config.comboPoints = v; markChanged(); }, "hint.damage-engine.comboPoints"));
             addOption(new WeightEntry("option.damage-engine.hitPoints", config.hitPoints, v -> { config.hitPoints = v; markChanged(); }, null));
             addOption(new WeightEntry("option.damage-engine.critPoints", config.critPoints, v -> { config.critPoints = v; markChanged(); }, null));
+
+            // 单次伤害大小加分(可添加项,默认空项)
+            addOption(new ExpandableHeaderEntry("option.damage-engine.damage_size_bonus", "damage_size_bonus", v -> refreshOptions()));
+            if (isExpanded("damage_size_bonus")) {
+                for (DamageEngineConfig.DamageBonus b : new ArrayList<>(config.damageBonuses)) {
+                    addOption(new DamageBonusEntry(b, () -> {
+                        config.damageBonuses.remove(b);
+                        markChanged();
+                        refreshOptions();
+                    }));
+                }
+                addOption(new AddButtonEntry(() -> {
+                    config.damageBonuses.add(new DamageEngineConfig.DamageBonus(10f, 0f)); // 伤害大小默认 10,增加分数默认空
+                    markChanged();
+                    refreshOptions();
+                }));
+            }
         }
         
         // Grades
@@ -346,8 +419,165 @@ public class DamageConfigScreen extends Screen {
         hasUnsavedChanges = !current.equals(configSnapshot);
     }
 
+    /**
+     * 校验当前标签页所有输入项,返回全部无效项名(可为多个)。
+     */
+    private List<String> validateAllInputs() {
+        List<String> errors = new ArrayList<>();
+        if (optionList == null) return errors;
+        for (GuiEventListener widget : optionList.children()) {
+            if (widget instanceof OptionEntry entry) {
+                String invalid = entry.validate();
+                if (invalid != null) {
+                    errors.add(invalid);
+                }
+            }
+        }
+        return errors;
+    }
+
+    /** 所有可展开分组 key(校验时强制全部展开,避免漏检折叠项) */
+    private static final String[] ALL_EXPAND_KEYS = {
+        "total_damage_colors", "rating_points", "damage_size_bonus", "rating_grades",
+        "rating_appearance", "debugMode", "global_damage_numbers", "non_player_entities"
+    };
+
+    /**
+     * 配置级文本校验:检查不受 UI 展开/重建影响的 String 字段是否为空,返回全部无效项名。
+     */
+    private List<String> validateConfigValues() {
+        List<String> errors = new ArrayList<>();
+        if (config.killText == null || config.killText.trim().isEmpty()) {
+            errors.add(Component.translatable("option.damage-engine.killText").getString());
+        }
+        if (config.ratingGrades != null) {
+            for (DamageEngineConfig.RatingGrade g : config.ratingGrades) {
+                if (g.text == null || g.text.trim().isEmpty()) {
+                    errors.add(Component.translatable("option.damage-engine.rating_grades").getString());
+                }
+            }
+        }
+        if (config.globalEntityRules != null) {
+            for (DamageEngineConfig.GlobalEntityRule r : config.globalEntityRules) {
+                if (r.registryName == null || r.registryName.trim().isEmpty()) {
+                    errors.add(Component.translatable("option.damage-engine.non_player_entities").getString());
+                }
+            }
+        }
+        return errors;
+    }
+
+    /**
+     * 保存前遍历校验所有标签页的输入项(含展开项),返回全部无效项名(去重)。
+     * 校验使用各页暂存的输入文本,不重置用户编辑状态。
+     */
+    private List<String> validateAllTabs() {
+        List<String> errors = new ArrayList<>();
+        if (optionList == null) return errors;
+        // 1) 当前可见输入框(不重建,保留用户正在编辑的文本状态)
+        errors.addAll(validateAllInputs());
+        // 2) 配置级文本校验(不受折叠/重建影响)
+        errors.addAll(validateConfigValues());
+        int originalTab = selectedTab;
+        double scroll = optionList.scrollAmount();
+        Map<String, Boolean> savedExpands = new HashMap<>(expandStates);
+        // 确保当前页文本已入快照,供遍历/恢复使用
+        saveTabFieldTexts(originalTab);
+        try {
+            // 强制展开所有分组,确保折叠中的输入项也被校验
+            for (String k : ALL_EXPAND_KEYS) {
+                expandStates.put(k, true);
+            }
+            for (int tab = 0; tab < TAB_COUNT; tab++) {
+                selectedTab = tab;
+                optionList.clearEntriesPublic();
+                initOptionEntries();
+                restoreTabFieldTexts(tab); // 用该页暂存的用户编辑文本校验
+                errors.addAll(validateAllInputs());
+            }
+            // 去重(保持顺序)
+            List<String> dedup = new ArrayList<>();
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (String e : errors) {
+                if (seen.add(e)) {
+                    dedup.add(e);
+                }
+            }
+            return dedup;
+        } finally {
+            expandStates.clear();
+            expandStates.putAll(savedExpands);
+            selectedTab = originalTab;
+            optionList.clearEntriesPublic();
+            initOptionEntries();
+            restoreTabFieldTexts(originalTab); // 恢复原页输入文本
+            optionList.setScrollAmount(Math.min(scroll, optionList.maxScrollAmount()));
+        }
+    }
+
+    /** 按当前渲染顺序收集所有可见 EditBox 的文本 */
+    private List<String> collectVisibleFieldTexts() {
+        List<String> texts = new ArrayList<>();
+        if (optionList == null) return texts;
+        for (GuiEventListener widget : optionList.children()) {
+            if (widget instanceof OptionEntry entry) {
+                for (GuiEventListener child : entry.children()) {
+                    if (child instanceof EditBox tf) {
+                        texts.add(tf.getValue());
+                    }
+                }
+            }
+        }
+        return texts;
+    }
+
+    /** 按渲染顺序将文本回填到 EditBox(空文本保留,不触发保存) */
+    private void applyFieldTexts(List<String> texts) {
+        if (optionList == null || texts == null) return;
+        int i = 0;
+        for (GuiEventListener widget : optionList.children()) {
+            if (widget instanceof OptionEntry entry) {
+                for (GuiEventListener child : entry.children()) {
+                    if (child instanceof EditBox tf && i < texts.size()) {
+                        tf.setValue(texts.get(i++));
+                    }
+                }
+            }
+        }
+    }
+
+    /** 暂存指定标签页的输入框文本 */
+    private void saveTabFieldTexts(int tab) {
+        tabFieldTexts.put(tab, collectVisibleFieldTexts());
+    }
+
+    /** 回填指定标签页的输入框文本(无快照则跳过) */
+    private void restoreTabFieldTexts(int tab) {
+        List<String> texts = tabFieldTexts.get(tab);
+        if (texts != null) {
+            applyFieldTexts(texts);
+        }
+    }
+
     public void setBinding(boolean binding) {
         this.isBinding = binding;
+    }
+
+    // ===== 悬浮颜色选择器 =====
+
+    public void openColorPicker(int anchorX, int anchorY, int color, java.util.function.Consumer<Integer> onChange) {
+        closeColorPicker();
+        colorPicker = new ColorPickerPopup(this, anchorX, anchorY, color, onChange, this::closeColorPicker);
+    }
+
+    public void closeColorPicker() {
+        if (colorPicker != null) {
+            colorPicker = null;
+        }
+    }
+
+    public boolean isColorPickerOpen() {
+        return colorPicker != null;
     }
 
     public void playClickSound() {
@@ -362,6 +592,13 @@ public class DamageConfigScreen extends Screen {
 
     @Override
     public boolean keyPressed(KeyEvent event) {
+        if (colorPicker != null) {
+            if (colorPicker.keyPressed(event)) return true;
+            if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+                closeColorPicker();
+                return true;
+            }
+        }
         if (isBinding) {
             if (optionList != null) {
                 for (GuiEventListener widget : optionList.children()) {
@@ -382,6 +619,17 @@ public class DamageConfigScreen extends Screen {
     public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
         double mouseX = event.x();
         double mouseY = event.y();
+
+        // 悬浮颜色选择器优先处理
+        if (colorPicker != null) {
+            if (colorPicker.mouseClicked(event, bl)) {
+                return true;
+            }
+            // 点击面板外:关闭
+            closeColorPicker();
+            return true;
+        }
+
         // Tab clicks
         int tabY = 0;
         int tabHeight = 24;
@@ -423,6 +671,38 @@ public class DamageConfigScreen extends Screen {
     }
 
     @Override
+    public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
+        if (colorPicker != null) {
+            if (colorPicker.mouseDragged(event, dx, dy)) return true;
+        }
+        return super.mouseDragged(event, dx, dy);
+    }
+
+    @Override
+    public boolean mouseReleased(MouseButtonEvent event) {
+        if (colorPicker != null) {
+            colorPicker.mouseReleased(event);
+        }
+        return super.mouseReleased(event);
+    }
+
+    @Override
+    public boolean charTyped(CharacterEvent event) {
+        if (colorPicker != null) {
+            if (colorPicker.charTyped(event)) return true;
+        }
+        return super.charTyped(event);
+    }
+
+    @Override
+    public boolean keyReleased(KeyEvent event) {
+        if (colorPicker != null) {
+            if (colorPicker.keyReleased(event)) return true;
+        }
+        return super.keyReleased(event);
+    }
+
+    @Override
     public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
@@ -458,7 +738,13 @@ public class DamageConfigScreen extends Screen {
         guiGraphics.fill(0, tabHeight, this.width, tabHeight + 1, 0xFF555555);
         
         if (optionList != null) {
-            optionList.extractWidgetRenderState(guiGraphics, mouseX, mouseY, delta);
+            int listMx = mouseX, listMy = mouseY;
+            if (colorPicker != null && colorPicker.contains(mouseX, mouseY)) {
+                // 悬浮窗遮挡区域内的鼠标坐标置为远离,禁用背后列表条目的悬停高亮/光标
+                listMx = -100000;
+                listMy = -100000;
+            }
+            optionList.extractWidgetRenderState(guiGraphics, listMx, listMy, delta);
             optionList.updateSmoothScroll(delta);
         }
         
@@ -475,6 +761,14 @@ public class DamageConfigScreen extends Screen {
                 guiGraphics.text(this.font, Component.literal(lines[i]).withColor(0xFFFC887E), hintX, hintY + i * 12, 0xFFFC887E);
             }
         }
+
+        // 输入校验失败提示(阻止保存,支持多行)
+        if (validationError != null) {
+            String[] lines = validationError.split("\n");
+            for (int i = 0; i < lines.length; i++) {
+                guiGraphics.centeredText(this.font, lines[i], this.width / 2, footerY - 22 - i * 12, 0xFFFC887E);
+            }
+        }
         
         // Preview
         if (config.previewEnabled) {
@@ -486,6 +780,10 @@ public class DamageConfigScreen extends Screen {
             if (child != optionList && child instanceof AbstractWidget w) {
                 w.extractRenderState(guiGraphics, mouseX, mouseY, delta);
             }
+        }
+        // 悬浮颜色选择器(绘制在最上层)
+        if (colorPicker != null) {
+            colorPicker.render(guiGraphics, mouseX, mouseY, delta);
         }
         // Tooltip is handled by vanilla AbstractWidget system — do NOT render manually
     }
@@ -550,6 +848,7 @@ public class DamageConfigScreen extends Screen {
             this.hoverColor = hoverColor;
         }
         public void setForceHover(boolean v) { this.forceHover = v; }
+        public void setDefaultColor(int c) { this.defaultColor = c; }
         @Override
         public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             if (this.active && this.visible && event.button() == 0 && this.isMouseOver(event.x(), event.y())) {
@@ -561,7 +860,8 @@ public class DamageConfigScreen extends Screen {
         }
         @Override
         protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float d) {
-            if (isHovered() || forceHover) g.requestCursor(CURSOR_HAND);
+            // 仅真实悬停时请求手型光标;forceHover(行级高亮)不影响光标,避免输入框上出现手型
+            if (isHovered()) g.requestCursor(CURSOR_HAND);
             int c = (isHovered() || forceHover) ? hoverColor : defaultColor;
             g.centeredText(Minecraft.getInstance().font, getMessage(), getX() + getWidth() / 2, getY() + (getHeight() - 8) / 2, c);
         }
@@ -590,7 +890,7 @@ public class DamageConfigScreen extends Screen {
             if (isHov && shouldHighlight()) hoverAnim = Mth.lerp(0.1f, hoverAnim, 1.0f);
             else hoverAnim = Mth.lerp(0.1f, hoverAnim, 0.0f);
             if (hoverAnim > 0.01 && shouldHighlight()) {
-                g.fill(ll, y, lr, y + eh + 2, ((int)(26 * hoverAnim) << 24) | 0xFFFFFF);
+                g.fill(ll, y, lr, y + eh, ((int)(26 * hoverAnim) << 24) | 0xFFFFFF);
             }
             renderContent(g, 0, y, x, ew, eh, mouseX, mouseY, isHov, dt);
         }
@@ -602,6 +902,10 @@ public class DamageConfigScreen extends Screen {
         public List<? extends GuiEventListener> children() { return Collections.emptyList(); }
         public List<? extends NarratableEntry> narratables() { return Collections.emptyList(); }
         protected boolean shouldHighlight() { return true; }
+        /**
+         * 校验该项输入是否有效。返回 null 表示有效;否则返回无效项名(用于提示 "<项名>配置无效")。
+         */
+        public String validate() { return null; }
         @Override
         public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             for (GuiEventListener c : children()) {
@@ -703,6 +1007,18 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {}
     }
 
+    // 只读提示行
+    private static class InfoEntry extends OptionEntry {
+        private final Component text;
+        public InfoEntry(String key) {
+            this.text = Component.translatable(key);
+        }
+        @Override protected boolean shouldHighlight() { return false; }
+        @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            g.text(Minecraft.getInstance().font, text, x, y + 8, 0xFFFFFFFF);
+        }
+    }
+
     private static class BooleanOptionEntry extends OptionEntry {
         private final StyledButton button;
         private final Component label;
@@ -768,6 +1084,17 @@ public class DamageConfigScreen extends Screen {
             if (v == (int)v) return String.valueOf((int)v);
             return String.format("%.1f", v);
         }
+        @Override public String validate() {
+            if (field.getValue() == null || field.getValue().trim().isEmpty()) {
+                return label.getString();
+            }
+            try {
+                Float.parseFloat(field.getValue().trim());
+                return null;
+            } catch (NumberFormatException e) {
+                return label.getString();
+            }
+        }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
             int bx = x + ew - 110, by = y + 2, bw = 100, bh = 20;
@@ -789,9 +1116,15 @@ public class DamageConfigScreen extends Screen {
             this.label = Component.translatable(key);
             this.field = new EditBox(Minecraft.getInstance().font, 0, 0, 100, 20, Component.empty());
             this.field.setBordered(false);
-            this.field.setMaxLength(20);
+            this.field.setMaxLength(1000); // 无字数上限
             this.field.setValue(initial);
             this.field.setResponder(onChange);
+        }
+        @Override public String validate() {
+            if (field.getValue() == null || field.getValue().trim().isEmpty()) {
+                return label.getString();
+            }
+            return null;
         }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
@@ -823,6 +1156,22 @@ public class DamageConfigScreen extends Screen {
             });
             this.button = ref[0];
             this.button.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.indicatorMode")));
+        }
+        // 布尔模式选择(屏蔽/显示)
+        public ModeSelectorEntry(String key, boolean initial, Consumer<Boolean> onChange) {
+            this.label = Component.translatable(key);
+            this.mode = initial ? "block" : "show";
+            final StyledButton[] ref = new StyledButton[1];
+            ref[0] = new StyledButton(0, 0, 100, 20,
+                Component.translatable("option.damage-engine.mode." + mode)
+                    .withColor(initial ? 0xFFFC887E : 0xFFB5F0C6), () -> {
+                boolean v = "show".equals(mode);
+                mode = v ? "block" : "show";
+                ref[0].setMessage(Component.translatable("option.damage-engine.mode." + mode)
+                    .withColor(v ? 0xFFFC887E : 0xFFB5F0C6));
+                onChange.accept(v);
+            });
+            this.button = ref[0];
         }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
@@ -861,14 +1210,19 @@ public class DamageConfigScreen extends Screen {
     private static class HexColorEntry extends OptionEntry {
         private final EditBox field;
         private final Component label;
+        private final Consumer<Integer> onChange;
         private int currentColor;
+        private int swatchX, swatchY, swatchSize;
         public HexColorEntry(String key, int initial, Consumer<Integer> onChange) {
             this.label = Component.translatable(key);
+            this.onChange = onChange;
             this.currentColor = initial;
             this.field = new EditBox(Minecraft.getInstance().font, 0, 0, 75, 20, Component.empty());
-            this.field.setBordered(false); this.field.setMaxLength(7);
-            this.field.setValue("#" + String.format("%06X", initial & 0xFFFFFF));
+            this.field.setBordered(false); this.field.setMaxLength(6);
+            this.field.setValue(String.format("%06X", initial & 0xFFFFFF));
             this.field.setResponder(s -> {
+                String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+                if (!filtered.equals(s)) { this.field.setValue(filtered); return; }
                 try { String hex = s.startsWith("#") ? s.substring(1) : s;
                     currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000;
                     onChange.accept(currentColor); } catch(Exception ignored){}
@@ -884,8 +1238,40 @@ public class DamageConfigScreen extends Screen {
             g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
             field.extractRenderState(g, mx, my, dt);
             int ps = 17, px = sx + 80, py = by + 1;
-            g.fill(px - 1, py - 1, px + ps + 1, py + ps + 1, 0xFFFFFFFF);
+            swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
+            boolean over = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
+            if (over) g.requestCursor(DamageConfigScreen.CURSOR_HAND);
+            g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, over ? 0xFFB5F0C6 : 0xFFFFFFFF);
             g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
+        }
+        @Override public String validate() {
+            if (field.getValue() == null || field.getValue().trim().isEmpty()) {
+                return label.getString();
+            }
+            try {
+                String hex = field.getValue().trim().startsWith("#") ? field.getValue().trim().substring(1) : field.getValue().trim();
+                if (hex.length() > 6) return label.getString();
+                Long.parseLong(hex, 16);
+                return null;
+            } catch (NumberFormatException e) {
+                return label.getString();
+            }
+        }
+        @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
+            if (event.button() == 0 && swatchSize > 0
+                && event.x() >= swatchX && event.x() <= swatchX + swatchSize
+                && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
+                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                    s.playClickSound();
+                    s.openColorPicker(swatchX + swatchSize / 2, swatchY, currentColor, c -> {
+                        currentColor = c | 0xFF000000;
+                        field.setValue(String.format("%06X", currentColor & 0xFFFFFF));
+                        onChange.accept(currentColor);
+                    });
+                }
+                return true;
+            }
+            return super.mouseClicked(event, bl);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(field); }
         public List<? extends NarratableEntry> narratables() { return Collections.singletonList(field); }
@@ -912,6 +1298,9 @@ public class DamageConfigScreen extends Screen {
         private final Component label;
         private final String expandKey;
         public ExpandableHeaderEntry(String key, String expandKey, Consumer<Boolean> onToggle) {
+            this(key, expandKey, onToggle, null);
+        }
+        public ExpandableHeaderEntry(String key, String expandKey, Consumer<Boolean> onToggle, Component tooltip) {
             this.label = Component.translatable(key);
             this.expandKey = expandKey;
             boolean expanded = isExpanded(expandKey);
@@ -919,6 +1308,9 @@ public class DamageConfigScreen extends Screen {
                 expandStates.put(expandKey, !isExpanded(expandKey));
                 onToggle.accept(isExpanded(expandKey));
             }, 0xFFFFFFFF, 0xFFFBFB54);
+            if (tooltip != null) {
+                this.button.setTooltip(Tooltip.create(tooltip));
+            }
         }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             boolean isHov = hovered || (mx >= x && mx <= x + ew && my >= y && my <= y + eh);
@@ -980,16 +1372,21 @@ public class DamageConfigScreen extends Screen {
     private static class DamageThresholdEntry extends OptionEntry {
         private final EditBox valField, colField;
         private final PlainTextButton delBtn;
+        private final DamageEngineConfig.DamageThreshold dt;
         private int currentColor;
+        private int swatchX, swatchY, swatchSize;
         public DamageThresholdEntry(DamageEngineConfig.DamageThreshold dt, Runnable onDelete) {
+            this.dt = dt;
             this.currentColor = dt.color;
             this.valField = new EditBox(Minecraft.getInstance().font, 0, 0, 40, 20, Component.empty());
             this.valField.setBordered(false); this.valField.setValue(String.format("%.0f", dt.threshold));
             this.valField.setResponder(s -> { try { dt.threshold = Float.parseFloat(s); } catch(Exception ignored){} });
             this.colField = new EditBox(Minecraft.getInstance().font, 0, 0, 55, 20, Component.empty());
-            this.colField.setBordered(false); this.colField.setMaxLength(7);
-            this.colField.setValue("#" + String.format("%06X", dt.color & 0xFFFFFF));
-            this.colField.setResponder(s -> { try { String hex = s.startsWith("#") ? s.substring(1) : s;
+            this.colField.setBordered(false); this.colField.setMaxLength(6);
+            this.colField.setValue(String.format("%06X", dt.color & 0xFFFFFF));
+            this.colField.setResponder(s -> { String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+                if (!filtered.equals(s)) { this.colField.setValue(filtered); return; }
+                try { String hex = s.startsWith("#") ? s.substring(1) : s;
                 currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000; dt.color = currentColor; } catch(Exception ignored){} });
             this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
         }
@@ -997,17 +1394,51 @@ public class DamageConfigScreen extends Screen {
             int rx = x + ew;
             delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
             int ps = 18, px = rx - 25 - 5 - ps, py = y + 3;
+            swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
+            boolean overSwatch = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
+            if (overSwatch) g.requestCursor(DamageConfigScreen.CURSOR_HAND);
             int cbw = 55, cbx = px - 5 - cbw, cby = y + 2, cbh = 20;
             colField.setX(cbx + 4); colField.setY(cby + 6); colField.setWidth(cbw - 8); colField.setHeight(12);
             int vbw = 40, vbx = cbx - 5 - vbw, vby = y + 2, vbh = 20;
             valField.setX(vbx + 4); valField.setY(vby + 6); valField.setWidth(vbw - 8); valField.setHeight(12);
-            g.text(Minecraft.getInstance().font, Component.translatable("text.damage-engine.damage_reach"), x + 10, y + 8, 0xFFFFFFFF);
+            g.text(Minecraft.getInstance().font, Component.translatable("text.damage-engine.damage_reach"), x, y + 8, 0xFFFFFFFF);
             drawTextBox(g, vbx, vby, vbw, vbh, valField, mx, my);
             drawTextBox(g, cbx, cby, cbw, cbh, colField, mx, my);
             valField.extractRenderState(g, mx, my, dt); colField.extractRenderState(g, mx, my, dt);
             delBtn.extractRenderState(g, mx, my, dt);
-            g.fill(px - 1, py - 1, px + ps + 1, py + ps + 1, 0xFFFFFFFF);
+            g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, overSwatch ? 0xFFB5F0C6 : 0xFFFFFFFF);
             g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
+        }
+        @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
+            if (event.button() == 0 && swatchSize > 0
+                && event.x() >= swatchX && event.x() <= swatchX + swatchSize
+                && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
+                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                    s.playClickSound();
+                    s.openColorPicker(swatchX + swatchSize / 2, swatchY, currentColor, c -> {
+                        currentColor = c | 0xFF000000;
+                        dt.color = currentColor;
+                        colField.setValue(String.format("%06X", currentColor & 0xFFFFFF));
+                    });
+                }
+                return true;
+            }
+            return super.mouseClicked(event, bl);
+        }
+        @Override public String validate() {
+            if (valField.getValue() == null || valField.getValue().trim().isEmpty()
+                || colField.getValue() == null || colField.getValue().trim().isEmpty()) {
+                return Component.translatable("text.damage-engine.damage_reach").getString();
+            }
+            try {
+                Float.parseFloat(valField.getValue().trim());
+                String hex = colField.getValue().trim().startsWith("#") ? colField.getValue().trim().substring(1) : colField.getValue().trim();
+                if (hex.length() > 6) return Component.translatable("text.damage-engine.damage_reach").getString();
+                Long.parseLong(hex, 16);
+                return null;
+            } catch (NumberFormatException e) {
+                return Component.translatable("text.damage-engine.damage_reach").getString();
+            }
         }
         private void drawTextBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1019,22 +1450,155 @@ public class DamageConfigScreen extends Screen {
         public List<? extends NarratableEntry> narratables() { return Arrays.asList(valField, colField, delBtn); }
     }
 
+    private static class DamageBonusEntry extends OptionEntry {
+        private final EditBox sizeField, pointsField;
+        private final PlainTextButton delBtn;
+        public DamageBonusEntry(DamageEngineConfig.DamageBonus b, Runnable onDelete) {
+            this.sizeField = new EditBox(Minecraft.getInstance().font, 0, 0, 60, 20, Component.empty());
+            this.sizeField.setBordered(false); this.sizeField.setMaxLength(10);
+            this.sizeField.setValue(formatValue(b.damageSize));
+            this.sizeField.setResponder(s -> { String filtered = s.replaceAll("[^0-9.]", "");
+                if (!filtered.equals(s)) { this.sizeField.setValue(filtered); return; }
+                try { b.damageSize = Float.parseFloat(s); } catch(Exception ignored){} });
+            this.pointsField = new EditBox(Minecraft.getInstance().font, 0, 0, 60, 20, Component.empty());
+            this.pointsField.setBordered(false); this.pointsField.setMaxLength(10);
+            this.pointsField.setValue(formatValue(b.points));
+            this.pointsField.setResponder(s -> { String filtered = s.replaceAll("[^0-9.]", "");
+                if (!filtered.equals(s)) { this.pointsField.setValue(filtered); return; }
+                try { b.points = Float.parseFloat(s); } catch(Exception ignored){} });
+            this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
+        }
+        private static String formatValue(float v) { if (v == (int)v) return String.valueOf((int)v); return String.format("%.1f", v); }
+        @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            int rx = x + ew;
+            delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
+            int bw = 60, bh = 20, by = y + (eh - bh) / 2;
+            int sizeLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.damage_size"));
+            int ptsLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.bonus_points"));
+            int sx = x;
+            g.text(Minecraft.getInstance().font, Component.translatable("text.damage-engine.damage_size"), sx, y + 8, 0xFFFFFFFF);
+            int sxb = sx + sizeLblW + 4;
+            sizeField.setX(sxb + 4); sizeField.setY(by + 6); sizeField.setWidth(bw - 8); sizeField.setHeight(12);
+            int pxl = sxb + bw + 12;
+            g.text(Minecraft.getInstance().font, Component.translatable("text.damage-engine.bonus_points"), pxl, y + 8, 0xFFFFFFFF);
+            int pxb = pxl + ptsLblW + 4;
+            pointsField.setX(pxb + 4); pointsField.setY(by + 6); pointsField.setWidth(bw - 8); pointsField.setHeight(12);
+            drawBox(g, sxb, by, bw, bh, sizeField, mx, my);
+            drawBox(g, pxb, by, bw, bh, pointsField, mx, my);
+            sizeField.extractRenderState(g, mx, my, dt); pointsField.extractRenderState(g, mx, my, dt); delBtn.extractRenderState(g, mx, my, dt);
+        }
+        @Override public String validate() {
+            String name = Component.translatable("option.damage-engine.damage_size_bonus").getString();
+            if (sizeField.getValue() == null || sizeField.getValue().trim().isEmpty()
+                || pointsField.getValue() == null || pointsField.getValue().trim().isEmpty()) {
+                return name;
+            }
+            try {
+                Float.parseFloat(sizeField.getValue().trim());
+                Float.parseFloat(pointsField.getValue().trim());
+                return null;
+            } catch (NumberFormatException e) {
+                return name;
+            }
+        }
+        private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
+            g.fill(bx, by, bx + bw, by + bh, 0x20000000);
+            int bc = (f.isFocused() || f.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
+            g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
+            g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
+        }
+        public List<? extends GuiEventListener> children() { return Arrays.asList(sizeField, pointsField, delBtn); }
+        public List<? extends NarratableEntry> narratables() { return Arrays.asList(sizeField, pointsField, delBtn); }
+    }
+
+    private static class GlobalEntityRuleEntry extends OptionEntry {
+        private final DamageEngineConfig.GlobalEntityRule rule;
+        private final EditBox nameField, distField;
+        private final PlainTextButton delBtn;
+        public GlobalEntityRuleEntry(DamageEngineConfig.GlobalEntityRule rule, Runnable onDelete) {
+            this.rule = rule;
+            this.nameField = new EditBox(Minecraft.getInstance().font, 0, 0, 110, 20, Component.empty());
+            this.nameField.setBordered(false); this.nameField.setMaxLength(64);
+            this.nameField.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.entity_registry_name")));
+            this.nameField.setValue(rule.registryName != null ? rule.registryName : "");
+            this.nameField.setResponder(s -> { rule.registryName = s; });
+            this.distField = new EditBox(Minecraft.getInstance().font, 0, 0, 45, 20, Component.empty());
+            this.distField.setBordered(false); this.distField.setMaxLength(7);
+            this.distField.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.globalIndicatorMaxDistance")));
+            this.distField.setValue(String.format("%.0f", rule.distance));
+            this.distField.setResponder(s -> { String filtered = s.replaceAll("[^0-9.]", "");
+                if (!filtered.equals(s)) { this.distField.setValue(filtered); return; }
+                try { rule.distance = Float.parseFloat(s); } catch(Exception ignored){} });
+            this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
+        }
+        @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            int rx = x + ew;
+            delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
+            int bh = 20, by = y + (eh - bh) / 2;
+            int nbw = 110, dbw = 45;
+            int nameLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.registry_name"));
+            int distLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.distance"));
+            // 从左到右: 注册名标签 | nameField | 距离标签 | distField
+            int nx = x + nameLblW + 4;
+            int dlx = nx + nbw + 12;
+            int dbx = dlx + distLblW + 4;
+            g.text(Minecraft.getInstance().font, Component.translatable("text.damage-engine.registry_name"), x, y + 8, 0xFFFFFFFF);
+            nameField.setX(nx + 4); nameField.setY(by + 6); nameField.setWidth(nbw - 8); nameField.setHeight(12);
+            g.text(Minecraft.getInstance().font, Component.translatable("text.damage-engine.distance"), dlx, y + 8, 0xFFFFFFFF);
+            distField.setX(dbx + 4); distField.setY(by + 6); distField.setWidth(dbw - 8); distField.setHeight(12);
+            drawBox(g, nx, by, nbw, bh, nameField, mx, my);
+            drawBox(g, dbx, by, dbw, bh, distField, mx, my);
+            nameField.extractRenderState(g, mx, my, dt); distField.extractRenderState(g, mx, my, dt); delBtn.extractRenderState(g, mx, my, dt);
+        }
+        @Override public String validate() {
+            String name = Component.translatable("option.damage-engine.non_player_entities").getString();
+            if (nameField.getValue() == null || nameField.getValue().trim().isEmpty()) {
+                return name;
+            }
+            if (distField.getValue() == null || distField.getValue().trim().isEmpty()) {
+                return name;
+            }
+            try {
+                Float.parseFloat(distField.getValue().trim());
+                return null;
+            } catch (NumberFormatException e) {
+                return name;
+            }
+        }
+        private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
+            g.fill(bx, by, bx + bw, by + bh, 0x20000000);
+            int bc = (f.isFocused() || f.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
+            g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
+            g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
+        }
+        public List<? extends GuiEventListener> children() { return Arrays.asList(nameField, distField, delBtn); }
+        public List<? extends NarratableEntry> narratables() { return Arrays.asList(nameField, distField, delBtn); }
+    }
+
     private static class AddButtonEntry extends OptionEntry {
         private final PlainTextButton button;
         private final Runnable action;
+        private boolean disabled = false;
         public AddButtonEntry(Runnable action) {
             this.action = action;
             this.button = new PlainTextButton(0, 0, 20, 20, Component.literal("+"), action, 0xFFFFFFFF, 0xFFFBFB54);
         }
+        /** 禁用添加:点击被阻止,悬停显示 tooltip 说明原因 */
+        public void setDisabled(Component tooltip) {
+            this.disabled = tooltip != null;
+            this.button.setTooltip(tooltip == null ? null : Tooltip.create(tooltip));
+            this.button.setDefaultColor(disabled ? 0xFF808080 : 0xFFFFFFFF);
+        }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             boolean rowHov = mx >= x && mx <= x + ew && my >= y && my <= y + eh;
-            button.setX(x + ew - 25); button.setY(y + 2); button.setFocused(false); button.setForceHover(rowHov);
+            button.setX(x + ew - 25); button.setY(y + 2); button.setFocused(false); button.setForceHover(rowHov && !disabled);
             button.extractRenderState(g, mx, my, dt);
         }
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             if (isMouseOver(event.x(), event.y())) {
                 if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
-                action.run(); return true;
+                if (!disabled) action.run();
+                return true;
             }
             return false;
         }
@@ -1050,7 +1614,7 @@ public class DamageConfigScreen extends Screen {
             this.scoreField.setBordered(false); this.scoreField.setValue(String.format("%.0f", g.minScore));
             this.scoreField.setResponder(s -> { try { g.minScore = Float.parseFloat(s); } catch(Exception ignored){} });
             this.textField = new EditBox(Minecraft.getInstance().font, 0, 0, 60, 20, Component.empty());
-            this.textField.setBordered(false); this.textField.setMaxLength(4); this.textField.setValue(g.text);
+            this.textField.setBordered(false); this.textField.setMaxLength(1000); this.textField.setValue(g.text); // 无字数上限
             this.textField.setResponder(s -> { g.text = s; });
             this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
         }
@@ -1061,10 +1625,23 @@ public class DamageConfigScreen extends Screen {
             textField.setX(tbx + 4); textField.setY(by + 6); textField.setWidth(bw - 8); textField.setHeight(12);
             int sbx = tbx - 3 - bw;
             scoreField.setX(sbx + 4); scoreField.setY(by + 6); scoreField.setWidth(bw - 8); scoreField.setHeight(12);
-            g.text(Minecraft.getInstance().font, Component.literal("≥"), x + 10, y + 8, 0xFFFFFFFF);
+            g.text(Minecraft.getInstance().font, Component.literal("≥"), x, y + 8, 0xFFFFFFFF);
             drawBox(g, sbx, by, bw, bh, scoreField, mx, my);
             drawBox(g, tbx, by, bw, bh, textField, mx, my);
             scoreField.extractRenderState(g, mx, my, dt); textField.extractRenderState(g, mx, my, dt); delBtn.extractRenderState(g, mx, my, dt);
+        }
+        @Override public String validate() {
+            String gradeName = Component.translatable("option.damage-engine.rating_grades").getString();
+            if (scoreField.getValue() == null || scoreField.getValue().trim().isEmpty()
+                || textField.getValue() == null || textField.getValue().trim().isEmpty()) {
+                return gradeName;
+            }
+            try {
+                Float.parseFloat(scoreField.getValue().trim());
+                return null;
+            } catch (NumberFormatException e) {
+                return gradeName;
+            }
         }
         private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1083,12 +1660,15 @@ public class DamageConfigScreen extends Screen {
         private final StyledButton selectImageBtn;
         private final PlainTextButton resetImageBtn;
         private int currentColor;
+        private int swatchX, swatchY, swatchSize;
         public RatingGradeAppearanceEntry(DamageEngineConfig.RatingGrade g, DamageEngineConfig config) {
             this.grade = g; this.config = config; this.currentColor = g.color;
             this.colField = new EditBox(Minecraft.getInstance().font, 0, 0, 75, 20, Component.empty());
-            this.colField.setBordered(false); this.colField.setMaxLength(7);
-            this.colField.setValue("#" + String.format("%06X", g.color & 0xFFFFFF));
-            this.colField.setResponder(s -> { try { String hex = s.startsWith("#") ? s.substring(1) : s;
+            this.colField.setBordered(false); this.colField.setMaxLength(6);
+            this.colField.setValue(String.format("%06X", g.color & 0xFFFFFF));
+            this.colField.setResponder(s -> { String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+                if (!filtered.equals(s)) { this.colField.setValue(filtered); return; }
+                try { String hex = s.startsWith("#") ? s.substring(1) : s;
                 currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000; g.color = currentColor; } catch(Exception ignored){} });
             this.selectImageBtn = new StyledButton(0, 0, 100, 20, Component.translatable("option.damage-engine.select_image"), this::onSelectImage);
             this.resetImageBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("×"), this::onResetImage, 0xFFFC887E, 0xFFFBFB54);
@@ -1132,7 +1712,7 @@ public class DamageConfigScreen extends Screen {
                 if (hasImg) { resetImageBtn.setX(rx - 110 - 25); resetImageBtn.setY(by); resetImageBtn.setWidth(20); }
                 String pt = hasImg ? grade.imagePath : "Not set";
                 if (pt.contains("/")) pt = pt.substring(pt.lastIndexOf("/") + 1);
-                g.text(Minecraft.getInstance().font, Component.literal(grade.text), x + 10, y + 8, 0xFFFFFFFF);
+                g.text(Minecraft.getInstance().font, Component.literal(grade.text), x, y + 8, 0xFFFFFFFF);
                 int mw = 80, tw = Minecraft.getInstance().font.width(pt);
                 if (tw > mw) { while (tw > mw - 20 && pt.length() > 4) { pt = pt.substring(0, pt.length() - 1); tw = Minecraft.getInstance().font.width(pt + "..."); } pt += "..."; }
                 int px = rx - 110 - 5 - tw - (hasImg ? 25 : 0) - 5;
@@ -1142,13 +1722,32 @@ public class DamageConfigScreen extends Screen {
             } else {
                 selectImageBtn.visible = false;
                 int sx = x + ew - 110, ps = 17, px = sx + 80, py = by + 1;
+                swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
+                boolean overSwatch = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
+                if (overSwatch) g.requestCursor(DamageConfigScreen.CURSOR_HAND);
                 colField.setX(sx + 4); colField.setY(by + 6); colField.setWidth(75 - 8); colField.setHeight(12); colField.visible = true;
-                g.text(Minecraft.getInstance().font, Component.literal(grade.text), x + 10, y + 8, 0xFFFFFFFF);
+                g.text(Minecraft.getInstance().font, Component.literal(grade.text), x, y + 8, 0xFFFFFFFF);
                 drawBox(g, sx, by, 75, 20, colField, mx, my);
                 colField.extractRenderState(g, mx, my, dt);
-                g.fill(px - 1, py - 1, px + ps + 1, py + ps + 1, 0xFFFFFFFF);
+                g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, overSwatch ? 0xFFB5F0C6 : 0xFFFFFFFF);
                 g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
             }
+        }
+        @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
+            if (!config.ratingUseImages && event.button() == 0 && swatchSize > 0
+                && event.x() >= swatchX && event.x() <= swatchX + swatchSize
+                && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
+                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                    s.playClickSound();
+                    s.openColorPicker(swatchX + swatchSize / 2, swatchY, currentColor, c -> {
+                        currentColor = c | 0xFF000000;
+                        grade.color = currentColor;
+                        colField.setValue(String.format("%06X", currentColor & 0xFFFFFF));
+                    });
+                }
+                return true;
+            }
+            return super.mouseClicked(event, bl);
         }
         private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1180,6 +1779,17 @@ public class DamageConfigScreen extends Screen {
             this.input.setResponder(s -> { try { float v = Float.parseFloat(s); valueRef[0] = v; onChange.accept(v); } catch(Exception ignored){} });
         }
         private static String formatValue(float v) { if (v == (int)v) return String.valueOf((int)v); return String.format("%.1f", v); }
+        @Override public String validate() {
+            if (input.getValue() == null || input.getValue().trim().isEmpty()) {
+                return label.getString();
+            }
+            try {
+                Float.parseFloat(input.getValue().trim());
+                return null;
+            } catch (NumberFormatException e) {
+                return label.getString();
+            }
+        }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             if (hint != null) { g.text(Minecraft.getInstance().font, label, x, y + 4, 0xFFFFFFFF); g.text(Minecraft.getInstance().font, hint, x, y + 14, 0xFFA0A0A0); }
             else g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);

@@ -2,12 +2,16 @@ package damage.engine.hud;
 
 import damage.engine.DamageEngineConfig;
 
+import java.util.List;
+
 public class RatingManager {
     private static final RatingManager INSTANCE = new RatingManager();
 
     private int sessionComboCount = 0;
     private int sessionHitCount = 0;
     private int sessionCritCount = 0;
+    // 每次命中的伤害值(用于单次伤害大小加分)
+    private final List<Float> sessionDamageList = new java.util.ArrayList<>();
     private boolean sessionActive = false;
     private long sessionEndTime = 0;
     private long lastHitTime = 0;
@@ -22,11 +26,13 @@ public class RatingManager {
             sessionComboCount = 0;
             sessionHitCount = 0;
             sessionCritCount = 0;
+            sessionDamageList.clear();
             sessionActive = true;
         }
         sessionComboCount++;
         sessionHitCount++;
         if (isCrit) sessionCritCount++;
+        sessionDamageList.add(damage);
         lastHitTime = System.currentTimeMillis();
     }
 
@@ -100,6 +106,17 @@ public class RatingManager {
         float score = sessionComboCount * (sessionComboCount + 1) / 2f * config.comboPoints
             + normalHits * config.hitPoints
             + sessionCritCount * config.critPoints;
+
+        // 单次伤害大小加分:每次命中达到伤害大小阈值即增加对应分数
+        if (config.damageBonuses != null && !config.damageBonuses.isEmpty()) {
+            for (float dmg : sessionDamageList) {
+                for (DamageEngineConfig.DamageBonus b : config.damageBonuses) {
+                    if (dmg >= b.damageSize) {
+                        score += b.points;
+                    }
+                }
+            }
+        }
         return score;
     }
 
@@ -112,6 +129,7 @@ public class RatingManager {
         sessionComboCount = 0;
         sessionHitCount = 0;
         sessionCritCount = 0;
+        sessionDamageList.clear();
         sessionEndTime = 0;
         lastHitTime = 0;
     }

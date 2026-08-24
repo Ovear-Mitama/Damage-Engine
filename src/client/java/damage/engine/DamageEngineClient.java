@@ -83,24 +83,28 @@ public class DamageEngineClient implements ClientModInitializer {
                         }
                     }
 
+                    // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All)
+                    net.minecraft.world.entity.Entity victim = dp.entityId() > 0 && mc.level != null
+                        ? mc.level.getEntity(dp.entityId()) : null;
+                    Float maxDist = config.resolveGlobalIndicatorDistance(victim);
+                    if (maxDist == null) {
+                        return; // 该受害实体被屏蔽或未配置显示
+                    }
+
                     // Calculate distance for culling
                     double dx = dp.posX() - mc.player.getX();
                     double dy = dp.posY() - mc.player.getY();
                     double dz = dp.posZ() - mc.player.getZ();
                     double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                    if (distance <= config.globalIndicatorMaxDistance) {
-                        if (config.showDamageIndicator && dp.amount() > 0 && !dp.killed()) {
-                            Vec3 pos = dp.isProjectile()
-                                ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
-                                : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
+                    if (maxDist <= 0 || distance <= maxDist) {
+                        if (config.showDamageIndicator && dp.amount() > 0) {
+                            Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                             DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
                                 dp.amount(), dp.isCrit(), false);
                         }
                         if (config.showKillIndicator && dp.killed()) {
-                            Vec3 pos = dp.isProjectile()
-                                ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
-                                : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
+                            Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                             DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
                                 dp.amount(), false, true);
                         }
@@ -124,19 +128,17 @@ public class DamageEngineClient implements ClientModInitializer {
                 
                 DamageSessionManager.getInstance().addDamage(dp.amount(), dp.isCrit(), dp.entityId(), preferSwitchTarget);
                 
-                if (config.showDamageIndicator && dp.amount() > 0) {
-                    Vec3 pos = dp.isProjectile() 
-                        ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
-                        : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
-                    DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                        dp.amount(), dp.isCrit(), false);
-                }
-                if (config.showKillIndicator && dp.killed()) {
-                    Vec3 pos = dp.isProjectile() 
-                        ? new Vec3(dp.posX(), dp.posY(), dp.posZ())
-                        : blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
-                    DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                        dp.amount(), false, true);
+                Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
+                double maxDist = config.globalIndicatorMaxDistance;
+                if (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist) {
+                    if (config.showDamageIndicator && dp.amount() > 0) {
+                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                            dp.amount(), dp.isCrit(), false);
+                    }
+                    if (config.showKillIndicator && dp.killed()) {
+                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                            dp.amount(), false, true);
+                    }
                 }
                 
                 if (config.debugShowRating && mc.player != null) {
@@ -153,13 +155,6 @@ public class DamageEngineClient implements ClientModInitializer {
     }
     
     public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
-        Minecraft client = Minecraft.getInstance();
-        // If entity is targeted by crosshair → use hit point (near crosshair)
-        if (client.hitResult instanceof EntityHitResult ehr && ehr.getEntity() != null 
-            && ehr.getEntity().getId() == entityId) {
-            return ehr.getLocation();
-        }
-        // Not targeted: use body center position (baseY is already the bounding box center)
-        return new Vec3(baseX, baseY, baseZ);
+        return damage.engine.client.IndicatorPos.blend(baseX, baseY, baseZ, entityId);
     }
 }

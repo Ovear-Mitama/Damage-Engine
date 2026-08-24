@@ -86,11 +86,6 @@ public class DamageEngineClient {
     }
     
     public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
-        Minecraft client = Minecraft.getInstance();
-        if (client.hitResult instanceof EntityHitResult ehr && ehr.getEntity() != null 
-            && ehr.getEntity().getId() == entityId) {
-            return ehr.getLocation();
-        }
-        return new Vec3(baseX, baseY + 1.5, baseZ);
+        return damage.engine.client.IndicatorPos.blend(baseX, baseY, baseZ, entityId);
     }
 }
