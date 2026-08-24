@@ -665,10 +665,10 @@ public class DamageHud {
         }
         infoHealth = target.getHealth();
         float newMaxHealth = target.getMaxHealth();
+        // 只在拿到有效最大值时更新;死亡实体的 getMaxHealth() 可能返回 0,
+        // 保留上次有效值,避免血条数字退化成 "0/1"。
         if (newMaxHealth > 0) {
             infoMaxHealth = newMaxHealth;
-        } else if (infoMaxHealth <= 0) {
-            infoMaxHealth = 1f;
         }
         infoAbsorption = target.getAbsorptionAmount();
     }

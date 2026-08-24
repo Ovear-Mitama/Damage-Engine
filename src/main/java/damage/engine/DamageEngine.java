@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 
 public class DamageEngine implements ModInitializer {
 	public static final String MOD_ID = "damage-engine";
-	public static final String MOD_VERSION = "1.4.3";
+	public static final String MOD_VERSION = "1.4.5";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
 	@Override

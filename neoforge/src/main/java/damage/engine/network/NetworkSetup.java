@@ -68,24 +68,28 @@ public class NetworkSetup {
                             }
                         }
 
+                        // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All)
+                        net.minecraft.world.entity.Entity victim = payload.entityId() > 0 && mc.level != null
+                            ? mc.level.getEntity(payload.entityId()) : null;
+                        Float maxDist = config.resolveGlobalIndicatorDistance(victim);
+                        if (maxDist == null) {
+                            return; // 该受害实体被屏蔽或未配置显示
+                        }
+
                         // Calculate distance for culling
                         double dx = payload.posX() - mc.player.getX();
                         double dy = payload.posY() - mc.player.getY();
                         double dz = payload.posZ() - mc.player.getZ();
                         double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                        if (distance <= config.globalIndicatorMaxDistance) {
-                            if (config.showDamageIndicator && payload.amount() > 0 && !payload.killed()) {
-                                Vec3 pos = payload.isProjectile()
-                                    ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                                    : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                        if (maxDist <= 0 || distance <= maxDist) {
+                            if (config.showDamageIndicator && payload.amount() > 0) {
+                                Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
                                 DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
                                     payload.amount(), payload.isCrit(), false);
                             }
                             if (config.showKillIndicator && payload.killed()) {
-                                Vec3 pos = payload.isProjectile()
-                                    ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                                    : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                                Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
                                 DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
                                     payload.amount(), false, true);
                             }
@@ -109,19 +113,17 @@ public class NetworkSetup {
 
                     DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
 
-                    if (config.showDamageIndicator && payload.amount() > 0 && !payload.killed()) {
-                        Vec3 pos = payload.isProjectile()
-                            ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                            : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                            payload.amount(), payload.isCrit(), false);
-                    }
-                    if (config.showKillIndicator && payload.killed()) {
-                        Vec3 pos = payload.isProjectile()
-                            ? new Vec3(payload.posX(), payload.posY(), payload.posZ())
-                            : DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
-                            payload.amount(), false, true);
+                    Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                    double maxDist = config.globalIndicatorMaxDistance;
+                    if (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist) {
+                        if (config.showDamageIndicator && payload.amount() > 0) {
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                payload.amount(), payload.isCrit(), false);
+                        }
+                        if (config.showKillIndicator && payload.killed()) {
+                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                payload.amount(), false, true);
+                        }
                     }
 
                     if (config.debugShowRating && mc.player != null) {
