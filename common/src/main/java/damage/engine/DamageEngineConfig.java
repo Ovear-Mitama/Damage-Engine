@@ -1,5 +1,9 @@
 package damage.engine;
 
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.player.Player;
+
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -51,7 +55,12 @@ public class DamageEngineConfig {
     public int healIndicatorColor = 0xFFB1EAC2;
     public boolean indicatorPrefixSign = false;
     public boolean showGlobalDamageIndicator = false;
+    // 全局伤害跳字 - 玩家显示距离(0 = 无限制)
     public float globalIndicatorMaxDistance = 128.0f;
+    // 全局伤害跳字 - 非玩家实体整体模式(false=显示/白名单, true=屏蔽/黑名单)
+    public boolean globalEntityBlockMode = false;
+    // 全局伤害跳字 - 非玩家实体规则(注册名 All 表示全体,与具体注册名互斥)
+    public List<GlobalEntityRule> globalEntityRules = new ArrayList<>();
     public String killText = "Kill!";
     public int killTextColor = 0xFFF9867D;
     public boolean showKillIndicator = true;
@@ -75,6 +84,8 @@ public class DamageEngineConfig {
     public float comboPoints = 0.2f;
     public float hitPoints = 6f;
     public float critPoints = 10f;
+    // 单次伤害大小加分(默认空项,可添加)
+    public List<DamageBonus> damageBonuses = new ArrayList<>();
     public boolean ratingUseImages = false;
     public List<RatingGrade> ratingGrades = new ArrayList<>();
     
@@ -128,6 +139,44 @@ public class DamageEngineConfig {
             this.color = color;
         }
     }
+
+    /**
+     * 单次伤害大小加分项:单次命中达到 damageSize 时增加 points 分。
+     */
+    public static class DamageBonus {
+        public float damageSize = 10f;
+        public float points = 0f;
+
+        public DamageBonus() {
+        }
+
+        public DamageBonus(float damageSize, float points) {
+            this.damageSize = damageSize;
+            this.points = points;
+        }
+    }
+
+    /**
+     * 全局伤害跳字 - 非玩家实体规则。
+     * registryName 为实体注册名;特殊值 "All" 表示全体实体(与具体注册名项互斥,存在 All 时不可再添加)。
+     * distance 为显示距离(0 = 无限制)。整体 显示/屏蔽 由 {@link #globalEntityBlockMode} 控制。
+     */
+    public static class GlobalEntityRule {
+        public String registryName = "";
+        public float distance = 0f;
+
+        public GlobalEntityRule() {
+        }
+
+        public GlobalEntityRule(String registryName, float distance) {
+            this.registryName = registryName;
+            this.distance = distance;
+        }
+
+        public boolean isAll() {
+            return registryName != null && "All".equalsIgnoreCase(registryName);
+        }
+    }
     
     public static class RatingGrade {
         public float minScore;
@@ -169,6 +218,56 @@ public class DamageEngineConfig {
 
     public static DamageEngineConfig getInstance() {
         return INSTANCE;
+    }
+
+    /**
+     * 全局伤害跳字 - 解析受害实体的显示距离(分项设置)。
+     * <ul>
+     *   <li>受害者为玩家:返回 {@link #globalIndicatorMaxDistance}(玩家显示距离,0 = 无限制)</li>
+     *   <li>受害者为非玩家实体:由 {@link #globalEntityBlockMode} 与 {@link #globalEntityRules} 决定,
+     *       显示模式(白名单)仅列表内实体(具体注册名或 All)显示;屏蔽模式(黑名单)列表内实体屏蔽,
+     *       其余实体显示(距离取 All 项,无 All 时默认 {@link #DEFAULT_NON_PLAYER_DISTANCE});
+     *       返回 null 表示不显示</li>
+     * </ul>
+     */
+    public static final float DEFAULT_NON_PLAYER_DISTANCE = 128f;
+
+    public Float resolveGlobalIndicatorDistance(Entity victim) {
+        if (victim instanceof Player) {
+            return globalIndicatorMaxDistance;
+        }
+        if (globalEntityRules == null || globalEntityRules.isEmpty()) {
+            return null; // 未配置任何规则:不显示非玩家实体跳字
+        }
+        String regName = null;
+        try {
+            net.minecraft.resources.ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType());
+            regName = key == null ? null : key.toString();
+        } catch (Exception ignored) {
+            regName = null;
+        }
+        GlobalEntityRule allRule = null;
+        GlobalEntityRule match = null;
+        for (GlobalEntityRule r : globalEntityRules) {
+            if (r == null || r.registryName == null || r.registryName.trim().isEmpty()) continue;
+            if (r.isAll()) {
+                allRule = r;
+                continue;
+            }
+            if (regName != null && r.registryName.trim().equalsIgnoreCase(regName)) {
+                match = r;
+            }
+        }
+        GlobalEntityRule effective = match != null ? match : allRule;
+        if (!globalEntityBlockMode) {
+            // 显示模式(白名单):仅列表内实体(具体或 All)显示
+            return effective != null ? effective.distance : null;
+        }
+        // 屏蔽模式(黑名单):列表内实体屏蔽;其余实体显示,距离取 All 项,无 All 时用默认距离
+        if (effective != null) {
+            return null;
+        }
+        return allRule != null ? allRule.distance : DEFAULT_NON_PLAYER_DISTANCE;
     }
 
     public static Path getProfilesDir() {
@@ -289,7 +388,12 @@ public class DamageEngineConfig {
         this.healIndicatorColor = loaded.healIndicatorColor;
         this.indicatorPrefixSign = loaded.indicatorPrefixSign;
         this.showGlobalDamageIndicator = loaded.showGlobalDamageIndicator;
-        this.globalIndicatorMaxDistance = loaded.globalIndicatorMaxDistance > 0 ? loaded.globalIndicatorMaxDistance : 128.0f;
+        // 0 = 无限制,保留 0;负数视为无效回退默认
+        this.globalIndicatorMaxDistance = loaded.globalIndicatorMaxDistance >= 0 ? loaded.globalIndicatorMaxDistance : 128.0f;
+        this.globalEntityBlockMode = loaded.globalEntityBlockMode;
+        if (loaded.globalEntityRules != null) {
+            this.globalEntityRules = loaded.globalEntityRules;
+        }
         this.killText = loaded.killText != null ? loaded.killText : "Kill!";
         this.killTextColor = loaded.killTextColor;
         this.showKillIndicator = loaded.showKillIndicator;
@@ -314,6 +418,9 @@ public class DamageEngineConfig {
         this.hitPoints = loaded.hitPoints;
         this.critPoints = loaded.critPoints;
         this.ratingUseImages = loaded.ratingUseImages;
+        if (loaded.damageBonuses != null) {
+            this.damageBonuses = loaded.damageBonuses;
+        }
         if (loaded.ratingGrades != null && !loaded.ratingGrades.isEmpty()) {
             this.ratingGrades = loaded.ratingGrades;
             for (int i = 0; i < this.ratingGrades.size(); i++) {
@@ -399,6 +506,8 @@ public class DamageEngineConfig {
         indicatorPrefixSign = false;
         showGlobalDamageIndicator = false;
         globalIndicatorMaxDistance = 128.0f;
+        globalEntityBlockMode = false;
+        globalEntityRules.clear();
         killText = "Kill!";
         killTextColor = 0xFFF9867D;
         showKillIndicator = true;
@@ -423,6 +532,7 @@ public class DamageEngineConfig {
         hitPoints = 6f;
         critPoints = 10f;
         ratingUseImages = false;
+        damageBonuses.clear();
         ratingGrades.clear();
         ratingGrades.add(new RatingGrade(1000f, "S", 0xFFD700, 1));
         ratingGrades.add(new RatingGrade(500f, "A", 0xFF6347, 2));

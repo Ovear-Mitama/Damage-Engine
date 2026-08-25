@@ -70,13 +70,21 @@ public class NetworkSetup {
                             }
                         }
 
+                        // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All)
+                        net.minecraft.world.entity.Entity victim = payload.entityId() > 0 && mc.level != null
+                            ? mc.level.getEntity(payload.entityId()) : null;
+                        Float maxDist = config.resolveGlobalIndicatorDistance(victim);
+                        if (maxDist == null) {
+                            return; // 该受害实体被屏蔽或未配置显示
+                        }
+
                         // Calculate distance for culling
                         double dx = payload.posX() - mc.player.getX();
                         double dy = payload.posY() - mc.player.getY();
                         double dz = payload.posZ() - mc.player.getZ();
                         double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                        if (config.globalIndicatorMaxDistance <= 0 || distance <= config.globalIndicatorMaxDistance) {
+                        if (maxDist <= 0 || distance <= maxDist) {
                             if (config.showDamageIndicator && payload.amount() > 0) {
                                 Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
                                 DamageIndicator.addIndicator(pos.x, pos.y, pos.z,

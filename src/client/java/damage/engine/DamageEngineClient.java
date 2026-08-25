@@ -77,13 +77,21 @@ public class DamageEngineClient implements ClientModInitializer {
                         }
                     }
 
+                    // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All)
+                    net.minecraft.world.entity.Entity victim = dp.entityId() > 0 && mc.level != null
+                        ? mc.level.getEntity(dp.entityId()) : null;
+                    Float maxDist = config.resolveGlobalIndicatorDistance(victim);
+                    if (maxDist == null) {
+                        return; // 该受害实体被屏蔽或未配置显示
+                    }
+
                     // Calculate distance for culling
                     double dx = dp.posX() - mc.player.getX();
                     double dy = dp.posY() - mc.player.getY();
                     double dz = dp.posZ() - mc.player.getZ();
                     double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                    if (config.globalIndicatorMaxDistance <= 0 || distance <= config.globalIndicatorMaxDistance) {
+                    if (maxDist <= 0 || distance <= maxDist) {
                         if (config.showDamageIndicator && dp.amount() > 0) {
                             Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                             DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
