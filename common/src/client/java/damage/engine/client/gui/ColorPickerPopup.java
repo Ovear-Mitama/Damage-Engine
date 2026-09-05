@@ -232,7 +232,7 @@ public class ColorPickerPopup {
         if (!inside(x, y)) {
             return false;
         }
-        if (event.button() != 0) {
+        if (!DamageConfigScreen.isPrimaryClick(event.button())) {
             return true;
         }
         // 拖动区
@@ -273,7 +273,7 @@ public class ColorPickerPopup {
     }
 
     public boolean mouseDragged(MouseButtonEvent event, double dx, double dy) {
-        if (event.button() != 0) return false;
+        if (!DamageConfigScreen.isPrimaryClick(event.button())) return false;
         if (draggingSquare) {
             updateFromSquare(event.x(), event.y());
             return true;

@@ -313,7 +313,7 @@ public class HudEditorScreen extends Screen {
         
         this.setFocused(null);
         
-        if (event.button() == 0) {
+        if (DamageConfigScreen.isPrimaryClick(event.button())) {
             double mx = event.x();
             double my = event.y();
             

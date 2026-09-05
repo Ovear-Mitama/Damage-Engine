@@ -54,6 +54,15 @@ public class DamageConfigScreen extends Screen {
         }
     }
 
+    /**
+     * 判断是否为鼠标主键(左键)。
+     * 26.3 起 MouseButtonInfo 将左键编号为 1(参考 vanilla AbstractWidget.isValidClickButton),26.2 及以前为 0。
+     * 自定义组件全部改用本方法,移植到其它 MC 版本时只需在此处调整常量。
+     */
+    public static boolean isPrimaryClick(int button) {
+        return button == 1;
+    }
+
     private int selectedTab = 0;
     private ConfigOptionListWidget optionList;
     private double lastScroll = 0;
@@ -763,7 +772,7 @@ public class DamageConfigScreen extends Screen {
         }
         @Override
         public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
-            if (this.active && this.visible && event.button() == 0 && this.isMouseOver(event.x(), event.y())) {
+            if (this.active && this.visible && isPrimaryClick(event.button()) && this.isMouseOver(event.x(), event.y())) {
                 this.playDownSound(Minecraft.getInstance().getSoundManager());
                 this.onPress.run();
                 return true;
@@ -801,7 +810,7 @@ public class DamageConfigScreen extends Screen {
         public void setDefaultColor(int c) { this.defaultColor = c; }
         @Override
         public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
-            if (this.active && this.visible && event.button() == 0 && this.isMouseOver(event.x(), event.y())) {
+            if (this.active && this.visible && isPrimaryClick(event.button()) && this.isMouseOver(event.x(), event.y())) {
                 this.playDownSound(Minecraft.getInstance().getSoundManager());
                 this.onPress.run();
                 return true;
@@ -1217,7 +1226,7 @@ public class DamageConfigScreen extends Screen {
             }
         }
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
-            if (event.button() == 0 && swatchSize > 0
+            if (isPrimaryClick(event.button()) && swatchSize > 0
                 && event.x() >= swatchX && event.x() <= swatchX + swatchSize
                 && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
                 if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) {
@@ -1378,7 +1387,7 @@ public class DamageConfigScreen extends Screen {
             g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
         }
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
-            if (event.button() == 0 && swatchSize > 0
+            if (isPrimaryClick(event.button()) && swatchSize > 0
                 && event.x() >= swatchX && event.x() <= swatchX + swatchSize
                 && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
                 if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) {
@@ -1711,7 +1720,7 @@ public class DamageConfigScreen extends Screen {
             }
         }
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
-            if (!config.ratingUseImages && event.button() == 0 && swatchSize > 0
+            if (!config.ratingUseImages && isPrimaryClick(event.button()) && swatchSize > 0
                 && event.x() >= swatchX && event.x() <= swatchX + swatchSize
                 && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
                 if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) {
@@ -1800,7 +1809,7 @@ public class DamageConfigScreen extends Screen {
                 else super.playDownSound(sm);
             }
             @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
-                if (this.active && this.visible && event.button() == 0 && this.isMouseOver(event.x(), event.y())) {
+                if (this.active && this.visible && isPrimaryClick(event.button()) && this.isMouseOver(event.x(), event.y())) {
                     this.playDownSound(Minecraft.getInstance().getSoundManager()); this.onPress.run(); return true;
                 }
                 return false;
