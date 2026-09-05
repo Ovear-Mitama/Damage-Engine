@@ -3,14 +3,15 @@ package damage.engine.mixin.client;
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageIndicator;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Gui.class)
+// 26.2: 游戏内 HUD 渲染从 Gui 拆分到 Hud 类,extractRenderState 签名(GuiGraphicsExtractor, DeltaTracker)与原注入一致
+@Mixin(Hud.class)
 public class HudRenderMixin {
 
     private static final DamageHud damageHud = new DamageHud();
