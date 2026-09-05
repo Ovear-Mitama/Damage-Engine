@@ -517,6 +517,16 @@ public class DamageConfigScreen extends Screen {
         bindingEntry = e;
     }
 
+    /** 跨版本创建键盘按键:26.2 的 Type.KEYSYM 在 26.3 中更名为 Type.KEYBOARD,按名称取非鼠标类型 */
+    private static com.mojang.blaze3d.platform.InputConstants.Key createKeyboardKey(int keyCode) {
+        for (com.mojang.blaze3d.platform.InputConstants.Type t : com.mojang.blaze3d.platform.InputConstants.Type.values()) {
+            if (!"MOUSE".equals(t.name())) {
+                return t.getOrCreate(keyCode);
+            }
+        }
+        return com.mojang.blaze3d.platform.InputConstants.Type.values()[0].getOrCreate(keyCode);
+    }
+
     // ===== 悬浮颜色选择器 =====
 
     public void openColorPicker(int anchorX, int anchorY, int color, java.util.function.Consumer<Integer> onChange) {
@@ -548,14 +558,14 @@ public class DamageConfigScreen extends Screen {
     public boolean keyPressed(KeyEvent event) {
         if (colorPicker != null) {
             if (colorPicker.keyPressed(event)) return true;
-            if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            if (event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) {
                 closeColorPicker();
                 return true;
             }
         }
         if (bindingEntry != null) {
             if (bindingEntry.getButton().keyPressed(event)) return true;
-            if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
+            if (event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) {
                 bindingEntry.setBinding(false);
                 return true;
             }
@@ -1806,8 +1816,8 @@ public class DamageConfigScreen extends Screen {
             @Override protected void updateWidgetNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }
             @Override public boolean keyPressed(KeyEvent event) {
                 if (isBinding()) {
-                    if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) keyBinding.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
-                    else keyBinding.setKey(com.mojang.blaze3d.platform.InputConstants.Type.KEYSYM.getOrCreate(event.key()));
+                    if (event.key() == com.mojang.blaze3d.platform.InputConstants.KEY_ESCAPE) keyBinding.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
+                    else keyBinding.setKey(createKeyboardKey(event.key()));
                     finishBinding(); return true;
                 }
                 return false;
