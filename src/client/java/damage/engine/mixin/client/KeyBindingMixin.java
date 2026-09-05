@@ -5,7 +5,6 @@ import net.minecraft.client.Options;
 import net.minecraft.client.KeyMapping;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Mutable;
@@ -33,20 +32,20 @@ public class KeyBindingMixin {
 
         ClientKeybindings.configKeyBinding = new KeyMapping(
             "key.damage_engine.config",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_UNKNOWN,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.UNKNOWN.getValue(),
             category
         );
         ClientKeybindings.toggleHudKeyBinding = new KeyMapping(
             "key.damage_engine.toggle_hud",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_UNKNOWN,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.UNKNOWN.getValue(),
             category
         );
         ClientKeybindings.clearDamageKeyBinding = new KeyMapping(
             "key.damage_engine.clear_damage",
-            InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_UNKNOWN,
+            InputConstants.Type.KEYBOARD,
+            InputConstants.UNKNOWN.getValue(),
             category
         );
 

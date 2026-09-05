@@ -8,7 +8,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
+import com.mojang.blaze3d.platform.InputConstants;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -390,20 +390,20 @@ public class HudEditorScreen extends Screen {
     public boolean keyPressed(KeyEvent event) {
         if (selectedModule != null) {
             int keyCode = event.key();
-            if (keyCode == GLFW.GLFW_KEY_EQUAL || keyCode == GLFW.GLFW_KEY_KP_ADD) {
+            if (keyCode == InputConstants.KEY_EQUALS || keyCode == InputConstants.KEY_ADD) {
                 adjustModuleScale(0.01f);
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_MINUS || keyCode == GLFW.GLFW_KEY_KP_SUBTRACT) {
+            if (keyCode == InputConstants.KEY_MINUS) {
                 adjustModuleScale(-0.01f);
                 return true;
             }
-            if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN
-                || keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT) {
+            if (keyCode == InputConstants.KEY_UP || keyCode == InputConstants.KEY_DOWN
+                || keyCode == InputConstants.KEY_LEFT || keyCode == InputConstants.KEY_RIGHT) {
                 int dx = 0, dy = 0;
-                if (keyCode == GLFW.GLFW_KEY_UP) dy = -1;
-                else if (keyCode == GLFW.GLFW_KEY_DOWN) dy = 1;
-                else if (keyCode == GLFW.GLFW_KEY_LEFT) dx = -1;
+                if (keyCode == InputConstants.KEY_UP) dy = -1;
+                else if (keyCode == InputConstants.KEY_DOWN) dy = 1;
+                else if (keyCode == InputConstants.KEY_LEFT) dx = -1;
                 else dx = 1;
                 nudgeModule(dx, dy);
                 return true;
