@@ -270,6 +270,7 @@ public class DamageConfigScreen extends Screen {
             addOption(new WeightEntry("option.damage-engine.comboPoints", config.comboPoints, v -> { config.comboPoints = v; markChanged(); }, "hint.damage-engine.comboPoints"));
             addOption(new WeightEntry("option.damage-engine.hitPoints", config.hitPoints, v -> { config.hitPoints = v; markChanged(); }, null));
             addOption(new WeightEntry("option.damage-engine.critPoints", config.critPoints, v -> { config.critPoints = v; markChanged(); }, null));
+            addOption(new WeightEntry("option.damage-engine.damageScoreMultiplier", config.damageScoreMultiplier, v -> { config.damageScoreMultiplier = v; markChanged(); }, "hint.damage-engine.damageScoreMultiplier"));
 
             // 单次伤害大小加分(可添加项,默认空项)
             addOption(new ExpandableHeaderEntry("option.damage-engine.damage_size_bonus", "damage_size_bonus", v -> refreshOptions()));

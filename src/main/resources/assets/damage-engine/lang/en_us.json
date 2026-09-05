@@ -107,6 +107,8 @@
   "option.damage-engine.comboPoints": "Combo Points",
   "option.damage-engine.hitPoints": "Normal Atk Points",
   "option.damage-engine.critPoints": "Crit Points",
+  "option.damage-engine.damageScoreMultiplier": "Damage Points Multiplier",
+  "hint.damage-engine.damageScoreMultiplier": "Each hit adds damage × multiplier points",
 
   "option.damage-engine.total_damage_colors": "Total Damage Display Colors",
   "option.damage-engine.damage_indicator_colors": "Damage Indicator Colors",
@@ -148,6 +150,7 @@
   "hud.editor.undo": "Undo",
   "hud.editor.redo": "Redo",
   "hud.editor.reset": "Reset",
+  "hud.editor.guide": "Drag to move · Corner to resize · +/- fine scale · Arrow keys nudge",
 
   "modmenu.nameTranslation.damage-engine": "Damage Engine",
   "modmenu.descriptionTranslation.damage-engine": "Display damage info on the UI.",

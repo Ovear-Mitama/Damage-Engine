@@ -57,6 +57,8 @@
   "option.damage-engine.comboPoints": "連擊分數",
   "option.damage-engine.hitPoints": "普通攻擊分數",
   "option.damage-engine.critPoints": "暴擊分數",
+  "option.damage-engine.damageScoreMultiplier": "傷害分數倍率",
+  "hint.damage-engine.damageScoreMultiplier": "每次造成傷害增加:傷害數值×此倍率 分",
   "hint.damage-engine.comboPoints": "連擊次數×分數",
   "hint.damage-engine.globalIndicatorMaxDistance": "單位為格，填0則為無限制",
   "option.damage-engine.debugMode": "除錯模式",
@@ -108,6 +110,7 @@
   "hud.editor.undo": "復原",
   "hud.editor.redo": "重做",
   "hud.editor.reset": "重設",
+  "hud.editor.guide": "拖曳移動 · 方塊縮放 · +/- 微調縮放 · 方向鍵微調位置",
   
   "modmenu.nameTranslation.damage-engine": "傷害引擎",
   "modmenu.descriptionTranslation.damage-engine": "在UI上顯示傷害資訊。",

@@ -84,6 +84,8 @@ public class DamageEngineConfig {
     public float comboPoints = 0.2f;
     public float hitPoints = 6f;
     public float critPoints = 10f;
+    // 动态伤害加分:每次造成伤害增加(伤害数值 × 此倍率)分
+    public float damageScoreMultiplier = 0.5f;
     // 单次伤害大小加分(默认空项,可添加)
     public List<DamageBonus> damageBonuses = new ArrayList<>();
     public boolean ratingUseImages = false;
@@ -417,6 +419,7 @@ public class DamageEngineConfig {
         this.comboPoints = loaded.comboPoints;
         this.hitPoints = loaded.hitPoints;
         this.critPoints = loaded.critPoints;
+        this.damageScoreMultiplier = loaded.damageScoreMultiplier;
         this.ratingUseImages = loaded.ratingUseImages;
         if (loaded.damageBonuses != null) {
             this.damageBonuses = loaded.damageBonuses;
@@ -531,6 +534,7 @@ public class DamageEngineConfig {
         comboPoints = 0.2f;
         hitPoints = 6f;
         critPoints = 10f;
+        damageScoreMultiplier = 0.5f;
         ratingUseImages = false;
         damageBonuses.clear();
         ratingGrades.clear();

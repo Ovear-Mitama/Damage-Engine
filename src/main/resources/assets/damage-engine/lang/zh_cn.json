@@ -107,6 +107,8 @@
   "option.damage-engine.comboPoints": "连击分数",
   "option.damage-engine.hitPoints": "普通攻击分数",
   "option.damage-engine.critPoints": "暴击分数",
+  "option.damage-engine.damageScoreMultiplier": "伤害值分数倍率",
+  "hint.damage-engine.damageScoreMultiplier": "每次造成伤害增加:伤害数值×此倍率 分",
 
   "option.damage-engine.total_damage_colors": "总伤害显示颜色",
   "option.damage-engine.damage_indicator_colors": "伤害跳字颜色",
@@ -148,6 +150,7 @@
   "hud.editor.undo": "撤回",
   "hud.editor.redo": "重做",
   "hud.editor.reset": "重置",
+  "hud.editor.guide": "拖拽移动 · 方块缩放 · +/- 微调缩放 · 方向键微调位置",
 
   "modmenu.nameTranslation.damage-engine": "伤害引擎",
   "modmenu.descriptionTranslation.damage-engine": "在UI上显示伤害信息。",
