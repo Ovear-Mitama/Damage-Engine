@@ -219,6 +219,9 @@ public class DamageEngineConfig {
         ratingGrades.add(new RatingGrade(250f, "B", 0x00BFFF, 3));
         ratingGrades.add(new RatingGrade(100f, "C", 0x32CD32, 4));
         ratingGrades.add(new RatingGrade(20f, "D", 0xA0A0A0, 5));
+
+        // 全局伤害跳字 - 非玩家实体默认包含一项 All(全体实体,距离 0 = 无限制)
+        globalEntityRules.add(new GlobalEntityRule("All", 0f));
     }
 
     public static DamageEngineConfig getInstance() {
@@ -397,6 +400,11 @@ public class DamageEngineConfig {
         if (loaded.globalEntityRules != null) {
             this.globalEntityRules = loaded.globalEntityRules;
         }
+        // 默认包含一项 All(全体实体):旧配置为空列表时自动补默认项,避免非玩家跳字空规则不显示
+        if (this.globalEntityRules == null || this.globalEntityRules.isEmpty()) {
+            this.globalEntityRules = new ArrayList<>();
+            this.globalEntityRules.add(new GlobalEntityRule("All", 0f));
+        }
         // 0 = unlimited is a valid configured value (see hint text); keep it as-is
         // instead of forcing the 128 default back, which made "set 0 for unlimited"
         // silently reset to the default on reload.
@@ -519,6 +527,8 @@ public class DamageEngineConfig {
         globalIndicatorMaxDistance = 128.0f;
         globalEntityBlockMode = false;
         globalEntityRules.clear();
+        // 重置后默认包含一项 All(全体实体,距离 0 = 无限制)
+        globalEntityRules.add(new GlobalEntityRule("All", 0f));
         killText = "Kill!";
         killTextColor = 0xFFF9867D;
         showKillIndicator = true;

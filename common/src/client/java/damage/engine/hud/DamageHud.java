@@ -91,7 +91,6 @@ public class DamageHud {
             DamageEngineConfig config = DamageEngineConfig.getInstance();
 
             if (config.hideOnF1 && client.options.hideGui) return;
-            if (!config.showDamage) return;
 
             // TaCZ's crosshair hit feedback enables depth test / blend and never
             // restores them, so HUD draws that run after it (ours included) inherit
@@ -104,10 +103,6 @@ public class DamageHud {
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
 
             DamageSessionManager session = DamageSessionManager.getInstance();
-            
-            if (!config.showDamageDisplay) {
-                return;
-            }
 
             updateInfoAnimation(session, client);
             if (config.showInfo && infoAlpha > 0.01f) {
@@ -115,6 +110,11 @@ public class DamageHud {
                 renderModule(guiGraphics, config.infoConfig, client, a, () -> {
                     renderInfo(guiGraphics, session, false, a, client);
                 });
+            }
+
+            if (!config.showDamage) return;
+            if (!config.showDamageDisplay) {
+                return;
             }
 
             float globalAlpha = 1.0f;
