@@ -8,6 +8,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
+import org.lwjgl.glfw.GLFW;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -30,6 +31,8 @@ public class HudEditorScreen extends Screen {
     
     private int resetButtonState = 0;
     private long resetButtonActionTime = 0;
+    
+    private long lastKeyboardAdjustTime = 0;
     
     private DamageConfigScreen.StyledButton undoBtn;
     private DamageConfigScreen.StyledButton redoBtn;
@@ -190,6 +193,10 @@ public class HudEditorScreen extends Screen {
                 ((net.minecraft.client.gui.components.Renderable) element).render(guiGraphics, mouseX, mouseY, delta);
             }
         }
+        
+        // 左上角三个按钮(撤回/重做/重置)右侧的操作引导
+        // 按钮终点 x=140,y=10..30;引导文字垂直居中对齐到按钮中心
+        guiGraphics.drawString(this.font, Component.translatable("hud.editor.guide"), 148, 16, 0xFFA0A0A0);
     }
     
 
@@ -228,7 +235,7 @@ public class HudEditorScreen extends Screen {
         
         drawBorder(guiGraphics, b[0], b[1], b[2], b[3], greenColor);
         
-        int handleSize = 8;
+        int handleSize = 5;
         int hx = b[0] + b[2] - handleSize;
         int hy = b[1] + b[3] - handleSize;
         guiGraphics.fill(hx, hy, hx + handleSize, hy + handleSize, greenColor);
@@ -270,7 +277,7 @@ public class HudEditorScreen extends Screen {
     
     private boolean isOverHandle(double mx, double my, EditorModule m) {
         int[] b = getBounds(m);
-        int handleSize = 8;
+        int handleSize = 5;
         int hx = b[0] + b[2] - handleSize;
         int hy = b[1] + b[3] - handleSize;
         return mx >= hx && mx <= hx + handleSize && my >= hy && my <= hy + handleSize;
@@ -355,6 +362,59 @@ public class HudEditorScreen extends Screen {
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY); 
+    }
+
+    /**
+     * 键盘微调:选中模块后,用 + / - 细微缩放,用方向键微调位置。
+     */
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (selectedModule != null) {
+            if (keyCode == GLFW.GLFW_KEY_EQUAL || keyCode == GLFW.GLFW_KEY_KP_ADD) {
+                adjustModuleScale(0.01f);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_MINUS || keyCode == GLFW.GLFW_KEY_KP_SUBTRACT) {
+                adjustModuleScale(-0.01f);
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_DOWN
+                || keyCode == GLFW.GLFW_KEY_LEFT || keyCode == GLFW.GLFW_KEY_RIGHT) {
+                int dx = 0, dy = 0;
+                if (keyCode == GLFW.GLFW_KEY_UP) dy = -1;
+                else if (keyCode == GLFW.GLFW_KEY_DOWN) dy = 1;
+                else if (keyCode == GLFW.GLFW_KEY_LEFT) dx = -1;
+                else dx = 1;
+                nudgeModule(dx, dy);
+                return true;
+            }
+        }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
+
+    /** 连续键盘微调合并为一次撤销记录,避免撤销栈被快速刷屏 */
+    private void saveKeyboardUndo() {
+        long now = System.currentTimeMillis();
+        if (now - lastKeyboardAdjustTime > 1000) {
+            saveStateForUndo();
+        }
+        lastKeyboardAdjustTime = now;
+    }
+
+    private void adjustModuleScale(float delta) {
+        saveKeyboardUndo();
+        selectedModule.config.scale += delta;
+        if (selectedModule.config.scale < 0.1f) selectedModule.config.scale = 0.1f;
+        if (selectedModule.config.scale > 5.0f) selectedModule.config.scale = 5.0f;
+    }
+
+    private void nudgeModule(int dx, int dy) {
+        saveKeyboardUndo();
+        // -1 表示居中,先落到屏幕中心对应的实际坐标再微调
+        if (selectedModule.config.x == -1.0f) selectedModule.config.x = 0.5f;
+        if (selectedModule.config.y == -1.0f) selectedModule.config.y = 0.5f;
+        selectedModule.config.x += dx / (float)width;
+        selectedModule.config.y += dy / (float)height;
     }
     
     @Override

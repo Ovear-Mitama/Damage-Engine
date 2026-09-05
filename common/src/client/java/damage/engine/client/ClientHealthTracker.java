@@ -51,12 +51,17 @@ public class ClientHealthTracker {
             // Calculate distance for culling
             Minecraft client = Minecraft.getInstance();
             if (client.player != null) {
+                // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All)
+                Float maxDist = config.resolveGlobalIndicatorDistance(entity);
+                if (maxDist == null) {
+                    return; // 该受害实体被屏蔽或未配置显示
+                }
                 double dx = entity.getX() - client.player.getX();
                 double dy = entity.getY() - client.player.getY();
                 double dz = entity.getZ() - client.player.getZ();
                 double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
-                if (config.globalIndicatorMaxDistance <= 0 || distance <= config.globalIndicatorMaxDistance) {
+                if (maxDist <= 0 || distance <= maxDist) {
                     Vec3 pos = DamageEngineClient.blendIndicatorPos(
                         entity.getX(),
                         entity.getY() + entity.getEyeHeight() * 0.6,
