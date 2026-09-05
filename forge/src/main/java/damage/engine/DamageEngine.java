@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.4.4.2";
+	public static final String MOD_VERSION = "1.4.6.1";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	// NOTE: keyed by entity id, NOT LivingEntity - referencing LivingEntity in a
@@ -74,7 +74,18 @@ public class DamageEngine {
 		// pre-hit snapshot here (first hit of the tick wins) and broadcast at the end
 		// of the server tick, when setHealth() has already run - the health diff is
 		// then the REAL damage the target took (armor/enchantment/resistance applied).
-		MinecraftForge.EVENT_BUS.addListener((LivingHurtEvent event) -> {
+		//
+		// Modern Damage Control (MDC) compat: MDC's onLivingHurt also runs at
+		// EventPriority.HIGHEST and, for TaCZ bullets / vanilla projectiles / hardcore
+		// part-health damage, CANCELS the event and applies the damage itself via
+		// direct setHealth() during event dispatch (it does not call hurt() again, so
+		// no second event fires). If we captured the snapshot at the default priority
+		// (after MDC), prevHealth would already include MDC's health loss and the
+		// tick-end diff would be ~0. HIGHEST priority maximizes the chance we capture
+		// the true pre-hit health first; the tick-end health-diff then reports the
+		// damage MDC actually dealt.
+		MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.HIGHEST,
+			(LivingHurtEvent event) -> {
 			if (event.getEntity().level() instanceof net.minecraft.server.level.ServerLevel sl) {
 				int id = event.getEntity().getId();
 				PRE_DAMAGE_LEVELS.put(id, sl);

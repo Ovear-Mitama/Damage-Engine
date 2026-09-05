@@ -213,10 +213,46 @@ public class DamageConfigScreen extends Screen {
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorBold", config.indicatorBold, v -> { config.indicatorBold = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showHealIndicator", config.showHealIndicator, v -> { config.showHealIndicator = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.healIndicatorColor", config.healIndicatorColor, v -> { config.healIndicatorColor = v; markChanged(); }));
-        addOption(new BooleanOptionEntry("option.damage-engine.showGlobalDamageIndicator", config.showGlobalDamageIndicator, v -> { config.showGlobalDamageIndicator = v; markChanged(); }));
-        addOption(new NumericEntry("option.damage-engine.globalIndicatorMaxDistance", config.globalIndicatorMaxDistance,
-            v -> { config.globalIndicatorMaxDistance = v; markChanged(); },
-            Component.translatable("hint.damage-engine.globalIndicatorMaxDistance")));
+        
+        // 全局伤害跳字 - 分项设置
+        addOption(new ExpandableHeaderEntry("option.damage-engine.global_damage_numbers", "global_damage_numbers", v -> refreshOptions()));
+        if (isExpanded("global_damage_numbers")) {
+            addOption(new BooleanOptionEntry("option.damage-engine.showGlobalDamageIndicator", config.showGlobalDamageIndicator, v -> { config.showGlobalDamageIndicator = v; markChanged(); }));
+            // (1) 玩家 显示距离
+            addOption(new NumericEntry("option.damage-engine.global_player_distance", config.globalIndicatorMaxDistance,
+                v -> { config.globalIndicatorMaxDistance = v; markChanged(); },
+                Component.translatable("hint.damage-engine.globalIndicatorMaxDistance")));
+            // (2) 非玩家实体(可展开;悬停提示:通过添加实体注册名来显示/屏蔽)
+            addOption(new ExpandableHeaderEntry("option.damage-engine.non_player_entities", "non_player_entities", v -> refreshOptions(),
+                Component.translatable("hint.damage-engine.non_player_entities")));
+            if (isExpanded("non_player_entities")) {
+                // 整体模式:屏蔽/显示
+                addOption(new ModeSelectorEntry("option.damage-engine.entity_mode", config.globalEntityBlockMode,
+                    v -> { config.globalEntityBlockMode = v; markChanged(); }));
+                boolean hasAll = false;
+                for (DamageEngineConfig.GlobalEntityRule r : config.globalEntityRules) {
+                    if (r != null && r.isAll()) { hasAll = true; break; }
+                }
+                for (DamageEngineConfig.GlobalEntityRule r : new ArrayList<>(config.globalEntityRules)) {
+                    if (r == null) continue;
+                    addOption(new GlobalEntityRuleEntry(r, () -> {
+                        config.globalEntityRules.remove(r);
+                        markChanged();
+                        refreshOptions();
+                    }));
+                }
+                // 添加项注册名默认空(由用户输入);存在 All 时禁用添加(悬停提示)
+                AddButtonEntry addBtn = new AddButtonEntry(() -> {
+                    config.globalEntityRules.add(new DamageEngineConfig.GlobalEntityRule("", 0f));
+                    markChanged();
+                    refreshOptions();
+                });
+                if (hasAll) {
+                    addBtn.setDisabled(Component.translatable("hint.damage-engine.all_rule_locked"));
+                }
+                addOption(addBtn);
+            }
+        }
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorPrefixSign", config.indicatorPrefixSign, v -> { config.indicatorPrefixSign = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showKillIndicator", config.showKillIndicator, v -> { config.showKillIndicator = v; markChanged(); }));
         addOption(new TextEntry("option.damage-engine.killText", config.killText, v -> { config.killText = v; markChanged(); }));
@@ -244,6 +280,24 @@ public class DamageConfigScreen extends Screen {
             addOption(new WeightEntry("option.damage-engine.comboPoints", config.comboPoints, v -> { config.comboPoints = v; markChanged(); }, "hint.damage-engine.comboPoints"));
             addOption(new WeightEntry("option.damage-engine.hitPoints", config.hitPoints, v -> { config.hitPoints = v; markChanged(); }, null));
             addOption(new WeightEntry("option.damage-engine.critPoints", config.critPoints, v -> { config.critPoints = v; markChanged(); }, null));
+            addOption(new WeightEntry("option.damage-engine.damageScoreMultiplier", config.damageScoreMultiplier, v -> { config.damageScoreMultiplier = v; markChanged(); }, "hint.damage-engine.damageScoreMultiplier"));
+
+            // 单次伤害大小加分(可添加项,默认空项)
+            addOption(new ExpandableHeaderEntry("option.damage-engine.damage_size_bonus", "damage_size_bonus", v -> refreshOptions()));
+            if (isExpanded("damage_size_bonus")) {
+                for (DamageEngineConfig.DamageBonus b : new ArrayList<>(config.damageBonuses)) {
+                    addOption(new DamageBonusEntry(b, () -> {
+                        config.damageBonuses.remove(b);
+                        markChanged();
+                        refreshOptions();
+                    }));
+                }
+                addOption(new AddButtonEntry(() -> {
+                    config.damageBonuses.add(new DamageEngineConfig.DamageBonus(10f, 0f)); // 伤害大小默认 10,增加分数默认空
+                    markChanged();
+                    refreshOptions();
+                }));
+            }
         }
         
         // Grades
@@ -640,6 +694,7 @@ public class DamageConfigScreen extends Screen {
             this.hoverColor = hoverColor;
         }
         public void setForceHover(boolean v) { this.forceHover = v; }
+        public void setDefaultColor(int c) { this.defaultColor = c; }
         @Override
         public boolean mouseClicked(double mx, double my, int btn) {
             if (this.active && this.visible && btn == 0) {
@@ -876,7 +931,7 @@ public class DamageConfigScreen extends Screen {
             this.label = Component.translatable(key);
             this.field = new EditBox(Minecraft.getInstance().font, 0, 0, 100, 12, Component.empty());
             this.field.setBordered(false);
-            this.field.setMaxLength(20);
+            this.field.setMaxLength(1000); // 无字数上限
             this.field.setValue(initial);
             this.field.setResponder(onChange);
         }
@@ -910,6 +965,22 @@ public class DamageConfigScreen extends Screen {
             });
             this.button = ref[0];
             this.button.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.indicatorMode")));
+        }
+        // 布尔模式选择(屏蔽/显示)
+        public ModeSelectorEntry(String key, boolean initial, Consumer<Boolean> onChange) {
+            this.label = Component.translatable(key);
+            this.mode = initial ? "block" : "show";
+            final StyledButton[] ref = new StyledButton[1];
+            ref[0] = new StyledButton(0, 0, 100, 20,
+                Component.translatable("option.damage-engine.mode." + mode)
+                    .withStyle(style -> style.withColor(TextColor.fromRgb(initial ? 0xFFFC887E : 0xFFB5F0C6))), () -> {
+                boolean v = "show".equals(mode);
+                mode = v ? "block" : "show";
+                ref[0].setMessage(Component.translatable("option.damage-engine.mode." + mode)
+                    .withStyle(style -> style.withColor(TextColor.fromRgb(v ? 0xFFFC887E : 0xFFB5F0C6))));
+                onChange.accept(v);
+            });
+            this.button = ref[0];
         }
         @Override public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
@@ -948,14 +1019,19 @@ public class DamageConfigScreen extends Screen {
     private static class HexColorEntry extends OptionEntry {
         private final EditBox field;
         private final Component label;
+        private final Consumer<Integer> onChange;
         private int currentColor;
+        private int swatchX, swatchY, swatchSize;
         public HexColorEntry(String key, int initial, Consumer<Integer> onChange) {
             this.label = Component.translatable(key);
+            this.onChange = onChange;
             this.currentColor = initial;
             this.field = new EditBox(Minecraft.getInstance().font, 0, 0, 75, 12, Component.empty());
-            this.field.setBordered(false); this.field.setMaxLength(7);
-            this.field.setValue("#" + String.format("%06X", initial & 0xFFFFFF));
+            this.field.setBordered(false); this.field.setMaxLength(6);
+            this.field.setValue(String.format("%06X", initial & 0xFFFFFF));
             this.field.setResponder(s -> {
+                String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+                if (!filtered.equals(s)) { this.field.setValue(filtered); return; }
                 try { String hex = s.startsWith("#") ? s.substring(1) : s;
                     currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000;
                     onChange.accept(currentColor); } catch(Exception ignored){}
@@ -971,8 +1047,27 @@ public class DamageConfigScreen extends Screen {
             g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
             field.render(g, mx, my, dt);
             int ps = 17, px = sx + 80, py = by + 1;
-            g.fill(px - 1, py - 1, px + ps + 1, py + ps + 1, 0xFFFFFFFF);
+            swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
+            boolean over = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
+            g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, over ? 0xFFB5F0C6 : 0xFFFFFFFF);
             g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
+        }
+        @Override public boolean mouseClicked(double mx, double my, int btn) {
+            if (btn == 0 && swatchSize > 0
+                && mx >= swatchX && mx <= swatchX + swatchSize
+                && my >= swatchY && my <= swatchY + swatchSize) {
+                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                    s.playClickSound();
+                    Minecraft mc = Minecraft.getInstance();
+                    mc.setScreen(new ColorPickerScreen(s, currentColor, c -> {
+                        currentColor = c | 0xFF000000;
+                        field.setValue(String.format("%06X", currentColor & 0xFFFFFF));
+                        onChange.accept(currentColor);
+                    }));
+                }
+                return true;
+            }
+            return super.mouseClicked(mx, my, btn);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(field); }
         public List<? extends NarratableEntry> narratables() { return Collections.singletonList(field); }
@@ -999,6 +1094,9 @@ public class DamageConfigScreen extends Screen {
         private final Component label;
         private final String expandKey;
         public ExpandableHeaderEntry(String key, String expandKey, Consumer<Boolean> onToggle) {
+            this(key, expandKey, onToggle, null);
+        }
+        public ExpandableHeaderEntry(String key, String expandKey, Consumer<Boolean> onToggle, Component tooltip) {
             this.label = Component.translatable(key);
             this.expandKey = expandKey;
             boolean expanded = isExpanded(expandKey);
@@ -1006,6 +1104,9 @@ public class DamageConfigScreen extends Screen {
                 expandStates.put(expandKey, !isExpanded(expandKey));
                 onToggle.accept(isExpanded(expandKey));
             }, 0xFFFFFFFF, 0xFFFBFB54);
+            if (tooltip != null) {
+                this.button.setTooltip(Tooltip.create(tooltip));
+            }
         }
         @Override public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             boolean isHov = hovered || (mx >= x && mx <= x + ew && my >= y && my <= y + eh);
@@ -1068,16 +1169,21 @@ public class DamageConfigScreen extends Screen {
     private static class DamageThresholdEntry extends OptionEntry {
         private final EditBox valField, colField;
         private final PlainTextButton delBtn;
+        private final DamageEngineConfig.DamageThreshold dt;
         private int currentColor;
+        private int swatchX, swatchY, swatchSize;
         public DamageThresholdEntry(DamageEngineConfig.DamageThreshold dt, Runnable onDelete) {
+            this.dt = dt;
             this.currentColor = dt.color;
             this.valField = new EditBox(Minecraft.getInstance().font, 0, 0, 40, 12, Component.empty());
             this.valField.setBordered(false); this.valField.setValue(String.format("%.0f", dt.threshold));
             this.valField.setResponder(s -> { try { dt.threshold = Float.parseFloat(s); } catch(Exception ignored){} });
             this.colField = new EditBox(Minecraft.getInstance().font, 0, 0, 55, 12, Component.empty());
-            this.colField.setBordered(false); this.colField.setMaxLength(7);
-            this.colField.setValue("#" + String.format("%06X", dt.color & 0xFFFFFF));
-            this.colField.setResponder(s -> { try { String hex = s.startsWith("#") ? s.substring(1) : s;
+            this.colField.setBordered(false); this.colField.setMaxLength(6);
+            this.colField.setValue(String.format("%06X", dt.color & 0xFFFFFF));
+            this.colField.setResponder(s -> { String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+                if (!filtered.equals(s)) { this.colField.setValue(filtered); return; }
+                try { String hex = s.startsWith("#") ? s.substring(1) : s;
                 currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000; dt.color = currentColor; } catch(Exception ignored){} });
             this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
         }
@@ -1085,6 +1191,8 @@ public class DamageConfigScreen extends Screen {
             int rx = x + ew;
             delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
             int ps = 18, px = rx - 25 - 5 - ps, py = y + 3;
+            swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
+            boolean overSwatch = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
             int cbw = 55, cbx = px - 5 - cbw, cby = y + 2, cbh = 20;
             colField.setX(cbx + 4); colField.setY(cby + 6); colField.setWidth(cbw - 8);
             int vbw = 40, vbx = cbx - 5 - vbw, vby = y + 2, vbh = 20;
@@ -1094,8 +1202,25 @@ public class DamageConfigScreen extends Screen {
             drawTextBox(g, cbx, cby, cbw, cbh, colField, mx, my);
             valField.render(g, mx, my, dt); colField.render(g, mx, my, dt);
             delBtn.render(g, mx, my, dt);
-            g.fill(px - 1, py - 1, px + ps + 1, py + ps + 1, 0xFFFFFFFF);
+            g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, overSwatch ? 0xFFB5F0C6 : 0xFFFFFFFF);
             g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
+        }
+        @Override public boolean mouseClicked(double mx, double my, int btn) {
+            if (btn == 0 && swatchSize > 0
+                && mx >= swatchX && mx <= swatchX + swatchSize
+                && my >= swatchY && my <= swatchY + swatchSize) {
+                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                    s.playClickSound();
+                    Minecraft mc = Minecraft.getInstance();
+                    mc.setScreen(new ColorPickerScreen(s, currentColor, c -> {
+                        currentColor = c | 0xFF000000;
+                        dt.color = currentColor;
+                        colField.setValue(String.format("%06X", currentColor & 0xFFFFFF));
+                    }));
+                }
+                return true;
+            }
+            return super.mouseClicked(mx, my, btn);
         }
         private void drawTextBox(GuiGraphics g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1110,21 +1235,140 @@ public class DamageConfigScreen extends Screen {
     private static class AddButtonEntry extends OptionEntry {
         private final PlainTextButton button;
         private final Runnable action;
+        private boolean disabled = false;
         public AddButtonEntry(Runnable action) {
             this.action = action;
             this.button = new PlainTextButton(0, 0, 20, 20, Component.literal("+"), action, 0xFFFFFFFF, 0xFFFBFB54);
         }
+        /** 禁用添加:点击被阻止,悬停显示 tooltip 说明原因 */
+        public void setDisabled(Component tooltip) {
+            this.disabled = tooltip != null;
+            this.button.setTooltip(tooltip == null ? null : Tooltip.create(tooltip));
+            this.button.setDefaultColor(disabled ? 0xFF808080 : 0xFFFFFFFF);
+        }
         @Override public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             boolean rowHov = mx >= x && mx <= x + ew && my >= y && my <= y + eh;
-            button.setX(x + ew - 25); button.setY(y + 2); button.setFocused(false); button.setForceHover(rowHov);
+            button.setX(x + ew - 25); button.setY(y + 2); button.setFocused(false); button.setForceHover(rowHov && !disabled);
             button.render(g, mx, my, dt);
         }
         @Override public boolean mouseClicked(double mx, double my, int btn) {
-            // Entry.isMouseOver() is always false for AbstractSelectionList.Entry - forward to the real button
-            return this.button.mouseClicked(mx, my, btn);
+            if (this.button.isMouseOver(mx, my)) {
+                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
+                if (!disabled) action.run();
+                return true;
+            }
+            return false;
         }
-        public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
+        // 禁用时不把按钮交给子组件命中测试(改走本行的 mouseClicked 统一拦截)
+        public List<? extends GuiEventListener> children() { return disabled ? Collections.emptyList() : Collections.singletonList(button); }
         public List<? extends NarratableEntry> narratables() { return Collections.singletonList(button); }
+    }
+
+    // 只读提示行
+    private static class InfoEntry extends OptionEntry {
+        private final Component text;
+        public InfoEntry(String key) {
+            this.text = Component.translatable(key);
+        }
+        @Override protected boolean shouldHighlight() { return false; }
+        @Override public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            g.drawString(Minecraft.getInstance().font, text, x + 10, y + 8, 0xFFFFFFFF);
+        }
+    }
+
+    private static class DamageBonusEntry extends OptionEntry {
+        private final EditBox sizeField, pointsField;
+        private final PlainTextButton delBtn;
+        public DamageBonusEntry(DamageEngineConfig.DamageBonus b, Runnable onDelete) {
+            this.sizeField = new EditBox(Minecraft.getInstance().font, 0, 0, 60, 12, Component.empty());
+            this.sizeField.setBordered(false); this.sizeField.setMaxLength(10);
+            this.sizeField.setValue(formatValue(b.damageSize));
+            this.sizeField.setResponder(s -> { String filtered = s.replaceAll("[^0-9.]", "");
+                if (!filtered.equals(s)) { this.sizeField.setValue(filtered); return; }
+                try { b.damageSize = Float.parseFloat(s); } catch(Exception ignored){} });
+            this.pointsField = new EditBox(Minecraft.getInstance().font, 0, 0, 60, 12, Component.empty());
+            this.pointsField.setBordered(false); this.pointsField.setMaxLength(10);
+            this.pointsField.setValue(formatValue(b.points));
+            this.pointsField.setResponder(s -> { String filtered = s.replaceAll("[^0-9.]", "");
+                if (!filtered.equals(s)) { this.pointsField.setValue(filtered); return; }
+                try { b.points = Float.parseFloat(s); } catch(Exception ignored){} });
+            this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
+        }
+        private static String formatValue(float v) { if (v == (int)v) return String.valueOf((int)v); return String.format("%.1f", v); }
+        @Override public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            int rx = x + ew;
+            delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
+            int bw = 60, bh = 20, by = y + (eh - bh) / 2;
+            int sizeLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.damage_size"));
+            int ptsLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.bonus_points"));
+            int sx = x + 10;
+            g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.damage_size"), sx, y + 8, 0xFFFFFFFF);
+            int sxb = sx + sizeLblW + 4;
+            sizeField.setX(sxb + 4); sizeField.setY(by + 6); sizeField.setWidth(bw - 8);
+            int pxl = sxb + bw + 12;
+            g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.bonus_points"), pxl, y + 8, 0xFFFFFFFF);
+            int pxb = pxl + ptsLblW + 4;
+            pointsField.setX(pxb + 4); pointsField.setY(by + 6); pointsField.setWidth(bw - 8);
+            drawBox(g, sxb, by, bw, bh, sizeField, mx, my);
+            drawBox(g, pxb, by, bw, bh, pointsField, mx, my);
+            sizeField.render(g, mx, my, dt); pointsField.render(g, mx, my, dt); delBtn.render(g, mx, my, dt);
+        }
+        private void drawBox(GuiGraphics g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
+            g.fill(bx, by, bx + bw, by + bh, 0x20000000);
+            int bc = (f.isFocused() || f.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
+            g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
+            g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
+        }
+        public List<? extends GuiEventListener> children() { return Arrays.asList(sizeField, pointsField, delBtn); }
+        public List<? extends NarratableEntry> narratables() { return Arrays.asList(sizeField, pointsField, delBtn); }
+    }
+
+    private static class GlobalEntityRuleEntry extends OptionEntry {
+        private final DamageEngineConfig.GlobalEntityRule rule;
+        private final EditBox nameField, distField;
+        private final PlainTextButton delBtn;
+        public GlobalEntityRuleEntry(DamageEngineConfig.GlobalEntityRule rule, Runnable onDelete) {
+            this.rule = rule;
+            this.nameField = new EditBox(Minecraft.getInstance().font, 0, 0, 110, 12, Component.empty());
+            this.nameField.setBordered(false); this.nameField.setMaxLength(64);
+            this.nameField.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.entity_registry_name")));
+            this.nameField.setValue(rule.registryName != null ? rule.registryName : "");
+            this.nameField.setResponder(s -> { rule.registryName = s; });
+            this.distField = new EditBox(Minecraft.getInstance().font, 0, 0, 45, 12, Component.empty());
+            this.distField.setBordered(false); this.distField.setMaxLength(7);
+            this.distField.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.globalIndicatorMaxDistance")));
+            this.distField.setValue(String.format("%.0f", rule.distance));
+            this.distField.setResponder(s -> { String filtered = s.replaceAll("[^0-9.]", "");
+                if (!filtered.equals(s)) { this.distField.setValue(filtered); return; }
+                try { rule.distance = Float.parseFloat(s); } catch(Exception ignored){} });
+            this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
+        }
+        @Override public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            int rx = x + ew;
+            delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
+            int bh = 20, by = y + (eh - bh) / 2;
+            int nbw = 110, dbw = 45;
+            int nameLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.registry_name"));
+            int distLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.distance"));
+            int nx = x + 10 + nameLblW + 4;
+            int dlx = nx + nbw + 12;
+            int dbx = dlx + distLblW + 4;
+            g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.registry_name"), x + 10, y + 8, 0xFFFFFFFF);
+            nameField.setX(nx + 4); nameField.setY(by + 6); nameField.setWidth(nbw - 8);
+            g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.distance"), dlx, y + 8, 0xFFFFFFFF);
+            distField.setX(dbx + 4); distField.setY(by + 6); distField.setWidth(dbw - 8);
+            drawBox(g, nx, by, nbw, bh, nameField, mx, my);
+            drawBox(g, dbx, by, dbw, bh, distField, mx, my);
+            nameField.render(g, mx, my, dt); distField.render(g, mx, my, dt); delBtn.render(g, mx, my, dt);
+        }
+        private void drawBox(GuiGraphics g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
+            g.fill(bx, by, bx + bw, by + bh, 0x20000000);
+            int bc = (f.isFocused() || f.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
+            g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
+            g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
+        }
+        public List<? extends GuiEventListener> children() { return Arrays.asList(nameField, distField, delBtn); }
+        public List<? extends NarratableEntry> narratables() { return Arrays.asList(nameField, distField, delBtn); }
     }
 
     private static class RatingGradeEntry extends OptionEntry {
@@ -1135,7 +1379,7 @@ public class DamageConfigScreen extends Screen {
             this.scoreField.setBordered(false); this.scoreField.setValue(String.format("%.0f", g.minScore));
             this.scoreField.setResponder(s -> { try { g.minScore = Float.parseFloat(s); } catch(Exception ignored){} });
             this.textField = new EditBox(Minecraft.getInstance().font, 0, 0, 60, 12, Component.empty());
-            this.textField.setBordered(false); this.textField.setMaxLength(4); this.textField.setValue(g.text);
+            this.textField.setBordered(false); this.textField.setMaxLength(1000); this.textField.setValue(g.text); // 无字数上限
             this.textField.setResponder(s -> { g.text = s; });
             this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
         }
@@ -1168,12 +1412,15 @@ public class DamageConfigScreen extends Screen {
         private final StyledButton selectImageBtn;
         private final PlainTextButton resetImageBtn;
         private int currentColor;
+        private int swatchX, swatchY, swatchSize;
         public RatingGradeAppearanceEntry(DamageEngineConfig.RatingGrade g, DamageEngineConfig config) {
             this.grade = g; this.config = config; this.currentColor = g.color;
             this.colField = new EditBox(Minecraft.getInstance().font, 0, 0, 75, 12, Component.empty());
-            this.colField.setBordered(false); this.colField.setMaxLength(7);
-            this.colField.setValue("#" + String.format("%06X", g.color & 0xFFFFFF));
-            this.colField.setResponder(s -> { try { String hex = s.startsWith("#") ? s.substring(1) : s;
+            this.colField.setBordered(false); this.colField.setMaxLength(6);
+            this.colField.setValue(String.format("%06X", g.color & 0xFFFFFF));
+            this.colField.setResponder(s -> { String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+                if (!filtered.equals(s)) { this.colField.setValue(filtered); return; }
+                try { String hex = s.startsWith("#") ? s.substring(1) : s;
                 currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000; g.color = currentColor; } catch(Exception ignored){} });
             this.selectImageBtn = new StyledButton(0, 0, 100, 20, Component.translatable("option.damage-engine.select_image"), this::onSelectImage);
             this.resetImageBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("×"), this::onResetImage, 0xFFFC887E, 0xFFFBFB54);
@@ -1227,13 +1474,32 @@ public class DamageConfigScreen extends Screen {
             } else {
                 selectImageBtn.visible = false;
                 int sx = x + ew - 110, ps = 17, px = sx + 80, py = by + 1;
+                swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
+                boolean overSwatch = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
                 colField.setX(sx + 4); colField.setY(by + 6); colField.setWidth(75 - 8); colField.visible = true;
                 g.drawString(Minecraft.getInstance().font, Component.literal(grade.text), x + 10, y + 8, 0xFFFFFFFF);
                 drawBox(g, sx, by, 75, 20, colField, mx, my);
                 colField.render(g, mx, my, dt);
-                g.fill(px - 1, py - 1, px + ps + 1, py + ps + 1, 0xFFFFFFFF);
+                g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, overSwatch ? 0xFFB5F0C6 : 0xFFFFFFFF);
                 g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
             }
+        }
+        @Override public boolean mouseClicked(double mx, double my, int btn) {
+            if (!config.ratingUseImages && btn == 0 && swatchSize > 0
+                && mx >= swatchX && mx <= swatchX + swatchSize
+                && my >= swatchY && my <= swatchY + swatchSize) {
+                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                    s.playClickSound();
+                    Minecraft mc = Minecraft.getInstance();
+                    mc.setScreen(new ColorPickerScreen(s, currentColor, c -> {
+                        currentColor = c | 0xFF000000;
+                        grade.color = currentColor;
+                        colField.setValue(String.format("%06X", currentColor & 0xFFFFFF));
+                    }));
+                }
+                return true;
+            }
+            return super.mouseClicked(mx, my, btn);
         }
         private void drawBox(GuiGraphics g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
