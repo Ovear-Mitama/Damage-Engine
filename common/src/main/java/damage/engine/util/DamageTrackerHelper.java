@@ -22,7 +22,19 @@ public class DamageTrackerHelper {
 
     public record Snapshot(float prevHealth, float prevAbsorption, boolean wasCrit,
                            int attackerId, double srcX, double srcY, double srcZ, boolean isProjectile,
-                           float sourceAmount) {}
+                           float sourceAmount) {
+        /**
+         * Returns a copy with a new sourceAmount. Used by Epic Fight compat: Epic Fight
+         * recalculates the damage amount at NORMAL priority in LivingHurtEvent (armor
+         * penetration, damage modifiers, etc.), so the final amount captured at LOWEST
+         * is used as the fallback display value for entities that accept the hit but
+         * do not lose health (e.g. test dummies intercepting setHealth).
+         */
+        public Snapshot withSourceAmount(float newAmount) {
+            return new Snapshot(prevHealth, prevAbsorption, wasCrit, attackerId,
+                srcX, srcY, srcZ, isProjectile, newAmount);
+        }
+    }
 
     /**
      * Functional interface for sending damage payloads. Each platform (Forge/Fabric) provides its own implementation.

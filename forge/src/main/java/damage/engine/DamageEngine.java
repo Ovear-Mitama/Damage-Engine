@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.4.6.1";
+	public static final String MOD_VERSION = "1.4.6.2";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	// NOTE: keyed by entity id, NOT LivingEntity - referencing LivingEntity in a
@@ -64,6 +64,27 @@ public class DamageEngine {
 			LOGGER.info("TaCZ headshot event hook registered.");
 		} catch (Throwable t) {
 			// TaCZ not loaded - headshot hook stays inactive.
+		}
+
+		// Epic Fight compat: Epic Fight's LivingHurtEvent handler runs at the default
+		// (NORMAL) priority and recalculates the damage amount (armor penetration,
+		// damage modifiers, executions). The snapshot above was captured at HIGHEST
+		// with the pre-modification amount; re-capture the final amount at LOWEST so
+		// entities that accept the hit without losing health (e.g. test dummies
+		// intercepting setHealth) fall back to Epic Fight's real damage value.
+		try {
+			Class.forName("yesman.epicfight.main.EpicFightMod");
+			MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+				(LivingHurtEvent event) -> {
+				int id = event.getEntity().getId();
+				DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.get(id);
+				if (snap != null) {
+					PRE_DAMAGE_SNAPS.put(id, snap.withSourceAmount(event.getAmount()));
+				}
+			});
+			LOGGER.info("Epic Fight compatibility handler registered.");
+		} catch (Throwable t) {
+			// Epic Fight not loaded - compat stays inactive.
 		}
 
 		IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();

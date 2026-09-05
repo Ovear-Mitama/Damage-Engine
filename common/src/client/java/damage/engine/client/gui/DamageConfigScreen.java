@@ -229,10 +229,6 @@ public class DamageConfigScreen extends Screen {
                 // 整体模式:屏蔽/显示
                 addOption(new ModeSelectorEntry("option.damage-engine.entity_mode", config.globalEntityBlockMode,
                     v -> { config.globalEntityBlockMode = v; markChanged(); }));
-                boolean hasAll = false;
-                for (DamageEngineConfig.GlobalEntityRule r : config.globalEntityRules) {
-                    if (r != null && r.isAll()) { hasAll = true; break; }
-                }
                 for (DamageEngineConfig.GlobalEntityRule r : new ArrayList<>(config.globalEntityRules)) {
                     if (r == null) continue;
                     addOption(new GlobalEntityRuleEntry(r, () -> {
@@ -241,16 +237,12 @@ public class DamageConfigScreen extends Screen {
                         refreshOptions();
                     }));
                 }
-                // 添加项注册名默认空(由用户输入);存在 All 时禁用添加(悬停提示)
-                AddButtonEntry addBtn = new AddButtonEntry(() -> {
+                // 添加项注册名默认空(由用户输入);不再因已存在 All 而禁用添加
+                addOption(new AddButtonEntry(() -> {
                     config.globalEntityRules.add(new DamageEngineConfig.GlobalEntityRule("", 0f));
                     markChanged();
                     refreshOptions();
-                });
-                if (hasAll) {
-                    addBtn.setDisabled(Component.translatable("hint.damage-engine.all_rule_locked"));
-                }
-                addOption(addBtn);
+                }));
             }
         }
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorPrefixSign", config.indicatorPrefixSign, v -> { config.indicatorPrefixSign = v; markChanged(); }));
