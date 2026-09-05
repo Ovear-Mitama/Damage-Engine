@@ -118,7 +118,7 @@ public class ProfileManagerScreen extends Screen {
 
         @Override
         public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean bl) {
-            if (this.active && this.visible && event.button() == 0 && this.isMouseOver(event.x(), event.y())) {
+            if (this.active && this.visible && DamageConfigScreen.isPrimaryClick(event.button()) && this.isMouseOver(event.x(), event.y())) {
                 this.playDownSound(Minecraft.getInstance().getSoundManager());
                 this.onPress.run();
                 return true;
@@ -167,7 +167,7 @@ public class ProfileManagerScreen extends Screen {
 
         @Override
         public boolean mouseClicked(net.minecraft.client.input.MouseButtonEvent event, boolean bl) {
-            if (this.active && this.visible && event.button() == 0) {
+            if (this.active && this.visible && DamageConfigScreen.isPrimaryClick(event.button())) {
                 if (this.isMouseOver(event.x(), event.y())) {
                     this.playDownSound(Minecraft.getInstance().getSoundManager());
                     this.onPress.run();
