@@ -60,15 +60,16 @@ public class DamageConfigScreen extends Screen {
     private boolean hasUnsavedChanges = false;
     private String validationError = null;
     private ColorPickerPopup colorPicker = null;
-    /** 每个标签页输入框的文本快照(按渲染顺序),切页/校验时保留用户编辑状态 */
-    private final Map<Integer, List<String>> tabFieldTexts = new HashMap<>();
+    /** 预览 HUD 复用单例,避免每帧 new DamageHud() 的开销 */
+    private final DamageHud previewHud = new DamageHud();
     
     // Expand state trackers
     private final Map<String, Boolean> expandStates = new HashMap<>();
     
     private int resetButtonState = 0;
     private long resetButtonActionTime = 0;
-    private boolean isBinding = false;
+    /** 当前处于绑定状态的键位条目(单一数据源,避免多个条目同时进入绑定) */
+    private KeybindEntry bindingEntry = null;
     private String configSnapshot;
 
     public DamageConfigScreen(Screen parent) {
@@ -84,7 +85,6 @@ public class DamageConfigScreen extends Screen {
         try {
             if (optionList != null) {
                 lastScroll = optionList.scrollAmount();
-                saveTabFieldTexts(selectedTab); // 切页/重建前保存当前页输入框文本
             }
             closeColorPicker(); // 重建界面时关闭悬浮颜色选择器
             this.clearWidgets();
@@ -98,7 +98,6 @@ public class DamageConfigScreen extends Screen {
             this.addWidget(optionList);
             
             initOptionEntries();
-            restoreTabFieldTexts(selectedTab); // 回填当前页输入框文本(保留用户编辑状态)
             
             if (optionList != null && lastScroll > 0) optionList.setScrollAmount(lastScroll);
             
@@ -172,8 +171,8 @@ public class DamageConfigScreen extends Screen {
         }
         
         // Spacer at bottom
-        addOption(new SpacerEntry(30));
-        addOption(new SpacerEntry(30));
+        addOption(new SpacerEntry());
+        addOption(new SpacerEntry());
     }
 
     private void initGeneralTab() {
@@ -255,10 +254,6 @@ public class DamageConfigScreen extends Screen {
                 // 整体模式:屏蔽/显示
                 addOption(new ModeSelectorEntry("option.damage-engine.entity_mode", config.globalEntityBlockMode,
                     v -> { config.globalEntityBlockMode = v; markChanged(); }));
-                boolean hasAll = false;
-                for (DamageEngineConfig.GlobalEntityRule r : config.globalEntityRules) {
-                    if (r != null && r.isAll()) { hasAll = true; break; }
-                }
                 for (DamageEngineConfig.GlobalEntityRule r : new ArrayList<>(config.globalEntityRules)) {
                     if (r == null) continue;
                     addOption(new GlobalEntityRuleEntry(r, () -> {
@@ -267,15 +262,12 @@ public class DamageConfigScreen extends Screen {
                         refreshOptions();
                     }));
                 }
-                // 添加项注册名默认空(由用户输入);存在 All 时禁用添加(悬停提示)
+                // 添加项注册名默认空(由用户输入);不做 All 检查限制,存在 All 时仍可继续添加(处理时以 All 规则为准,不会出错)
                 AddButtonEntry addBtn = new AddButtonEntry(() -> {
                     config.globalEntityRules.add(new DamageEngineConfig.GlobalEntityRule("", 0f));
                     markChanged();
                     refreshOptions();
                 });
-                if (hasAll) {
-                    addBtn.setDisabled(Component.translatable("hint.damage-engine.all_rule_locked"));
-                }
                 addOption(addBtn);
             }
         }
@@ -306,8 +298,9 @@ public class DamageConfigScreen extends Screen {
             addOption(new WeightEntry("option.damage-engine.comboPoints", config.comboPoints, v -> { config.comboPoints = v; markChanged(); }, "hint.damage-engine.comboPoints"));
             addOption(new WeightEntry("option.damage-engine.hitPoints", config.hitPoints, v -> { config.hitPoints = v; markChanged(); }, null));
             addOption(new WeightEntry("option.damage-engine.critPoints", config.critPoints, v -> { config.critPoints = v; markChanged(); }, null));
+            addOption(new WeightEntry("option.damage-engine.damageScoreMultiplier", config.damageScoreMultiplier, v -> { config.damageScoreMultiplier = v; markChanged(); }, "hint.damage-engine.damageScoreMultiplier"));
 
-            // 单次伤害大小加分(可添加项,默认空项)
+            // 单次伤害数值加分(可添加项,默认空项)
             addOption(new ExpandableHeaderEntry("option.damage-engine.damage_size_bonus", "damage_size_bonus", v -> refreshOptions()));
             if (isExpanded("damage_size_bonus")) {
                 for (DamageEngineConfig.DamageBonus b : new ArrayList<>(config.damageBonuses)) {
@@ -318,7 +311,7 @@ public class DamageConfigScreen extends Screen {
                     }));
                 }
                 addOption(new AddButtonEntry(() -> {
-                    config.damageBonuses.add(new DamageEngineConfig.DamageBonus(10f, 0f)); // 伤害大小默认 10,增加分数默认空
+                    config.damageBonuses.add(new DamageEngineConfig.DamageBonus(10f, 0f)); // 伤害数值默认 10,增加分数默认空
                     markChanged();
                     refreshOptions();
                 }));
@@ -481,8 +474,6 @@ public class DamageConfigScreen extends Screen {
         int originalTab = selectedTab;
         double scroll = optionList.scrollAmount();
         Map<String, Boolean> savedExpands = new HashMap<>(expandStates);
-        // 确保当前页文本已入快照,供遍历/恢复使用
-        saveTabFieldTexts(originalTab);
         try {
             // 强制展开所有分组,确保折叠中的输入项也被校验
             for (String k : ALL_EXPAND_KEYS) {
@@ -492,7 +483,6 @@ public class DamageConfigScreen extends Screen {
                 selectedTab = tab;
                 optionList.clearEntriesPublic();
                 initOptionEntries();
-                restoreTabFieldTexts(tab); // 用该页暂存的用户编辑文本校验
                 errors.addAll(validateAllInputs());
             }
             // 去重(保持顺序)
@@ -510,57 +500,21 @@ public class DamageConfigScreen extends Screen {
             selectedTab = originalTab;
             optionList.clearEntriesPublic();
             initOptionEntries();
-            restoreTabFieldTexts(originalTab); // 恢复原页输入文本
             optionList.setScrollAmount(Math.min(scroll, optionList.maxScrollAmount()));
         }
     }
 
-    /** 按当前渲染顺序收集所有可见 EditBox 的文本 */
-    private List<String> collectVisibleFieldTexts() {
-        List<String> texts = new ArrayList<>();
-        if (optionList == null) return texts;
-        for (GuiEventListener widget : optionList.children()) {
-            if (widget instanceof OptionEntry entry) {
-                for (GuiEventListener child : entry.children()) {
-                    if (child instanceof EditBox tf) {
-                        texts.add(tf.getValue());
-                    }
-                }
-            }
+    public boolean isBinding() {
+        return bindingEntry != null;
+    }
+
+    /** 将指定条目设为绑定中;若其他条目正在绑定则先取消,保证同时只有一个绑定项 */
+    public void setBindingEntry(KeybindEntry e) {
+        if (bindingEntry != null && bindingEntry != e) {
+            bindingEntry.binding = false;
+            bindingEntry.updateMessage();
         }
-        return texts;
-    }
-
-    /** 按渲染顺序将文本回填到 EditBox(空文本保留,不触发保存) */
-    private void applyFieldTexts(List<String> texts) {
-        if (optionList == null || texts == null) return;
-        int i = 0;
-        for (GuiEventListener widget : optionList.children()) {
-            if (widget instanceof OptionEntry entry) {
-                for (GuiEventListener child : entry.children()) {
-                    if (child instanceof EditBox tf && i < texts.size()) {
-                        tf.setValue(texts.get(i++));
-                    }
-                }
-            }
-        }
-    }
-
-    /** 暂存指定标签页的输入框文本 */
-    private void saveTabFieldTexts(int tab) {
-        tabFieldTexts.put(tab, collectVisibleFieldTexts());
-    }
-
-    /** 回填指定标签页的输入框文本(无快照则跳过) */
-    private void restoreTabFieldTexts(int tab) {
-        List<String> texts = tabFieldTexts.get(tab);
-        if (texts != null) {
-            applyFieldTexts(texts);
-        }
-    }
-
-    public void setBinding(boolean binding) {
-        this.isBinding = binding;
+        bindingEntry = e;
     }
 
     // ===== 悬浮颜色选择器 =====
@@ -599,16 +553,10 @@ public class DamageConfigScreen extends Screen {
                 return true;
             }
         }
-        if (isBinding) {
-            if (optionList != null) {
-                for (GuiEventListener widget : optionList.children()) {
-                    if (widget instanceof KeybindEntry ke && ke.isBinding()) {
-                        if (ke.getButton().keyPressed(event)) return true;
-                    }
-                }
-            }
+        if (bindingEntry != null) {
+            if (bindingEntry.getButton().keyPressed(event)) return true;
             if (event.key() == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) {
-                setBinding(false);
+                bindingEntry.setBinding(false);
                 return true;
             }
         }
@@ -655,16 +603,8 @@ public class DamageConfigScreen extends Screen {
             }
         }
         
-        if (isBinding) {
-            if (optionList != null) {
-                for (GuiEventListener widget : optionList.children()) {
-                    if (widget instanceof KeybindEntry ke && ke.isBinding()) {
-                        ke.bindMouse(event.button());
-                        return true;
-                    }
-                }
-            }
-            setBinding(false);
+        if (bindingEntry != null) {
+            bindingEntry.bindMouse(event.button());
             return true;
         }
         return super.mouseClicked(event, bl);
@@ -772,7 +712,7 @@ public class DamageConfigScreen extends Screen {
         
         // Preview
         if (config.previewEnabled) {
-            new DamageHud().renderPreview(guiGraphics, 30, this.height - 30);
+            previewHud.renderPreview(guiGraphics, 30, this.height - 30);
         }
         
         // Render footer widgets (avoid super.render() blur)
@@ -1002,7 +942,7 @@ public class DamageConfigScreen extends Screen {
     // ========== Option Entry Types ==========
 
     private static class SpacerEntry extends OptionEntry {
-        public SpacerEntry(int h) {}
+        public SpacerEntry() {} // 列表条目高度固定,占位间距无需高度参数
         @Override protected boolean shouldHighlight() { return false; }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {}
     }
@@ -1218,17 +1158,26 @@ public class DamageConfigScreen extends Screen {
             this.onChange = onChange;
             this.currentColor = initial;
             this.field = new EditBox(Minecraft.getInstance().font, 0, 0, 75, 20, Component.empty());
-            this.field.setBordered(false); this.field.setMaxLength(6);
+            this.field.setBordered(false); this.field.setMaxLength(7);
             this.field.setValue(String.format("%06X", initial & 0xFFFFFF));
             this.field.setResponder(s -> {
-                String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+                String filtered = s.replaceAll("[^0-9a-fA-F#]", "");
+                if (filtered.indexOf('#') > 0) filtered = filtered.replace("#", ""); // # 仅允许位于开头
                 if (!filtered.equals(s)) { this.field.setValue(filtered); return; }
                 try { String hex = s.startsWith("#") ? s.substring(1) : s;
-                    currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000;
-                    onChange.accept(currentColor); } catch(Exception ignored){}
+                    // 仅完整 6 位十六进制才应用,避免 "8"/"10" 等短输入被存成近似黑色(000008 等)
+                    if (hex.length() == 6) {
+                        currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000;
+                        onChange.accept(currentColor);
+                    } } catch(Exception ignored){}
             });
         }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            // 未聚焦且输入不是完整 6 位色值时,回填为实际颜色(避免残留 "02"/"25" 等短输入)
+            if (!field.isFocused() && (field.getValue() == null || !field.getValue().matches("#?[0-9a-fA-F]{6}"))) {
+                String hex = String.format("%06X", currentColor & 0xFFFFFF);
+                if (!hex.equals(field.getValue())) field.setValue(hex);
+            }
             g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
             int sx = x + ew - 110, bx = sx, by = y + 2, bw = 75, bh = 20;
             field.setX(bx + 4); field.setY(by + 6); field.setWidth(bw - 8); field.setHeight(12);
@@ -1382,15 +1331,24 @@ public class DamageConfigScreen extends Screen {
             this.valField.setBordered(false); this.valField.setValue(String.format("%.0f", dt.threshold));
             this.valField.setResponder(s -> { try { dt.threshold = Float.parseFloat(s); } catch(Exception ignored){} });
             this.colField = new EditBox(Minecraft.getInstance().font, 0, 0, 55, 20, Component.empty());
-            this.colField.setBordered(false); this.colField.setMaxLength(6);
+            this.colField.setBordered(false); this.colField.setMaxLength(7);
             this.colField.setValue(String.format("%06X", dt.color & 0xFFFFFF));
-            this.colField.setResponder(s -> { String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+            this.colField.setResponder(s -> { String filtered = s.replaceAll("[^0-9a-fA-F#]", "");
+                if (filtered.indexOf('#') > 0) filtered = filtered.replace("#", ""); // # 仅允许位于开头
                 if (!filtered.equals(s)) { this.colField.setValue(filtered); return; }
                 try { String hex = s.startsWith("#") ? s.substring(1) : s;
-                currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000; dt.color = currentColor; } catch(Exception ignored){} });
+                // 仅完整 6 位十六进制才应用,避免短输入被存成近似黑色
+                if (hex.length() == 6) {
+                    currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000; dt.color = currentColor;
+                } } catch(Exception ignored){} });
             this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
         }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            // 未聚焦且颜色输入不是完整 6 位色值时,回填为实际颜色(避免残留短输入)
+            if (!colField.isFocused() && (colField.getValue() == null || !colField.getValue().matches("#?[0-9a-fA-F]{6}"))) {
+                String hex = String.format("%06X", currentColor & 0xFFFFFF);
+                if (!hex.equals(colField.getValue())) colField.setValue(hex);
+            }
             int rx = x + ew;
             delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
             int ps = 18, px = rx - 25 - 5 - ps, py = y + 3;
@@ -1664,12 +1622,16 @@ public class DamageConfigScreen extends Screen {
         public RatingGradeAppearanceEntry(DamageEngineConfig.RatingGrade g, DamageEngineConfig config) {
             this.grade = g; this.config = config; this.currentColor = g.color;
             this.colField = new EditBox(Minecraft.getInstance().font, 0, 0, 75, 20, Component.empty());
-            this.colField.setBordered(false); this.colField.setMaxLength(6);
+            this.colField.setBordered(false); this.colField.setMaxLength(7);
             this.colField.setValue(String.format("%06X", g.color & 0xFFFFFF));
-            this.colField.setResponder(s -> { String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+            this.colField.setResponder(s -> { String filtered = s.replaceAll("[^0-9a-fA-F#]", "");
+                if (filtered.indexOf('#') > 0) filtered = filtered.replace("#", ""); // # 仅允许位于开头
                 if (!filtered.equals(s)) { this.colField.setValue(filtered); return; }
                 try { String hex = s.startsWith("#") ? s.substring(1) : s;
-                currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000; g.color = currentColor; } catch(Exception ignored){} });
+                // 仅完整 6 位十六进制才应用,避免短输入被存成近似黑色
+                if (hex.length() == 6) {
+                    currentColor = (int)Long.parseLong(hex, 16) | 0xFF000000; g.color = currentColor;
+                } } catch(Exception ignored){} });
             this.selectImageBtn = new StyledButton(0, 0, 100, 20, Component.translatable("option.damage-engine.select_image"), this::onSelectImage);
             this.resetImageBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("×"), this::onResetImage, 0xFFFC887E, 0xFFFBFB54);
         }
@@ -1704,6 +1666,11 @@ public class DamageConfigScreen extends Screen {
         }
         private void onResetImage() { grade.imagePath = ""; }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
+            // 未聚焦且颜色输入不是完整 6 位色值时,回填为实际颜色(避免残留短输入)
+            if (!config.ratingUseImages && !colField.isFocused() && (colField.getValue() == null || !colField.getValue().matches("#?[0-9a-fA-F]{6}"))) {
+                String hex = String.format("%06X", currentColor & 0xFFFFFF);
+                if (!hex.equals(colField.getValue())) colField.setValue(hex);
+            }
             int rx = x + ew, by = y + 2;
             if (config.ratingUseImages) {
                 boolean hasImg = grade.imagePath != null && !grade.imagePath.isEmpty();
@@ -1852,7 +1819,17 @@ public class DamageConfigScreen extends Screen {
             this.button = new BindingButton(0, 0, 100, 20, Component.literal("BIND"), () -> setBinding(true));
             updateMessage();
         }
-        private void setBinding(boolean v) { this.binding = v; if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.setBinding(v); updateMessage(); }
+        private void setBinding(boolean v) {
+            DamageConfigScreen s = Minecraft.getInstance().screen instanceof DamageConfigScreen ss ? ss : null;
+            if (v) {
+                this.binding = true;
+                if (s != null) s.setBindingEntry(this); // 开始绑定:独占并自动取消其他条目的绑定
+            } else {
+                this.binding = false;
+                if (s != null && s.bindingEntry == this) s.bindingEntry = null;
+            }
+            updateMessage();
+        }
         public boolean isBinding() { return binding; }
         public BindingButton getButton() { return button; }
         private void finishBinding() { setBinding(false); Minecraft.getInstance().options.save(); KeyMapping.resetMapping(); }

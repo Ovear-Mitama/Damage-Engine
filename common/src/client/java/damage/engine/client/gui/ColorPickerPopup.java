@@ -114,7 +114,7 @@ public class ColorPickerPopup {
     private void createFields() {
         hexField = new EditBox(Minecraft.getInstance().font, 0, 0, FIELD_W, FIELD_H, Component.empty());
         hexField.setBordered(false);
-        hexField.setMaxLength(6);
+        hexField.setMaxLength(7);
         hexField.setValue(String.format("%06X", color & 0xFFFFFF));
         hexField.setResponder(this::onHexChanged);
 
@@ -149,14 +149,17 @@ public class ColorPickerPopup {
 
     private void onHexChanged(String s) {
         if (updatingFields) return;
-        String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+        String filtered = s.replaceAll("[^0-9a-fA-F#]", "");
+        if (filtered.indexOf('#') > 0) filtered = filtered.replace("#", ""); // # 仅允许位于开头
         if (!filtered.equals(s)) {
             hexField.setValue(filtered);
             return;
         }
         try {
-            if (!s.isEmpty() && s.length() <= 6) {
-                int rgb = (int) Long.parseLong(s, 16);
+            // 仅完整 6 位十六进制才应用,避免 "8"/"10" 等短输入被存成近似黑色(000008 等)
+            String hex = s.startsWith("#") ? s.substring(1) : s;
+            if (hex.length() == 6) {
+                int rgb = (int) Long.parseLong(hex, 16);
                 updatingFields = true;
                 setColor(0xFF000000 | rgb);
                 syncFields();

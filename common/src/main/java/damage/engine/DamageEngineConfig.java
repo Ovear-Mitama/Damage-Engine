@@ -84,7 +84,9 @@ public class DamageEngineConfig {
     public float comboPoints = 0.2f;
     public float hitPoints = 6f;
     public float critPoints = 10f;
-    // 单次伤害大小加分(默认空项,可添加)
+    // 动态伤害加分:每次造成伤害增加(伤害数值 × 此倍率)分
+    public float damageScoreMultiplier = 0.5f;
+    // 单次伤害数值加分(默认空项,可添加)
     public List<DamageBonus> damageBonuses = new ArrayList<>();
     public boolean ratingUseImages = false;
     public List<RatingGrade> ratingGrades = new ArrayList<>();
@@ -141,7 +143,7 @@ public class DamageEngineConfig {
     }
 
     /**
-     * 单次伤害大小加分项:单次命中达到 damageSize 时增加 points 分。
+     * 单次伤害数值加分项:单次命中达到 damageSize 时增加 points 分。
      */
     public static class DamageBonus {
         public float damageSize = 10f;
@@ -214,6 +216,9 @@ public class DamageEngineConfig {
         ratingGrades.add(new RatingGrade(250f, "B", 0x00BFFF, 3));
         ratingGrades.add(new RatingGrade(100f, "C", 0x32CD32, 4));
         ratingGrades.add(new RatingGrade(20f, "D", 0xA0A0A0, 5));
+
+        // 全局伤害跳字 - 非玩家实体默认包含一项 All(全体实体,距离 0 = 无限制)
+        globalEntityRules.add(new GlobalEntityRule("All", 0f));
     }
 
     public static DamageEngineConfig getInstance() {
@@ -417,6 +422,7 @@ public class DamageEngineConfig {
         this.comboPoints = loaded.comboPoints;
         this.hitPoints = loaded.hitPoints;
         this.critPoints = loaded.critPoints;
+        this.damageScoreMultiplier = loaded.damageScoreMultiplier;
         this.ratingUseImages = loaded.ratingUseImages;
         if (loaded.damageBonuses != null) {
             this.damageBonuses = loaded.damageBonuses;
@@ -508,6 +514,8 @@ public class DamageEngineConfig {
         globalIndicatorMaxDistance = 128.0f;
         globalEntityBlockMode = false;
         globalEntityRules.clear();
+        // 重置后默认包含一项 All(全体实体,距离 0 = 无限制)
+        globalEntityRules.add(new GlobalEntityRule("All", 0f));
         killText = "Kill!";
         killTextColor = 0xFFF9867D;
         showKillIndicator = true;
@@ -531,6 +539,7 @@ public class DamageEngineConfig {
         comboPoints = 0.2f;
         hitPoints = 6f;
         critPoints = 10f;
+        damageScoreMultiplier = 0.5f;
         ratingUseImages = false;
         damageBonuses.clear();
         ratingGrades.clear();
