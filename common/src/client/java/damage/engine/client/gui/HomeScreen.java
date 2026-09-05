@@ -63,7 +63,7 @@ public class HomeScreen extends Screen {
             this.buttonsLeftX, buttonY,
             buttonWidth, buttonHeight,
             Component.translatable("button.damage-engine.settings"),
-            () -> this.minecraft.setScreen(new DamageConfigScreen(this))
+            () -> this.minecraft.gui.setScreen(new DamageConfigScreen(this))
         ));
 
         // Config Management button
@@ -71,7 +71,7 @@ public class HomeScreen extends Screen {
             this.buttonsLeftX + buttonWidth + buttonSpacing, buttonY,
             buttonWidth, buttonHeight,
             Component.translatable("button.damage-engine.config_management"),
-            () -> this.minecraft.setScreen(new ProfileManagerScreen(this))
+            () -> this.minecraft.gui.setScreen(new ProfileManagerScreen(this))
         ));
 
         // Auto-check for updates once on entering the home screen
@@ -249,7 +249,7 @@ public class HomeScreen extends Screen {
 
     @Override
     public void onClose() {
-        this.minecraft.setScreen(parent);
+        this.minecraft.gui.setScreen(parent);
     }
 
     private static class StyledButton extends AbstractWidget {

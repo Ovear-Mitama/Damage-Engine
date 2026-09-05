@@ -50,7 +50,7 @@ public class ClientTickMixin {
             
             if (ClientKeybindings.configKeyBinding != null) {
                 while (ClientKeybindings.configKeyBinding.consumeClick()) {
-                    client.setScreen(new HomeScreen(client.screen));
+                    client.gui.setScreen(new HomeScreen(client.gui.screen()));
                 }
             }
             if (ClientKeybindings.toggleHudKeyBinding != null) {

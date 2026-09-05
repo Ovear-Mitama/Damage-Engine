@@ -121,7 +121,7 @@ public class DamageConfigScreen extends Screen {
                     validationError = null;
                     config.save();
                     hasUnsavedChanges = false;
-                    this.minecraft.setScreen(parent);
+                    this.minecraft.gui.setScreen(parent);
                 }));
             
             // Cancel (red)
@@ -131,7 +131,7 @@ public class DamageConfigScreen extends Screen {
                         showUnsavedPrompt();
                     } else {
                         config.load();
-                        this.minecraft.setScreen(parent);
+                        this.minecraft.gui.setScreen(parent);
                     }
                 }));
             
@@ -154,7 +154,7 @@ public class DamageConfigScreen extends Screen {
 
     private void showUnsavedPrompt() {
         // Show confirmation dialog for unsaved changes
-        this.minecraft.setScreen(new ConfirmExitScreen(this, parent, config));
+        this.minecraft.gui.setScreen(new ConfirmExitScreen(this, parent, config));
     }
 
     private void initOptionEntries() {
@@ -179,7 +179,7 @@ public class DamageConfigScreen extends Screen {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamage", config.showDamage, v -> { config.showDamage = v; markChanged(); }));
         addOption(new ButtonActionEntry("option.damage-engine.edit_pos_label", "button.damage-engine.adjust", () -> {
             playClickSound();
-            this.minecraft.setScreen(new HudEditorScreen(this));
+            this.minecraft.gui.setScreen(new HudEditorScreen(this));
         }));
         addOption(new SeparatorToggleEntry("option.damage-engine.numberSeparator", config.numberSeparator, v -> { config.numberSeparator = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.hideOnF1", config.hideOnF1, v -> { config.hideOnF1 = v; markChanged(); }));
@@ -733,7 +733,7 @@ public class DamageConfigScreen extends Screen {
         if (hasUnsavedChanges) {
             showUnsavedPrompt();
         } else {
-            this.minecraft.setScreen(parent);
+            this.minecraft.gui.setScreen(parent);
         }
     }
 
@@ -747,8 +747,8 @@ public class DamageConfigScreen extends Screen {
         }
         @Override
         public void playDownSound(net.minecraft.client.sounds.SoundManager sm) {
-            if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
-            else if (Minecraft.getInstance().screen instanceof HudEditorScreen s) s.playClickSound();
+            if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) s.playClickSound();
+            else if (Minecraft.getInstance().gui.screen() instanceof HudEditorScreen s) s.playClickSound();
             else super.playDownSound(sm);
         }
         @Override
@@ -809,7 +809,7 @@ public class DamageConfigScreen extends Screen {
         protected void updateWidgetNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }
         @Override
         public void playDownSound(net.minecraft.client.sounds.SoundManager sm) {
-            if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
+            if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) s.playClickSound();
             else super.playDownSound(sm);
         }
     }
@@ -819,7 +819,7 @@ public class DamageConfigScreen extends Screen {
     abstract static class OptionEntry extends ContainerObjectSelectionList.Entry<OptionEntry> {
         private double hoverAnim = 0;
         public void render(GuiGraphicsExtractor g, int mouseX, int mouseY, boolean hovered, float dt) {
-            DamageConfigScreen screen = (DamageConfigScreen) Minecraft.getInstance().screen;
+            DamageConfigScreen screen = (DamageConfigScreen) Minecraft.getInstance().gui.screen();
             if (screen == null || screen.optionList == null) return;
             int y = this.getY();
             int x = this.getX();
@@ -1210,7 +1210,7 @@ public class DamageConfigScreen extends Screen {
             if (event.button() == 0 && swatchSize > 0
                 && event.x() >= swatchX && event.x() <= swatchX + swatchSize
                 && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
-                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) {
                     s.playClickSound();
                     s.openColorPicker(swatchX + swatchSize / 2, swatchY, currentColor, c -> {
                         currentColor = c | 0xFF000000;
@@ -1271,7 +1271,7 @@ public class DamageConfigScreen extends Screen {
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             if (this.button.mouseClicked(event, bl)) return true;
             expandStates.put(expandKey, !isExpanded(expandKey));
-            if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
+            if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) s.playClickSound();
             refreshOptions();
             return true;
         }
@@ -1371,7 +1371,7 @@ public class DamageConfigScreen extends Screen {
             if (event.button() == 0 && swatchSize > 0
                 && event.x() >= swatchX && event.x() <= swatchX + swatchSize
                 && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
-                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) {
                     s.playClickSound();
                     s.openColorPicker(swatchX + swatchSize / 2, swatchY, currentColor, c -> {
                         currentColor = c | 0xFF000000;
@@ -1554,7 +1554,7 @@ public class DamageConfigScreen extends Screen {
         }
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             if (isMouseOver(event.x(), event.y())) {
-                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
+                if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) s.playClickSound();
                 if (!disabled) action.run();
                 return true;
             }
@@ -1704,7 +1704,7 @@ public class DamageConfigScreen extends Screen {
             if (!config.ratingUseImages && event.button() == 0 && swatchSize > 0
                 && event.x() >= swatchX && event.x() <= swatchX + swatchSize
                 && event.y() >= swatchY && event.y() <= swatchY + swatchSize) {
-                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) {
                     s.playClickSound();
                     s.openColorPicker(swatchX + swatchSize / 2, swatchY, currentColor, c -> {
                         currentColor = c | 0xFF000000;
@@ -1786,7 +1786,7 @@ public class DamageConfigScreen extends Screen {
                 super(x, y, w, h, msg); this.onPress = onPress;
             }
             @Override public void playDownSound(net.minecraft.client.sounds.SoundManager sm) {
-                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
+                if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) s.playClickSound();
                 else super.playDownSound(sm);
             }
             @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
@@ -1820,7 +1820,7 @@ public class DamageConfigScreen extends Screen {
             updateMessage();
         }
         private void setBinding(boolean v) {
-            DamageConfigScreen s = Minecraft.getInstance().screen instanceof DamageConfigScreen ss ? ss : null;
+            DamageConfigScreen s = Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen ss ? ss : null;
             if (v) {
                 this.binding = true;
                 if (s != null) s.setBindingEntry(this); // 开始绑定:独占并自动取消其他条目的绑定
@@ -1885,7 +1885,7 @@ public class DamageConfigScreen extends Screen {
         @Override protected void updateMessage() {}
         @Override protected void applyValue() {}
         private void playClick() {
-            if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
+            if (Minecraft.getInstance().gui.screen() instanceof DamageConfigScreen s) s.playClickSound();
             else super.playDownSound(Minecraft.getInstance().getSoundManager());
         }
         @Override public void playDownSound(net.minecraft.client.sounds.SoundManager sm) { if (!soundOnPress) return; playClick(); }

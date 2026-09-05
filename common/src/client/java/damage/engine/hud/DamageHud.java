@@ -74,12 +74,12 @@ public class DamageHud {
     public void onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker) {
         try {
             Minecraft client = Minecraft.getInstance();
-            if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
-            if (client.screen instanceof damage.engine.client.gui.HudEditorScreen) return;
+            if (client.gui.screen() instanceof damage.engine.client.gui.DamageConfigScreen) return;
+            if (client.gui.screen() instanceof damage.engine.client.gui.HudEditorScreen) return;
 
             DamageEngineConfig config = DamageEngineConfig.getInstance();
 
-            if (config.hideOnF1 && client.options.hideGui) return;
+            if (config.hideOnF1 && client.gui.hud.isHidden()) return;
             if (!config.showDamage) return;
 
             DamageSessionManager session = DamageSessionManager.getInstance();

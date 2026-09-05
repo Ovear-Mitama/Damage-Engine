@@ -60,7 +60,7 @@ public class ProfileManagerScreen extends Screen {
                     DamageEngineConfig.setCurrentProfile(selectedProfile);
                     DamageEngineConfig.getInstance().save();
                 }
-                this.minecraft.setScreen(parent);
+                this.minecraft.gui.setScreen(parent);
             }
         ));
 
@@ -101,7 +101,7 @@ public class ProfileManagerScreen extends Screen {
 
     @Override
     public void onClose() {
-        this.minecraft.setScreen(parent);
+        this.minecraft.gui.setScreen(parent);
     }
 
     private static class ProfileButton extends AbstractWidget {

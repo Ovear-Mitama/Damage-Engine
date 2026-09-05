@@ -440,7 +440,7 @@ public class HudEditorScreen extends Screen {
     @Override
     public void onClose() {
         config.save();
-        minecraft.setScreen(parent);
+        minecraft.gui.setScreen(parent);
     }
     
     private static class EditorModule {

@@ -91,18 +91,18 @@ public class DamageIndicator {
     public static void render(GuiGraphicsExtractor guiGraphics, float tickDelta) {
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null) return;
-        if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
-        if (client.screen instanceof damage.engine.client.gui.HudEditorScreen) return;
+        if (client.gui.screen() instanceof damage.engine.client.gui.DamageConfigScreen) return;
+        if (client.gui.screen() instanceof damage.engine.client.gui.HudEditorScreen) return;
 
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         if (!config.showDamage) return;
-        if (config.hideOnF1 && client.options.hideGui) return;
+        if (config.hideOnF1 && client.gui.hud.isHidden()) return;
         if (!config.showDamageIndicator) return;
 
         synchronized (indicators) {
             if (indicators.isEmpty()) return;
 
-            Camera camera = client.gameRenderer.getMainCamera();
+            Camera camera = client.gameRenderer.mainCamera();
             Vec3 camPos = camera.position();
 
             // 26.1: projection matrices are managed by the render pipeline.
