@@ -80,20 +80,21 @@ public class DamageHud {
             DamageEngineConfig config = DamageEngineConfig.getInstance();
 
             if (config.hideOnF1 && client.gui.hud.isHidden()) return;
-            if (!config.showDamage) return;
 
             DamageSessionManager session = DamageSessionManager.getInstance();
-            
-            if (!config.showDamageDisplay) {
-                return;
-            }
 
+            // 生物信息显示独立于伤害显示开关:关闭伤害显示时信息面板仍应显示(与预览行为一致)
             updateInfoAnimation(session, client);
             if (config.showInfo && infoAlpha > 0.01f) {
                 float a = infoAlpha;
                 renderModule(guiGraphics, config.infoConfig, client, a, () -> {
                     renderInfo(guiGraphics, session, false, a, client);
                 });
+            }
+
+            if (!config.showDamage) return;
+            if (!config.showDamageDisplay) {
+                return;
             }
 
             float globalAlpha = 1.0f;
