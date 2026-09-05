@@ -32,14 +32,14 @@ public class ConfirmExitScreen extends Screen {
         // Cancel button (left) - returns to settings
         this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX - 105, buttonY, 100, 20,
             Component.translatable("gui.cancel").withColor(0xFFFC887E),
-            () -> mcl.setScreen(settingsScreen)));
+            () -> mcl.gui.setScreen(settingsScreen)));
 
         // Confirm button (right) - discards changes and exits
         this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX + 5, buttonY, 100, 20,
             Component.translatable("gui.confirm").withColor(0xFFB7F3C8),
             () -> {
                 config.load();
-                mcl.setScreen(parent);
+                mcl.gui.setScreen(parent);
             }));
     }
 
@@ -65,6 +65,6 @@ public class ConfirmExitScreen extends Screen {
 
     @Override
     public void onClose() {
-        mcl.setScreen(settingsScreen);
+        mcl.gui.setScreen(settingsScreen);
     }
 }
