@@ -117,6 +117,15 @@ public class RatingManager {
                 }
             }
         }
+
+        // 动态伤害加分:每次造成伤害增加(伤害数值 × 倍率)分
+        if (config.damageScoreMultiplier != 0f) {
+            float totalDamage = 0f;
+            for (float dmg : sessionDamageList) {
+                totalDamage += dmg;
+            }
+            score += totalDamage * config.damageScoreMultiplier;
+        }
         return score;
     }
 
