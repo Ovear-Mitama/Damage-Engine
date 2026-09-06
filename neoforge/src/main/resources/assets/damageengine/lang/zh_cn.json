@@ -126,7 +126,6 @@
   "key.damage_engine.clear_damage": "清除伤害",
 
   "title.damage-engine.color_picker": "颜色选择器",
-  "text.damage-engine.invalid_config": "%s配置无效",
   "option.damage-engine.damage_size_bonus": "单次伤害数值加分",
   "text.damage-engine.damage_size": "伤害数值",
   "text.damage-engine.bonus_points": "增加分数",

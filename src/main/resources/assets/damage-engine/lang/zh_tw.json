@@ -86,7 +86,6 @@
   "title.damage-engine.hud_editor": "介面編輯器",
   
   "title.damage-engine.color_picker": "顏色選擇器",
-  "text.damage-engine.invalid_config": "%s配置無效",
   "option.damage-engine.damage_size_bonus": "單次傷害數值加分",
   "text.damage-engine.damage_size": "傷害數值",
   "text.damage-engine.bonus_points": "增加分數",
