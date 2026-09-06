@@ -58,7 +58,6 @@ public class DamageConfigScreen extends Screen {
     private ConfigOptionListWidget optionList;
     private double lastScroll = 0;
     private boolean hasUnsavedChanges = false;
-    private String validationError = null;
     private ColorPickerPopup colorPicker = null;
     /** 预览 HUD 复用单例,避免每帧 new DamageHud() 的开销 */
     private final DamageHud previewHud = new DamageHud();
@@ -108,17 +107,6 @@ public class DamageConfigScreen extends Screen {
             // Save & Close (green)
             this.addRenderableWidget(new StyledButton(this.width - buttonWidth - 10, buttonY, buttonWidth, 20,
                 Component.translatable("button.damage-engine.save_close").withColor(0xFFB7F3C8), () -> {
-                    List<String> invalids = validateAllTabs();
-                    if (!invalids.isEmpty()) {
-                        StringBuilder sb = new StringBuilder();
-                        for (String s : invalids) {
-                            if (sb.length() > 0) sb.append("\n");
-                            sb.append(Component.translatable("text.damage-engine.invalid_config", s).getString());
-                        }
-                        validationError = sb.toString();
-                        return; // 阻止保存
-                    }
-                    validationError = null;
                     config.save();
                     hasUnsavedChanges = false;
                     this.minecraft.setScreen(parent);
@@ -412,98 +400,6 @@ public class DamageConfigScreen extends Screen {
         hasUnsavedChanges = !current.equals(configSnapshot);
     }
 
-    /**
-     * 校验当前标签页所有输入项,返回全部无效项名(可为多个)。
-     */
-    private List<String> validateAllInputs() {
-        List<String> errors = new ArrayList<>();
-        if (optionList == null) return errors;
-        for (GuiEventListener widget : optionList.children()) {
-            if (widget instanceof OptionEntry entry) {
-                String invalid = entry.validate();
-                if (invalid != null) {
-                    errors.add(invalid);
-                }
-            }
-        }
-        return errors;
-    }
-
-    /** 所有可展开分组 key(校验时强制全部展开,避免漏检折叠项) */
-    private static final String[] ALL_EXPAND_KEYS = {
-        "total_damage_colors", "rating_points", "damage_size_bonus", "rating_grades",
-        "rating_appearance", "debugMode", "global_damage_numbers", "non_player_entities"
-    };
-
-    /**
-     * 配置级文本校验:检查不受 UI 展开/重建影响的 String 字段是否为空,返回全部无效项名。
-     */
-    private List<String> validateConfigValues() {
-        List<String> errors = new ArrayList<>();
-        if (config.killText == null || config.killText.trim().isEmpty()) {
-            errors.add(Component.translatable("option.damage-engine.killText").getString());
-        }
-        if (config.ratingGrades != null) {
-            for (DamageEngineConfig.RatingGrade g : config.ratingGrades) {
-                if (g.text == null || g.text.trim().isEmpty()) {
-                    errors.add(Component.translatable("option.damage-engine.rating_grades").getString());
-                }
-            }
-        }
-        if (config.globalEntityRules != null) {
-            for (DamageEngineConfig.GlobalEntityRule r : config.globalEntityRules) {
-                if (r.registryName == null || r.registryName.trim().isEmpty()) {
-                    errors.add(Component.translatable("option.damage-engine.non_player_entities").getString());
-                }
-            }
-        }
-        return errors;
-    }
-
-    /**
-     * 保存前遍历校验所有标签页的输入项(含展开项),返回全部无效项名(去重)。
-     * 校验使用各页暂存的输入文本,不重置用户编辑状态。
-     */
-    private List<String> validateAllTabs() {
-        List<String> errors = new ArrayList<>();
-        if (optionList == null) return errors;
-        // 1) 当前可见输入框(不重建,保留用户正在编辑的文本状态)
-        errors.addAll(validateAllInputs());
-        // 2) 配置级文本校验(不受折叠/重建影响)
-        errors.addAll(validateConfigValues());
-        int originalTab = selectedTab;
-        double scroll = optionList.scrollAmount();
-        Map<String, Boolean> savedExpands = new HashMap<>(expandStates);
-        try {
-            // 强制展开所有分组,确保折叠中的输入项也被校验
-            for (String k : ALL_EXPAND_KEYS) {
-                expandStates.put(k, true);
-            }
-            for (int tab = 0; tab < TAB_COUNT; tab++) {
-                selectedTab = tab;
-                optionList.clearEntriesPublic();
-                initOptionEntries();
-                errors.addAll(validateAllInputs());
-            }
-            // 去重(保持顺序)
-            List<String> dedup = new ArrayList<>();
-            java.util.Set<String> seen = new java.util.HashSet<>();
-            for (String e : errors) {
-                if (seen.add(e)) {
-                    dedup.add(e);
-                }
-            }
-            return dedup;
-        } finally {
-            expandStates.clear();
-            expandStates.putAll(savedExpands);
-            selectedTab = originalTab;
-            optionList.clearEntriesPublic();
-            initOptionEntries();
-            optionList.setScrollAmount(Math.min(scroll, optionList.maxScrollAmount()));
-        }
-    }
-
     public boolean isBinding() {
         return bindingEntry != null;
     }
@@ -702,14 +598,6 @@ public class DamageConfigScreen extends Screen {
             }
         }
 
-        // 输入校验失败提示(阻止保存,支持多行)
-        if (validationError != null) {
-            String[] lines = validationError.split("\n");
-            for (int i = 0; i < lines.length; i++) {
-                guiGraphics.centeredText(this.font, lines[i], this.width / 2, footerY - 22 - i * 12, 0xFFFC887E);
-            }
-        }
-        
         // Preview
         if (config.previewEnabled) {
             previewHud.renderPreview(guiGraphics, 30, this.height - 30);
@@ -842,10 +730,6 @@ public class DamageConfigScreen extends Screen {
         public List<? extends GuiEventListener> children() { return Collections.emptyList(); }
         public List<? extends NarratableEntry> narratables() { return Collections.emptyList(); }
         protected boolean shouldHighlight() { return true; }
-        /**
-         * 校验该项输入是否有效。返回 null 表示有效;否则返回无效项名(用于提示 "<项名>配置无效")。
-         */
-        public String validate() { return null; }
         @Override
         public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             for (GuiEventListener c : children()) {
@@ -1024,17 +908,6 @@ public class DamageConfigScreen extends Screen {
             if (v == (int)v) return String.valueOf((int)v);
             return String.format("%.1f", v);
         }
-        @Override public String validate() {
-            if (field.getValue() == null || field.getValue().trim().isEmpty()) {
-                return label.getString();
-            }
-            try {
-                Float.parseFloat(field.getValue().trim());
-                return null;
-            } catch (NumberFormatException e) {
-                return label.getString();
-            }
-        }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
             int bx = x + ew - 110, by = y + 2, bw = 100, bh = 20;
@@ -1059,12 +932,6 @@ public class DamageConfigScreen extends Screen {
             this.field.setMaxLength(1000); // 无字数上限
             this.field.setValue(initial);
             this.field.setResponder(onChange);
-        }
-        @Override public String validate() {
-            if (field.getValue() == null || field.getValue().trim().isEmpty()) {
-                return label.getString();
-            }
-            return null;
         }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
@@ -1192,19 +1059,6 @@ public class DamageConfigScreen extends Screen {
             if (over) g.requestCursor(DamageConfigScreen.CURSOR_HAND);
             g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, over ? 0xFFB5F0C6 : 0xFFFFFFFF);
             g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
-        }
-        @Override public String validate() {
-            if (field.getValue() == null || field.getValue().trim().isEmpty()) {
-                return label.getString();
-            }
-            try {
-                String hex = field.getValue().trim().startsWith("#") ? field.getValue().trim().substring(1) : field.getValue().trim();
-                if (hex.length() > 6) return label.getString();
-                Long.parseLong(hex, 16);
-                return null;
-            } catch (NumberFormatException e) {
-                return label.getString();
-            }
         }
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             if (event.button() == 0 && swatchSize > 0
@@ -1383,21 +1237,6 @@ public class DamageConfigScreen extends Screen {
             }
             return super.mouseClicked(event, bl);
         }
-        @Override public String validate() {
-            if (valField.getValue() == null || valField.getValue().trim().isEmpty()
-                || colField.getValue() == null || colField.getValue().trim().isEmpty()) {
-                return Component.translatable("text.damage-engine.damage_reach").getString();
-            }
-            try {
-                Float.parseFloat(valField.getValue().trim());
-                String hex = colField.getValue().trim().startsWith("#") ? colField.getValue().trim().substring(1) : colField.getValue().trim();
-                if (hex.length() > 6) return Component.translatable("text.damage-engine.damage_reach").getString();
-                Long.parseLong(hex, 16);
-                return null;
-            } catch (NumberFormatException e) {
-                return Component.translatable("text.damage-engine.damage_reach").getString();
-            }
-        }
         private void drawTextBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
             int bc = (f.isFocused() || f.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
@@ -1444,20 +1283,6 @@ public class DamageConfigScreen extends Screen {
             drawBox(g, sxb, by, bw, bh, sizeField, mx, my);
             drawBox(g, pxb, by, bw, bh, pointsField, mx, my);
             sizeField.extractRenderState(g, mx, my, dt); pointsField.extractRenderState(g, mx, my, dt); delBtn.extractRenderState(g, mx, my, dt);
-        }
-        @Override public String validate() {
-            String name = Component.translatable("option.damage-engine.damage_size_bonus").getString();
-            if (sizeField.getValue() == null || sizeField.getValue().trim().isEmpty()
-                || pointsField.getValue() == null || pointsField.getValue().trim().isEmpty()) {
-                return name;
-            }
-            try {
-                Float.parseFloat(sizeField.getValue().trim());
-                Float.parseFloat(pointsField.getValue().trim());
-                return null;
-            } catch (NumberFormatException e) {
-                return name;
-            }
         }
         private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1507,21 +1332,6 @@ public class DamageConfigScreen extends Screen {
             drawBox(g, nx, by, nbw, bh, nameField, mx, my);
             drawBox(g, dbx, by, dbw, bh, distField, mx, my);
             nameField.extractRenderState(g, mx, my, dt); distField.extractRenderState(g, mx, my, dt); delBtn.extractRenderState(g, mx, my, dt);
-        }
-        @Override public String validate() {
-            String name = Component.translatable("option.damage-engine.non_player_entities").getString();
-            if (nameField.getValue() == null || nameField.getValue().trim().isEmpty()) {
-                return name;
-            }
-            if (distField.getValue() == null || distField.getValue().trim().isEmpty()) {
-                return name;
-            }
-            try {
-                Float.parseFloat(distField.getValue().trim());
-                return null;
-            } catch (NumberFormatException e) {
-                return name;
-            }
         }
         private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1587,19 +1397,6 @@ public class DamageConfigScreen extends Screen {
             drawBox(g, sbx, by, bw, bh, scoreField, mx, my);
             drawBox(g, tbx, by, bw, bh, textField, mx, my);
             scoreField.extractRenderState(g, mx, my, dt); textField.extractRenderState(g, mx, my, dt); delBtn.extractRenderState(g, mx, my, dt);
-        }
-        @Override public String validate() {
-            String gradeName = Component.translatable("option.damage-engine.rating_grades").getString();
-            if (scoreField.getValue() == null || scoreField.getValue().trim().isEmpty()
-                || textField.getValue() == null || textField.getValue().trim().isEmpty()) {
-                return gradeName;
-            }
-            try {
-                Float.parseFloat(scoreField.getValue().trim());
-                return null;
-            } catch (NumberFormatException e) {
-                return gradeName;
-            }
         }
         private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1746,17 +1543,6 @@ public class DamageConfigScreen extends Screen {
             this.input.setResponder(s -> { try { float v = Float.parseFloat(s); valueRef[0] = v; onChange.accept(v); } catch(Exception ignored){} });
         }
         private static String formatValue(float v) { if (v == (int)v) return String.valueOf((int)v); return String.format("%.1f", v); }
-        @Override public String validate() {
-            if (input.getValue() == null || input.getValue().trim().isEmpty()) {
-                return label.getString();
-            }
-            try {
-                Float.parseFloat(input.getValue().trim());
-                return null;
-            } catch (NumberFormatException e) {
-                return label.getString();
-            }
-        }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             if (hint != null) { g.text(Minecraft.getInstance().font, label, x, y + 4, 0xFFFFFFFF); g.text(Minecraft.getInstance().font, hint, x, y + 14, 0xFFA0A0A0); }
             else g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
