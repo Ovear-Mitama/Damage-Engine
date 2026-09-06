@@ -126,7 +126,6 @@
   "key.damage_engine.clear_damage": "Clear Damage",
 
   "title.damage-engine.color_picker": "Color Picker",
-  "text.damage-engine.invalid_config": "%s config is invalid",
   "option.damage-engine.damage_size_bonus": "Single-Hit Damage Value Bonus",
   "text.damage-engine.damage_size": "Damage Value",
   "text.damage-engine.bonus_points": "Bonus Points",
