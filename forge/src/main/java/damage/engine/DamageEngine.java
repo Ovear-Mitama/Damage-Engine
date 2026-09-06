@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.4.6.2";
+	public static final String MOD_VERSION = "1.4.6.3";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	// NOTE: keyed by entity id, NOT LivingEntity - referencing LivingEntity in a

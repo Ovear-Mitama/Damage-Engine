@@ -16,7 +16,7 @@ import io.netty.buffer.Unpooled;
 
 public class DamageEngine implements ModInitializer {
 	public static final String MOD_ID = "damage-engine";
-	public static final String MOD_VERSION = "1.4.6.2";
+	public static final String MOD_VERSION = "1.4.6.3";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
 	public static final ResourceLocation DAMAGE_PACKET_ID = new ResourceLocation(MOD_ID, "damage_packet");
