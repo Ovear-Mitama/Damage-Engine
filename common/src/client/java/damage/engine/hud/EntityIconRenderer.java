@@ -262,7 +262,14 @@ public final class EntityIconRenderer {
             int[] count = {0};
             try {
                 for (ModelPart part : all) {
-                    part.resetPose();
+                    // 只归零动画旋转,保留部位自身的默认偏移。
+                    // 模型的骨架布局靠部位偏移承载(例如躯干 offset(0,12,0)、四肢同理),
+                    // 用 resetPose() 会把偏移和旋转一起清零,整个模型塌到原点,
+                    // 量出来的取景尺寸被严重低估(约 0.7 格,真实约 2 格),
+                    // 结果就是头像里的僵尸/骷髅被放大 2 倍多、撑满整个面板。
+                    part.xRot = 0.0f;
+                    part.yRot = 0.0f;
+                    part.zRot = 0.0f;
                 }
                 for (ModelPart part : roots) {
                     part.visit(new PoseStack(), (pose, path, index, cube) -> {
