@@ -3,6 +3,7 @@ package damage.engine.client.gui;
 import damage.engine.ClientKeybindings;
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
+import damage.engine.api.DamageEngineApi;
 import com.google.gson.GsonBuilder;
 import damage.engine.hud.DamageHud;
 import net.minecraft.client.Minecraft;
@@ -182,6 +183,9 @@ public class DamageConfigScreen extends Screen {
         addOption(new ExpandableHeaderEntry("option.damage-engine.total_damage_colors", "total_damage_colors", v -> refreshOptions()));
         if (isExpanded("total_damage_colors")) {
             config.damageThresholds.sort((a, b) -> Float.compare(a.threshold, b.threshold));
+            if (config.damageThresholds.isEmpty()) {
+                addOption(new InfoEntry("text.damage-engine.empty_list"));
+            }
             for (DamageEngineConfig.DamageThreshold dt : new ArrayList<>(config.damageThresholds)) {
                 addOption(new DamageThresholdEntry(dt, () -> {
                     config.damageThresholds.remove(dt);
@@ -235,6 +239,10 @@ public class DamageConfigScreen extends Screen {
             addOption(new NumericEntry("option.damage-engine.global_player_distance", config.globalIndicatorMaxDistance,
                 v -> { config.globalIndicatorMaxDistance = v; markChanged(); },
                 Component.translatable("hint.damage-engine.globalIndicatorMaxDistance")));
+            // (1.5) 感知过滤:看不见且听不见该生物时隐藏其受到的伤害跳字
+            addOption(new BooleanOptionEntry("option.damage-engine.global_smart_hide", config.globalIndicatorSmartHide,
+                v -> { config.globalIndicatorSmartHide = v; markChanged(); },
+                Component.translatable("hint.damage-engine.global_smart_hide")));
             // (2) 非玩家实体(可展开;悬停提示:通过添加实体注册名来显示/屏蔽)
             addOption(new ExpandableHeaderEntry("option.damage-engine.non_player_entities", "non_player_entities", v -> refreshOptions(),
                 Component.translatable("hint.damage-engine.non_player_entities")));
@@ -242,6 +250,9 @@ public class DamageConfigScreen extends Screen {
                 // 整体模式:屏蔽/显示
                 addOption(new ModeSelectorEntry("option.damage-engine.entity_mode", config.globalEntityBlockMode,
                     v -> { config.globalEntityBlockMode = v; markChanged(); }));
+                if (config.globalEntityRules.isEmpty()) {
+                    addOption(new InfoEntry("text.damage-engine.empty_list"));
+                }
                 for (DamageEngineConfig.GlobalEntityRule r : new ArrayList<>(config.globalEntityRules)) {
                     if (r == null) continue;
                     addOption(new GlobalEntityRuleEntry(r, () -> {
@@ -268,6 +279,12 @@ public class DamageConfigScreen extends Screen {
     private void initEntityInfoTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showInfo", config.showInfo, v -> { config.showInfo = v; markChanged(); }));
         addOption(new NumericEntry("option.damage-engine.infoTrackTime", config.infoTrackTime, v -> { config.infoTrackTime = v; markChanged(); }));
+        addOption(new BooleanOptionEntry("option.damage-engine.entity_render", config.entityRenderEnabled,
+            v -> { config.entityRenderEnabled = v; markChanged(); },
+            Component.translatable("hint.damage-engine.entity_render")));
+        addOption(new ModeSelectorEntry("option.damage-engine.entity_render_rotation", config.entityRenderRotation,
+            new String[]{"follow", "fixed"}, Component.translatable("hint.damage-engine.entity_render_rotation"),
+            v -> { config.entityRenderRotation = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.infoNoRoundedBorder", config.infoNoRoundedBorder, v -> { config.infoNoRoundedBorder = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.infoBackgroundColor", config.infoBackgroundColor, v -> { config.infoBackgroundColor = v; markChanged(); }));
         addOption(new IntegerSliderEntry("option.damage-engine.infoBackgroundOpacity", config.infoBackgroundOpacity, 0, 100, v -> { config.infoBackgroundOpacity = v; markChanged(); }, true));
@@ -291,6 +308,9 @@ public class DamageConfigScreen extends Screen {
             // 单次伤害数值加分(可添加项,默认空项)
             addOption(new ExpandableHeaderEntry("option.damage-engine.damage_size_bonus", "damage_size_bonus", v -> refreshOptions()));
             if (isExpanded("damage_size_bonus")) {
+                if (config.damageBonuses.isEmpty()) {
+                    addOption(new InfoEntry("text.damage-engine.empty_list"));
+                }
                 for (DamageEngineConfig.DamageBonus b : new ArrayList<>(config.damageBonuses)) {
                     addOption(new DamageBonusEntry(b, () -> {
                         config.damageBonuses.remove(b);
@@ -304,6 +324,21 @@ public class DamageConfigScreen extends Screen {
                     refreshOptions();
                 }));
             }
+
+            // 其他 mod 加分项:由其他模组通过 API 注册,这里只读展示
+            addOption(new ExpandableHeaderEntry("option.damage-engine.other_mod_bonus", "other_mod_bonus", v -> refreshOptions(),
+                Component.translatable("hint.damage-engine.other_mod_bonus")));
+            if (isExpanded("other_mod_bonus")) {
+                List<DamageEngineApi.BonusProvider> providers = DamageEngineApi.getBonusProviders();
+                if (providers.isEmpty()) {
+                    // 无内容时占一个空项的位置
+                    addOption(new InfoEntry("text.damage-engine.empty_list"));
+                } else {
+                    for (DamageEngineApi.BonusProvider provider : providers) {
+                        addOption(new InfoEntry(Component.literal(provider.displayName() + " (" + provider.id() + ")")));
+                    }
+                }
+            }
         }
         
         // Grades
@@ -312,6 +347,9 @@ public class DamageConfigScreen extends Screen {
             config.ratingGrades.sort((a, b) -> Float.compare(b.minScore, a.minScore));
             for (int i = 0; i < config.ratingGrades.size(); i++) {
                 config.ratingGrades.get(i).index = i + 1;
+            }
+            if (config.ratingGrades.isEmpty()) {
+                addOption(new InfoEntry("text.damage-engine.empty_list"));
             }
             for (DamageEngineConfig.RatingGrade g : new ArrayList<>(config.ratingGrades)) {
                 addOption(new RatingGradeEntry(g, () -> {
@@ -835,7 +873,10 @@ public class DamageConfigScreen extends Screen {
     private static class InfoEntry extends OptionEntry {
         private final Component text;
         public InfoEntry(String key) {
-            this.text = Component.translatable(key);
+            this(Component.translatable(key));
+        }
+        public InfoEntry(Component text) {
+            this.text = text;
         }
         @Override protected boolean shouldHighlight() { return false; }
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
@@ -848,6 +889,9 @@ public class DamageConfigScreen extends Screen {
         private final Component label;
         private boolean state;
         public BooleanOptionEntry(String key, boolean initial, Consumer<Boolean> onToggle) {
+            this(key, initial, onToggle, null);
+        }
+        public BooleanOptionEntry(String key, boolean initial, Consumer<Boolean> onToggle, Component tooltip) {
             this.state = initial;
             this.label = Component.translatable(key);
             final StyledButton[] ref = new StyledButton[1];
@@ -856,6 +900,9 @@ public class DamageConfigScreen extends Screen {
                 ref[0].setMessage(Component.translatable(state ? "options.on" : "options.off").withColor(state ? 0xFFB5F0C6 : 0xFFFC887E));
                 onToggle.accept(state);
             });
+            if (tooltip != null) {
+                ref[0].setTooltip(Tooltip.create(tooltip));
+            }
             this.button = ref[0];
         }
         @Override
@@ -953,16 +1000,26 @@ public class DamageConfigScreen extends Screen {
         private final Component label;
         private String mode;
         public ModeSelectorEntry(String key, String initial, Consumer<String> onChange) {
+            this(key, initial, new String[]{"enhanced", "cloud"}, Component.translatable("hint.damage-engine.indicatorMode"), onChange);
+        }
+        // 通用模式选择:在给定的模式列表间循环切换
+        public ModeSelectorEntry(String key, String initial, String[] modes, Component tooltip, Consumer<String> onChange) {
             this.label = Component.translatable(key);
             this.mode = initial;
             final StyledButton[] ref = new StyledButton[1];
             ref[0] = new StyledButton(0, 0, 100, 20, Component.translatable("option.damage-engine.mode." + mode), () -> {
-                mode = "enhanced".equals(mode) ? "cloud" : "enhanced";
+                int idx = 0;
+                for (int i = 0; i < modes.length; i++) {
+                    if (modes[i].equals(mode)) { idx = i; break; }
+                }
+                mode = modes[(idx + 1) % modes.length];
                 ref[0].setMessage(Component.translatable("option.damage-engine.mode." + mode));
                 onChange.accept(mode);
             });
             this.button = ref[0];
-            this.button.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.indicatorMode")));
+            if (tooltip != null) {
+                this.button.setTooltip(Tooltip.create(tooltip));
+            }
         }
         // 布尔模式选择(屏蔽/显示)
         public ModeSelectorEntry(String key, boolean initial, Consumer<Boolean> onChange) {
