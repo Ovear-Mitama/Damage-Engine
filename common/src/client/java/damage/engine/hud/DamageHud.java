@@ -23,6 +23,12 @@ public class DamageHud {
     private boolean isRefilling = false;
     private int lastComboCount = 0;
     private int infoLastTargetId = -1;
+    /** 非玩家追踪目标:用于直接渲染 3D 头像 */
+    private LivingEntity infoAvatarEntity = null;
+    /** 当前模块的屏幕变换(GUI 实体渲染状态与 scissor 都用屏幕坐标,不套用 pose) */
+    private float moduleScreenX = 0f;
+    private float moduleScreenY = 0f;
+    private float moduleScreenScale = 1f;
     private float infoSmoothRatio = -1f;
     private float infoLagRatio = -1f;
     private float infoHealRatio = -1f;
@@ -44,6 +50,14 @@ public class DamageHud {
     private long infoFadeStartMs = 0;
     private static final long INFO_FADE_MS = 500;
     private static final long INFO_SWITCH_MS = 500;
+    /**
+     * 实体头像渲染框相对头像槽的放大倍数。
+     * <p>
+     * 26.x 的实体头像是画进"按渲染框尺寸生成"的离屏纹理再合成的,框就是裁剪边界;
+     * 把框放大到头像槽的 {@code 2.0} 倍,模型(含末影龙这种翼展明显大于身躯的)即使超出头像槽
+     * 也不会被切边。实际大小由 {@link EntityIconRenderer} 的 FILL_RATIO 按框折算,保持不变。
+     */
+    private static final float ENTITY_ICON_OVERSIZE = 2.0f;
     private boolean infoDeathDrain = false;
     private boolean infoDamageTailActive = false;
     private boolean infoDamageTailPending = false;
@@ -277,6 +291,11 @@ public class DamageHud {
 
         int x = moduleConfig.x == -1.0f ? client.getWindow().getGuiScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getGuiScaledWidth());
         int y = moduleConfig.y == -1.0f ? client.getWindow().getGuiScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getGuiScaledHeight());
+
+        // 记录模块变换,供需要按屏幕坐标定位的子项(如实体头像渲染)换算使用
+        this.moduleScreenX = x;
+        this.moduleScreenY = y;
+        this.moduleScreenScale = moduleConfig.scale;
 
         guiGraphics.pose().pushMatrix();
         guiGraphics.pose().translate(x, y);
@@ -538,6 +557,10 @@ public class DamageHud {
         LivingEntity target = null;
         if (candidateTargetId != -1 && client.level != null) {
             Entity e = client.level.getEntity(candidateTargetId);
+            if (e instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragonPart part) {
+                // 末影龙的碰撞箱由部件实体组成,统一映射到本体
+                e = part.parentMob;
+            }
             if (e instanceof LivingEntity le) {
                 target = le;
             }
@@ -660,8 +683,11 @@ public class DamageHud {
         infoIsPlayer = target instanceof AbstractClientPlayer;
         if (infoIsPlayer) {
             infoPlayerSkin = ((AbstractClientPlayer) target).getSkin().body().texturePath();
+            infoAvatarEntity = null;
         } else {
             infoPlayerSkin = null;
+            // 非玩家实体:保留引用以便直接渲染 3D 头像(死亡淡出期间仍可绘制)
+            infoAvatarEntity = target;
         }
         infoHealth = target.getHealth();
         float newMaxHealth = target.getMaxHealth();
@@ -731,7 +757,9 @@ public class DamageHud {
         layoutDt = Mth.clamp(layoutDt, 0.0f, 0.1f);
         infoLayoutLastUpdateMs = now;
 
-        float targetAvatar = isPlayer ? 1.0f : 0.0f;
+        // 玩家恒有头像(皮肤脸);非玩家实体在开启实体渲染且有目标时展开头像槽
+        boolean entityRenderEnabled = DamageEngineConfig.getInstance().entityRenderEnabled;
+        float targetAvatar = (isPlayer || (entityRenderEnabled && infoAvatarEntity != null)) ? 1.0f : 0.0f;
         float avatarSmoothing = 1.0f - (float)Math.pow(0.0001, layoutDt);
         infoAvatarFactor += (targetAvatar - infoAvatarFactor) * avatarSmoothing;
         infoAvatarFactor = Mth.clamp(infoAvatarFactor, 0.0f, 1.0f);
@@ -757,7 +785,7 @@ public class DamageHud {
         int barW = 80;
         int barX = -barW / 2;
 
-        int avatarSize = 18;
+        int avatarSize = 24;
         int avatarSlotFull = avatarSize + 3;
         float layoutAvatarFactor = infoAvatarFactor;
         int avatarSlot = (int)Math.round(avatarSlotFull * layoutAvatarFactor);
@@ -780,6 +808,9 @@ public class DamageHud {
 
         int avatarDrawX = (int)Math.round(contentLeft + avatarSlot - avatarSlotFull);
         int avatarY = (int)Math.round(baseY + (panelH - avatarSize) / 2.0);
+        // 玩家脸固定 16px,在更大的头像槽内居中
+        int faceSize = 16;
+        int faceOffset = (avatarSize - faceSize) / 2;
 
         Identifier skinToDraw = playerSkin;
 
@@ -800,32 +831,50 @@ public class DamageHud {
         boolean isSameSkin = (infoPrevPlayerSkin != null && skinToDraw != null && infoPrevPlayerSkin.equals(skinToDraw));
 
         if (infoAvatarAlpha > 0.01f) {
-            guiGraphics.pose().pushMatrix();
+            if (isPlayer) {
+                guiGraphics.pose().pushMatrix();
 
-            if (isSameSkin || !infoSwitching) {
-                if (skinToDraw != null) {
-                    int faceAlpha = (int)(255 * infoAvatarAlpha * globalAlpha);
-                    drawPlayerFace(guiGraphics, skinToDraw, avatarDrawX + 1, avatarY + 1, 16, true, (faceAlpha << 24) | 0xFFFFFF);
-                }
-            } else {
-                if (switchT < 0.5f) {
-                    if (infoPrevPlayerSkin != null) {
-                        float localT = switchT * 2.0f;
-                        float alpha = infoAvatarAlpha * (1.0f - localT) * globalAlpha;
-                        int faceAlpha = (int)(255 * alpha);
-                        drawPlayerFace(guiGraphics, infoPrevPlayerSkin, avatarDrawX + 1, avatarY + 1, 16, true, (faceAlpha << 24) | 0xFFFFFF);
+                if (isSameSkin || !infoSwitching) {
+                    if (skinToDraw != null) {
+                        int faceAlpha = (int)(255 * infoAvatarAlpha * globalAlpha);
+                        drawPlayerFace(guiGraphics, skinToDraw, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize, true, (faceAlpha << 24) | 0xFFFFFF);
                     }
                 } else {
-                    if (skinToDraw != null) {
-                        float localT = (switchT - 0.5f) * 2.0f;
-                        float alpha = infoAvatarAlpha * localT * globalAlpha;
-                        int faceAlpha = (int)(255 * alpha);
-                        drawPlayerFace(guiGraphics, skinToDraw, avatarDrawX + 1, avatarY + 1, 16, true, (faceAlpha << 24) | 0xFFFFFF);
+                    if (switchT < 0.5f) {
+                        if (infoPrevPlayerSkin != null) {
+                            float localT = switchT * 2.0f;
+                            float alpha = infoAvatarAlpha * (1.0f - localT) * globalAlpha;
+                            int faceAlpha = (int)(255 * alpha);
+                            drawPlayerFace(guiGraphics, infoPrevPlayerSkin, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize, true, (faceAlpha << 24) | 0xFFFFFF);
+                        }
+                    } else {
+                        if (skinToDraw != null) {
+                            float localT = (switchT - 0.5f) * 2.0f;
+                            float alpha = infoAvatarAlpha * localT * globalAlpha;
+                            int faceAlpha = (int)(255 * alpha);
+                            drawPlayerFace(guiGraphics, skinToDraw, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize, true, (faceAlpha << 24) | 0xFFFFFF);
+                        }
                     }
                 }
-            }
 
-            guiGraphics.pose().popMatrix();
+                guiGraphics.pose().popMatrix();
+            } else if (infoAvatarEntity != null && entityRenderEnabled) {
+                // 非玩家实体:交给 GUI 实体渲染管线画 3D 模型。
+                // 该管线用屏幕坐标(不套用模块 pose),因此这里手动换算。
+                // 不做边缘裁剪:渲染框比头像槽略大且以槽心对齐,允许模型溢出到面板/文本上;
+                // 本段先于下方文本与血条绘制,因此溢出的模型自然压在文本之下。
+                int slotX = Math.round(moduleScreenX + avatarDrawX * moduleScreenScale);
+                int slotY = Math.round(moduleScreenY + avatarY * moduleScreenScale);
+                int slotSize = Math.round(avatarSize * moduleScreenScale);
+                int boxSize = Math.round(slotSize * ENTITY_ICON_OVERSIZE);
+                if (boxSize > 0) {
+                    int boxX = slotX - (boxSize - slotSize) / 2;
+                    int boxY = slotY - (boxSize - slotSize) / 2;
+                    float fade = infoAvatarAlpha * globalAlpha;
+                    boolean followRotation = !"fixed".equals(DamageEngineConfig.getInstance().entityRenderRotation);
+                    EntityIconRenderer.render(guiGraphics, infoAvatarEntity, boxX, boxY, boxSize, fade, followRotation);
+                }
+            }
         }
 
         int barH = 5;

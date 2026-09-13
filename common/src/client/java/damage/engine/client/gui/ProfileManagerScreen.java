@@ -57,8 +57,16 @@ public class ProfileManagerScreen extends Screen {
             Component.translatable("gui.done").withColor(0xFFB5F0C6),
             () -> {
                 if (selectedProfile != null) {
-                    DamageEngineConfig.setCurrentProfile(selectedProfile);
-                    DamageEngineConfig.getInstance().save();
+                    String current = DamageEngineConfig.getCurrentProfile();
+                    if (!selectedProfile.equals(current)) {
+                        // 切换配置:先把当前设置存回它自己的文件,再从磁盘载入目标配置的内容。
+                        // 注意不能反向 save()——那只是改了个"当前配置名",既不会载入目标配置的数值,
+                        // 还会把当前设置覆盖进目标配置文件,导致看起来"没切换"且目标配置被冲掉。
+                        DamageEngineConfig.getInstance().save();
+                        DamageEngineConfig.getInstance().load(selectedProfile);
+                    } else {
+                        DamageEngineConfig.getInstance().save();
+                    }
                 }
                 this.minecraft.setScreen(parent);
             }

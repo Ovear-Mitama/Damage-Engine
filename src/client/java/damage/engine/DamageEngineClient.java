@@ -83,21 +83,11 @@ public class DamageEngineClient implements ClientModInitializer {
                         }
                     }
 
-                    // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All)
+                    // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All);
+                    // 感知过滤开启时,只有"看不见且听不见"的受害生物才隐藏跳字
                     net.minecraft.world.entity.Entity victim = dp.entityId() > 0 && mc.level != null
                         ? mc.level.getEntity(dp.entityId()) : null;
-                    Float maxDist = config.resolveGlobalIndicatorDistance(victim);
-                    if (maxDist == null) {
-                        return; // 该受害实体被屏蔽或未配置显示
-                    }
-
-                    // Calculate distance for culling
-                    double dx = dp.posX() - mc.player.getX();
-                    double dy = dp.posY() - mc.player.getY();
-                    double dz = dp.posZ() - mc.player.getZ();
-                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-                    if (maxDist <= 0 || distance <= maxDist) {
+                    if (damage.engine.client.GlobalDamageFilter.shouldShow(config, mc, victim, dp.posX(), dp.posY(), dp.posZ())) {
                         if (config.showDamageIndicator && dp.amount() > 0) {
                             Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                             DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
@@ -119,14 +109,9 @@ public class DamageEngineClient implements ClientModInitializer {
                     return;
                 }
                 
-                boolean preferSwitchTarget = false;
-                try {
-                    if (mc.hitResult instanceof EntityHitResult ehr) {
-                        preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == dp.entityId();
-                    }
-                } catch (Exception ignored) {}
-                
-                DamageSessionManager.getInstance().addDamage(dp.amount(), dp.isCrit(), dp.entityId(), preferSwitchTarget);
+                // 准星命中的实体交给会话判断(末影龙需从部件映射到本体),命中时强制切换信息面板目标
+                DamageSessionManager.getInstance().addDamage(dp.amount(), dp.isCrit(), dp.entityId(),
+                    mc.hitResult instanceof EntityHitResult ehr ? ehr.getEntity() : null);
                 
                 Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                 double maxDist = config.globalIndicatorMaxDistance;
