@@ -11,6 +11,13 @@ base {
 	archivesName = project.archives_base_name
 }
 
+// 产物命名:damage-engine-<版本号>-<加载器>-<MC版本号>.jar
+// Fabric 与 Quilt 共用同一份产物,故统一标为 Fabric
+// 注:26.1+ 为非混淆 MC,产物由 `jar` 直接产出(无 remapJar)
+tasks.named('jar') {
+	archiveFileName = "${project.archives_base_name}-${project.mod_version}-Fabric-${project.minecraft_version}.jar"
+}
+
 repositories {
     mavenLocal()
     maven { url "https://maven.terraformersmc.com/releases/" }
@@ -56,7 +63,7 @@ dependencies {
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
     // ModMenu (optional, for config screen integration)
-    // 26.3-pre-2 尚无兼容 ModMenu 版本,仅保留 compileOnly(不参与运行时)
+    // 26.3 系列尚无兼容 ModMenu 版本,仅保留 compileOnly(不参与运行时)
     compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 
 }

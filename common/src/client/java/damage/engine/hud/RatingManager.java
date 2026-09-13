@@ -1,6 +1,7 @@
 package damage.engine.hud;
 
 import damage.engine.DamageEngineConfig;
+import damage.engine.api.DamageEngineApi;
 
 import java.util.List;
 
@@ -12,6 +13,8 @@ public class RatingManager {
     private int sessionCritCount = 0;
     // 每次命中的伤害值(用于单次伤害大小加分)
     private final List<Float> sessionDamageList = new java.util.ArrayList<>();
+    // 每次命中的明细(供其他 mod 的加分项 API 使用)
+    private final List<DamageEngineApi.Hit> sessionHits = new java.util.ArrayList<>();
     private boolean sessionActive = false;
     private long sessionEndTime = 0;
     private long lastHitTime = 0;
@@ -27,12 +30,14 @@ public class RatingManager {
             sessionHitCount = 0;
             sessionCritCount = 0;
             sessionDamageList.clear();
+            sessionHits.clear();
             sessionActive = true;
         }
         sessionComboCount++;
         sessionHitCount++;
         if (isCrit) sessionCritCount++;
         sessionDamageList.add(damage);
+        sessionHits.add(new DamageEngineApi.Hit(damage, isCrit));
         lastHitTime = System.currentTimeMillis();
     }
 
@@ -108,6 +113,10 @@ public class RatingManager {
             + sessionCritCount * config.critPoints;
 
         // 单次伤害大小加分:每次命中达到伤害大小阈值即增加对应分数
+        float totalDamage = 0f;
+        for (float dmg : sessionDamageList) {
+            totalDamage += dmg;
+        }
         if (config.damageBonuses != null && !config.damageBonuses.isEmpty()) {
             for (float dmg : sessionDamageList) {
                 for (DamageEngineConfig.DamageBonus b : config.damageBonuses) {
@@ -118,12 +127,27 @@ public class RatingManager {
             }
         }
 
+        // 其他 mod 通过 API 注册的加分项(加分条件由注册方定义)
+        List<DamageEngineApi.BonusProvider> providers = DamageEngineApi.getBonusProviders();
+        if (!providers.isEmpty() && !sessionHits.isEmpty()) {
+            DamageEngineApi.SessionStats stats =
+                new DamageEngineApi.SessionStats(sessionComboCount, sessionHitCount, sessionCritCount, totalDamage);
+            for (DamageEngineApi.Hit hit : sessionHits) {
+                for (DamageEngineApi.BonusProvider provider : providers) {
+                    try {
+                        float bonus = provider.bonusOnHit(hit, stats);
+                        if (bonus > 0f) {
+                            score += bonus;
+                        }
+                    } catch (Throwable ignored) {
+                        // 单个加分项抛异常不应影响整体评分
+                    }
+                }
+            }
+        }
+
         // 动态伤害加分:每次造成伤害增加(伤害数值 × 倍率)分
         if (config.damageScoreMultiplier != 0f) {
-            float totalDamage = 0f;
-            for (float dmg : sessionDamageList) {
-                totalDamage += dmg;
-            }
             score += totalDamage * config.damageScoreMultiplier;
         }
         return score;
@@ -139,6 +163,7 @@ public class RatingManager {
         sessionHitCount = 0;
         sessionCritCount = 0;
         sessionDamageList.clear();
+        sessionHits.clear();
         sessionEndTime = 0;
         lastHitTime = 0;
     }

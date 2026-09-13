@@ -99,7 +99,11 @@ public class DamageTrackerHelper {
         }
 
         if (attacker == null && (source.is(DamageTypes.ON_FIRE) || source.is(DamageTypes.IN_FIRE))) {
-            attacker = self.getLastAttacker();
+            // 阳光燃烧属于环境伤害:白天露天且未在水/雨中时不归属给最后攻击者,
+            // 否则"打过一下的怪被太阳烧"会把这串燃烧跳伤全算成玩家造成的。
+            if (!isSunlightBurn(self)) {
+                attacker = self.getLastAttacker();
+            }
         }
 
         if (attacker != null) {
@@ -200,5 +204,21 @@ public class DamageTrackerHelper {
             pendingZ = snap.srcZ;
             pendingProjectile = snap.isProjectile;
         }
+    }
+
+    /**
+     * 判断该生物的燃烧是否更可能来自阳光(而非玩家点火)。
+     * 26.3 起 Minecraft 用环境属性 {@code EnvironmentAttributes.MONSTERS_BURN} 统一表达
+     * "白天+露天+未在水/雨中"这一条件,直接读取即可,与 {@code Mob.isSunBurnTick()} 保持一致。
+     */
+    private static boolean isSunlightBurn(LivingEntity self) {
+        try {
+            if (self.fireImmune()) return false;
+            Boolean burn = self.level().environmentAttributes()
+                .getValue(net.minecraft.world.attribute.EnvironmentAttributes.MONSTERS_BURN, self.position());
+            return Boolean.TRUE.equals(burn);
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 }
