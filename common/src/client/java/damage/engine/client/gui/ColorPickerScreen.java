@@ -330,8 +330,8 @@ public class ColorPickerScreen extends Screen {
             g.fill(pvX, pvY, pvX + pvW, pvY + pvH, 0xFF000000 | (color & 0xFFFFFF));
         }
 
-        drawButton(g, cancelBtnX, btnY, btnW, btnH, Component.translatable("gui.cancel"), 0xFFFC887E);
-        drawButton(g, doneBtnX, btnY, btnW, btnH, Component.translatable("gui.done"), 0xFFB7F3C8);
+        drawButton(g, cancelBtnX, btnY, btnW, btnH, Component.translatable("gui.cancel"), 0xFFFC887E, mouseX, mouseY);
+        drawButton(g, doneBtnX, btnY, btnW, btnH, Component.translatable("gui.done"), 0xFFB7F3C8, mouseX, mouseY);
     }
 
     private void drawField(GuiGraphics g, int x, int y, String label, EditBox field, int mx, int my) {
@@ -350,9 +350,11 @@ public class ColorPickerScreen extends Screen {
         field.render(g, mx, my, 0f);
     }
 
-    private void drawButton(GuiGraphics g, int x, int y, int w, int h, Component text, int accent) {
-        g.fill(x, y, x + w, y + h, 0x20000000);
-        int bc = 0xFFA0A0A0;
+    private void drawButton(GuiGraphics g, int x, int y, int w, int h, Component text, int accent, int mx, int my) {
+        // 手动边界判定(与 mouseClicked 中的点击判定保持一致),悬停只改边框与底色,文字保持强调色
+        boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + h;
+        g.fill(x, y, x + w, y + h, hovered ? 0x40000000 : 0x20000000);
+        int bc = hovered ? 0xFFFFFFFF : 0xFFA0A0A0;
         g.fill(x, y, x + w, y + 1, bc);
         g.fill(x, y + h - 1, x + w, y + h, bc);
         g.fill(x, y, x + 1, y + h, bc);

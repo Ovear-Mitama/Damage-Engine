@@ -18,10 +18,24 @@ import java.util.List;
 
 
 public class DamageHud {
+    /**
+     * 实体头像 scissor 框相对头像槽的放大倍数。
+     * <p>
+     * 允许模型溢出头像槽(溢出部分压在文本/血条下层),但不希望异常模型铺满屏幕,
+     * 故用一个放大的框兜底;同时 enableScissor/disableScissor 负责刷新当前绘制批次,
+     * 不能直接去掉。
+     */
+    private static final float ENTITY_ICON_OVERSIZE = 2.0f;
     private float smoothProgress = 0f;
     private boolean isRefilling = false;
     private int lastComboCount = 0;
     private int infoLastTargetId = -1;
+    /** 非玩家追踪目标:用于直接渲染 3D 头像 */
+    private LivingEntity infoAvatarEntity = null;
+    /** 当前模块的屏幕变换(供 scissor 换算:scissor 使用屏幕坐标,不套用 pose) */
+    private float moduleScreenX = 0f;
+    private float moduleScreenY = 0f;
+    private float moduleScreenScale = 1f;
     private float infoSmoothRatio = -1f;
     private float infoLagRatio = -1f;
     private float infoHealRatio = -1f;
@@ -273,6 +287,11 @@ public class DamageHud {
 
         int x = moduleConfig.x == -1.0f ? client.getWindow().getGuiScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getGuiScaledWidth());
         int y = moduleConfig.y == -1.0f ? client.getWindow().getGuiScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getGuiScaledHeight());
+
+        // 记录模块变换,供需要按屏幕坐标裁剪的子项(如头像模式)换算使用
+        this.moduleScreenX = x;
+        this.moduleScreenY = y;
+        this.moduleScreenScale = moduleConfig.scale;
 
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(x, y, 0);
@@ -665,8 +684,11 @@ public class DamageHud {
         infoIsPlayer = target instanceof AbstractClientPlayer;
         if (infoIsPlayer) {
             infoPlayerSkin = ((AbstractClientPlayer) target).getSkin();
+            infoAvatarEntity = null;
         } else {
             infoPlayerSkin = null;
+            // 非玩家实体:保留引用以便直接渲染 3D 头像(死亡淡出期间仍可绘制)
+            infoAvatarEntity = target;
         }
         infoHealth = target.getHealth();
         float newMaxHealth = target.getMaxHealth();
@@ -724,7 +746,9 @@ public class DamageHud {
         layoutDt = Mth.clamp(layoutDt, 0.0f, 0.1f);
         infoLayoutLastUpdateMs = now;
 
-        float targetAvatar = isPlayer ? 1.0f : 0.0f;
+        // 玩家恒有头像(皮肤脸);非玩家实体在开启实体渲染且有目标时展开头像槽
+        boolean entityRenderEnabled = DamageEngineConfig.getInstance().entityRenderEnabled;
+        float targetAvatar = (isPlayer || (entityRenderEnabled && infoAvatarEntity != null)) ? 1.0f : 0.0f;
         float avatarSmoothing = 1.0f - (float)Math.pow(0.0001, layoutDt);
         infoAvatarFactor += (targetAvatar - infoAvatarFactor) * avatarSmoothing;
         infoAvatarFactor = Mth.clamp(infoAvatarFactor, 0.0f, 1.0f);
@@ -750,7 +774,7 @@ public class DamageHud {
         int barW = 80;
         int barX = -barW / 2;
 
-        int avatarSize = 18;
+        int avatarSize = 24;
         int avatarSlotFull = avatarSize + 3;
         float layoutAvatarFactor = infoAvatarFactor;
         int avatarSlot = (int)Math.round(avatarSlotFull * layoutAvatarFactor);
@@ -773,6 +797,9 @@ public class DamageHud {
 
         int avatarDrawX = (int)Math.round(contentLeft + avatarSlot - avatarSlotFull);
         int avatarY = (int)Math.round(baseY + (panelH - avatarSize) / 2.0);
+        // 玩家脸固定 16px,在更大的头像槽内居中
+        int faceSize = 16;
+        int faceOffset = (avatarSize - faceSize) / 2;
 
         PlayerSkin skinToDraw = playerSkin;
 
@@ -799,28 +826,45 @@ public class DamageHud {
             com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
             com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
 
-            if (isSameSkin || !infoSwitching) {
-                if (skinToDraw != null) {
-                    float fade = infoAvatarAlpha * globalAlpha;
-                    guiGraphics.setColor(1.0f, 1.0f, 1.0f, fade);
-                    drawPlayerFace(guiGraphics, skinToDraw.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
-                }
-            } else {
-                if (switchT < 0.5f) {
-                    if (infoPrevPlayerSkin != null) {
-                        float localT = switchT * 2.0f;
-                        float alpha = infoAvatarAlpha * (1.0f - localT) * globalAlpha;
-                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
-                        drawPlayerFace(guiGraphics, infoPrevPlayerSkin.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
+            if (isPlayer) {
+                if (isSameSkin || !infoSwitching) {
+                    if (skinToDraw != null) {
+                        float fade = infoAvatarAlpha * globalAlpha;
+                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, fade);
+                        drawPlayerFace(guiGraphics, skinToDraw.texture(), avatarDrawX + faceOffset, avatarY + faceOffset, faceSize, true);
                     }
                 } else {
-                    if (skinToDraw != null) {
-                        float localT = (switchT - 0.5f) * 2.0f;
-                        float alpha = infoAvatarAlpha * localT * globalAlpha;
-                        guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
-                        drawPlayerFace(guiGraphics, skinToDraw.texture(), avatarDrawX + 1, avatarY + 1, 16, true);
+                    if (switchT < 0.5f) {
+                        if (infoPrevPlayerSkin != null) {
+                            float localT = switchT * 2.0f;
+                            float alpha = infoAvatarAlpha * (1.0f - localT) * globalAlpha;
+                            guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
+                            drawPlayerFace(guiGraphics, infoPrevPlayerSkin.texture(), avatarDrawX + faceOffset, avatarY + faceOffset, faceSize, true);
+                        }
+                    } else {
+                        if (skinToDraw != null) {
+                            float localT = (switchT - 0.5f) * 2.0f;
+                            float alpha = infoAvatarAlpha * localT * globalAlpha;
+                            guiGraphics.setColor(1.0f, 1.0f, 1.0f, alpha);
+                            drawPlayerFace(guiGraphics, skinToDraw.texture(), avatarDrawX + faceOffset, avatarY + faceOffset, faceSize, true);
+                        }
                     }
                 }
+            } else if (infoAvatarEntity != null && entityRenderEnabled) {
+                // 非玩家实体:直接渲染 3D 模型(3D 模型需要深度测试,此处临时开启)
+                float fade = infoAvatarAlpha * globalAlpha;
+                boolean followRotation = !"fixed".equals(DamageEngineConfig.getInstance().entityRenderRotation);
+                // 模型允许溢出头像槽(溢出部分压在文本/血条下层),但用放大的 scissor 兜底,
+                // 避免个别模型铺满屏幕;enableScissor/disableScissor 同时负责刷新当前绘制批次,不能省略。
+                int expand = Math.round(avatarSize * (ENTITY_ICON_OVERSIZE - 1.0f) * 0.5f);
+                int scissorX0 = Math.round(moduleScreenX + (avatarDrawX - expand) * moduleScreenScale);
+                int scissorY0 = Math.round(moduleScreenY + (avatarY - expand) * moduleScreenScale);
+                int scissorX1 = Math.round(moduleScreenX + (avatarDrawX + avatarSize + expand) * moduleScreenScale);
+                int scissorY1 = Math.round(moduleScreenY + (avatarY + avatarSize + expand) * moduleScreenScale);
+                guiGraphics.enableScissor(scissorX0, scissorY0, scissorX1, scissorY1);
+                com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
+                EntityIconRenderer.render(guiGraphics, infoAvatarEntity, avatarDrawX, avatarY, avatarSize, fade, followRotation);
+                guiGraphics.disableScissor();
             }
 
             guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -1051,9 +1095,7 @@ public class DamageHud {
     }
 
     private static void drawPlayerFace(GuiGraphics guiGraphics, ResourceLocation skinTexture, int x, int y, int size, boolean hatVisible) {
-        guiGraphics.blit(skinTexture, x, y, size, size, 8, 8, 8, 8, 64, 64);
-        if (hatVisible) {
-            guiGraphics.blit(skinTexture, x, y, size, size, 40, 8, 8, 8, 64, 64);
-        }
+        // 用原版 PlayerFaceRenderer 绘制(底层皮肤 + 第二层帽子皮肤,透明与颜色处理一致)
+        net.minecraft.client.gui.components.PlayerFaceRenderer.draw(guiGraphics, skinTexture, x, y, size, hatVisible, false);
     }
 }

@@ -10,6 +10,12 @@ base {
 	archivesName = project.archives_base_name
 }
 
+// 产物命名:damage-engine-<版本号>-<加载器>-<MC版本号>.jar
+// Fabric 与 Quilt 共用同一份产物,故统一标为 Fabric
+tasks.named('remapJar') {
+	archiveFileName = "${project.archives_base_name}-${project.mod_version}-Fabric-${project.minecraft_version}.jar"
+}
+
 repositories {
     mavenLocal()
     maven { url "https://maven.terraformersmc.com/releases/" }

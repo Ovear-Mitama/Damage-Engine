@@ -57,6 +57,8 @@ public class DamageEngineConfig {
     public boolean showGlobalDamageIndicator = false;
     // 全局伤害跳字 - 玩家显示距离(0 = 无限制)
     public float globalIndicatorMaxDistance = 128.0f;
+    // 感知过滤:看不见且听不见该生物时,隐藏其受到的伤害跳字
+    public boolean globalIndicatorSmartHide = false;
     // 全局伤害跳字 - 非玩家实体整体模式(false=显示/白名单, true=屏蔽/黑名单)
     public boolean globalEntityBlockMode = false;
     // 全局伤害跳字 - 非玩家实体规则(注册名 All 表示全体,与具体注册名互斥)
@@ -71,6 +73,10 @@ public class DamageEngineConfig {
     // ========== Entity Info ==========
     public boolean showInfo = true;
     public float infoTrackTime = 15.0f;
+    // 实体信息面板是否渲染生物实体(3D 模型)
+    public boolean entityRenderEnabled = true;
+    // 生物实体渲染朝向:"follow" = 跟随实际朝向(以玩家视角为基准),"fixed" = 固定正面朝向观察者
+    public String entityRenderRotation = "follow";
     public boolean infoNoRoundedBorder = false;
     public int infoBackgroundColor = 0xFF000000;
     public int infoBackgroundOpacity = 25;
@@ -395,6 +401,7 @@ public class DamageEngineConfig {
         this.showGlobalDamageIndicator = loaded.showGlobalDamageIndicator;
         // 0 = 无限制,保留 0;负数视为无效回退默认
         this.globalIndicatorMaxDistance = loaded.globalIndicatorMaxDistance >= 0 ? loaded.globalIndicatorMaxDistance : 128.0f;
+        this.globalIndicatorSmartHide = loaded.globalIndicatorSmartHide;
         this.globalEntityBlockMode = loaded.globalEntityBlockMode;
         if (loaded.globalEntityRules != null) {
             this.globalEntityRules = loaded.globalEntityRules;
@@ -414,6 +421,8 @@ public class DamageEngineConfig {
         // Entity Info
         this.showInfo = loaded.showInfo;
         this.infoTrackTime = loaded.infoTrackTime;
+        this.entityRenderEnabled = loaded.entityRenderEnabled;
+        this.entityRenderRotation = "fixed".equals(loaded.entityRenderRotation) ? "fixed" : "follow";
         this.infoNoRoundedBorder = loaded.infoNoRoundedBorder;
         this.infoBackgroundColor = loaded.infoBackgroundColor;
         this.infoBackgroundOpacity = loaded.infoBackgroundOpacity;
@@ -517,6 +526,7 @@ public class DamageEngineConfig {
         indicatorPrefixSign = false;
         showGlobalDamageIndicator = false;
         globalIndicatorMaxDistance = 128.0f;
+        globalIndicatorSmartHide = false;
         globalEntityBlockMode = false;
         globalEntityRules.clear();
         // 重置后默认包含一项 All(全体实体,距离 0 = 无限制)
@@ -531,6 +541,8 @@ public class DamageEngineConfig {
         // Entity Info
         showInfo = true;
         infoTrackTime = 15.0f;
+        entityRenderEnabled = true;
+        entityRenderRotation = "follow";
         infoNoRoundedBorder = false;
         infoBackgroundColor = 0xFF000000;
         infoBackgroundOpacity = 25;
