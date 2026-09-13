@@ -411,9 +411,10 @@ public class ColorPickerPopup {
 
     private void drawButton(GuiGraphicsExtractor g, int x, int y, int w, int h, Component text, int accent, int mx, int my) {
         Minecraft client = Minecraft.getInstance();
+        // 手动边界判定(与 mouseClicked 中的点击判定保持一致),悬停只改边框与底色,文字保持强调色
         boolean over = mx >= x && mx <= x + w && my >= y && my <= y + h;
         if (over) g.requestCursor(DamageConfigScreen.CURSOR_HAND);
-        g.fill(x, y, x + w, y + h, 0x20000000);
+        g.fill(x, y, x + w, y + h, over ? 0x40000000 : 0x20000000);
         int bc = over ? 0xFFFFFFFF : 0xFFA0A0A0;
         g.fill(x, y, x + w, y + 1, bc);
         g.fill(x, y + h - 1, x + w, y + h, bc);

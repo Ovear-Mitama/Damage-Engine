@@ -104,14 +104,9 @@ public class NetworkSetup {
                         return;
                     }
 
-                    boolean preferSwitchTarget = false;
-                    try {
-                        if (mc.hitResult instanceof EntityHitResult ehr) {
-                            preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
-                        }
-                    } catch (Exception ignored) {}
-
-                    DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
+                    // 准星命中的实体交给会话判断(末影龙需从部件映射到本体),命中时强制切换信息面板目标
+                    DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(),
+                        mc.hitResult instanceof EntityHitResult ehr ? ehr.getEntity() : null);
 
                     Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
                     double maxDist = config.globalIndicatorMaxDistance;

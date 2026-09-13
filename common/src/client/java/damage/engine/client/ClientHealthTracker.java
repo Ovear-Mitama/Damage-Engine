@@ -84,14 +84,10 @@ public class ClientHealthTracker {
             return;
         }
 
-        // Check if entity is in crosshair for info panel switching
-        boolean preferSwitchTarget = false;
+        // 准星命中的实体交给会话判断(末影龙需从部件映射到本体),命中时强制切换信息面板目标
         Minecraft client = Minecraft.getInstance();
-        if (client.hitResult instanceof EntityHitResult ehr && ehr.getEntity() != null) {
-            preferSwitchTarget = ehr.getEntity().getId() == entity.getId();
-        }
-
-        DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(), preferSwitchTarget);
+        DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(),
+            client.hitResult instanceof EntityHitResult ehr ? ehr.getEntity() : null);
 
         // Blend indicator position toward crosshair hit point
         Vec3 pos = DamageEngineClient.blendIndicatorPos(

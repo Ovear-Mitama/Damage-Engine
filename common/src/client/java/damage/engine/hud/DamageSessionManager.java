@@ -1,6 +1,8 @@
 package damage.engine.hud;
 
 import damage.engine.DamageEngineConfig;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.entity.boss.enderdragon.EnderDragonPart;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -22,15 +24,33 @@ public class DamageSessionManager {
         return INSTANCE;
     }
 
+    /**
+     * 判断准星命中的实体是否就是本次伤害的受害者。
+     * <p>
+     * 末影龙的碰撞箱由 {@link EnderDragonPart} 部件实体组成:准星命中的是部件,而伤害最终归属到本体,
+     * 两者 id 不同。这里做一次映射,否则打了别的生物后再打龙时无法切换信息面板目标。
+     */
+    public static boolean isSameVictim(Entity crosshairEntity, int victimId) {
+        if (crosshairEntity == null) return false;
+        if (crosshairEntity.getId() == victimId) return true;
+        return crosshairEntity instanceof EnderDragonPart part
+            && part.parentMob != null && part.parentMob.getId() == victimId;
+    }
+
     public void addDamage(float amount, boolean isCrit) {
-        addDamage(amount, isCrit, -1, false);
+        addDamage(amount, isCrit, -1, null);
     }
 
     public void addDamage(float amount, boolean isCrit, int targetEntityId) {
-        addDamage(amount, isCrit, targetEntityId, false);
+        addDamage(amount, isCrit, targetEntityId, null);
     }
 
-    public void addDamage(float amount, boolean isCrit, int targetEntityId, boolean preferSwitchTarget) {
+    /**
+     * 记录一次伤害。
+     *
+     * @param crosshairEntity 准星当前命中的实体(可为 null);命中本次受害者时会强制切换信息面板目标
+     */
+    public void addDamage(float amount, boolean isCrit, int targetEntityId, Entity crosshairEntity) {
         long now = System.currentTimeMillis();
         if (DamageEngineConfig.getInstance().resetEnabled && isActive && (now - lastHitTime) > DamageEngineConfig.getInstance().resetTime * 1000) {
             RatingManager.getInstance().endSession();
@@ -45,7 +65,7 @@ public class DamageSessionManager {
         RatingManager.getInstance().addHit(amount, isCrit);
 
         if (targetEntityId != -1) {
-            if (!isInfoActive() || targetEntityId == lastTargetEntityId || preferSwitchTarget) {
+            if (!isInfoActive() || targetEntityId == lastTargetEntityId || isSameVictim(crosshairEntity, targetEntityId)) {
                 lastTargetEntityId = targetEntityId;
                 infoExpireAt = now + (long)(DamageEngineConfig.getInstance().infoTrackTime * 1000);
             }
