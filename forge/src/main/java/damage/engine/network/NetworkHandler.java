@@ -144,12 +144,11 @@ public class NetworkHandler {
                         }
                     }
 
-                    double dx = payload.posX() - mc.player.getX();
-                    double dy = payload.posY() - mc.player.getY();
-                    double dz = payload.posZ() - mc.player.getZ();
-                    double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-                    if (config.globalIndicatorMaxDistance <= 0 || distance <= config.globalIndicatorMaxDistance) {
+                    // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All);
+                    // 智能隐藏开启时,由视觉(看不见则隐藏)决定
+                    net.minecraft.world.entity.Entity victim = payload.entityId() > 0 && mc.level != null
+                        ? mc.level.getEntity(payload.entityId()) : null;
+                    if (damage.engine.client.GlobalDamageFilter.shouldShow(config, mc, victim, payload.posX(), payload.posY(), payload.posZ())) {
                         if (config.showDamageIndicator && payload.amount() > 0) {
                             Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
                             DamageIndicator.addIndicator(payload.entityId(), pos.x, pos.y, pos.z, payload.amount(), payload.isCrit(), false);

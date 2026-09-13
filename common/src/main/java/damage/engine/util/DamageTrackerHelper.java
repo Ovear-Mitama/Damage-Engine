@@ -140,7 +140,11 @@ public class DamageTrackerHelper {
         }
 
         if (attacker == null && (source.is(DamageTypes.ON_FIRE) || source.is(DamageTypes.IN_FIRE))) {
-            attacker = self.getLastAttacker();
+            // 阳光燃烧属于环境伤害:白天露天且未在水/雨中时不归属给最后攻击者,
+            // 否则"打过一下的怪被太阳烧"会把这串燃烧跳伤全算成玩家造成的。
+            if (!isSunlightBurn(self)) {
+                attacker = self.getLastAttacker();
+            }
         }
 
         // Mod compat hook: allow external mods (e.g. TACZ) to resolve attacker
@@ -261,5 +265,21 @@ public class DamageTrackerHelper {
             pendingZ = snap.srcZ;
             pendingProjectile = snap.isProjectile;
         }
+    }
+
+    /**
+     * 判断该生物的燃烧是否更可能来自阳光(而非玩家点火)。
+     * 条件与 {@code Mob.isSunBurnTick()} 一致:白天、露天、未在水/雨中、且不免疫火焰。
+     */
+    private static boolean isSunlightBurn(LivingEntity self) {
+        try {
+            if (!self.fireImmune()) {
+                return self.level().isDay()
+                    && !self.isInWaterRainOrBubble()
+                    && self.level().canSeeSky(net.minecraft.core.BlockPos.containing(self.getX(), self.getEyeY(), self.getZ()));
+            }
+        } catch (Exception ignored) {
+        }
+        return false;
     }
 }
