@@ -22,6 +22,10 @@
   "button.damage-engine.adjust": "调整",
   "button.damage-engine.open": "打开",
   "button.damage-engine.open_config_folder": "打开配置文件夹",
+  "button.damage-engine.enter_config_world": "进入专用世界",
+
+  "text.damage-engine.config_world_title": "需要专用配置世界",
+  "text.damage-engine.config_world_needed": "动画编辑器里的世界预览只在 Anima 的专用配置世界中显示。进入后请再次打开配置界面，就能用上世界预览了。",
 
   "text.damage-engine.developed_by": "由 mitama 开发",
   "text.damage-engine.preview": "预览",

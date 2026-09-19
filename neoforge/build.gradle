@@ -78,7 +78,7 @@ tasks.named('jar') {
     archiveFileName = "damage-engine-${mod_version}-NeoForge-${minecraft_version}.jar"
     // 把库内置进产物（Jar-in-Jar）：Anima 还没上传 Modrinth，玩家不需要单独安装。
     // 配套的 META-INF/jarjar/metadata.json 在 src/main/resources 下。
-    def animaProdJar = file('../../texture-animation-library/neoforge/build/libs/anima-1.0.0.jar')
+    def animaProdJar = file('../../texture-animation-library/neoforge/build/libs/anima-1.0.1.jar')
     if (!animaProdJar.exists()) {
         throw new GradleException("Anima NeoForge 正式 jar 不存在: ${animaProdJar}\n请先在 texture-animation-library/neoforge 执行 ./gradlew build")
     }
@@ -183,7 +183,7 @@ dependencies {
 
     // Anima: 跳字（伤害数字）动画 / 渲染库,必需依赖。
     // 本地产物来自同级仓库 texture-animation-library 的 neoforge 工程,先在那里执行 ./gradlew build。
-    def animaJar = file('../../texture-animation-library/neoforge/build/libs/anima-1.0.0.jar')
+    def animaJar = file('../../texture-animation-library/neoforge/build/libs/anima-1.0.1.jar')
     if (!animaJar.exists()) {
         throw new GradleException("Anima NeoForge jar 不存在: ${animaJar}\n请先在 texture-animation-library/neoforge 执行 ./gradlew build")
     }

@@ -22,6 +22,10 @@
   "button.damage-engine.adjust": "Adjust",
   "button.damage-engine.open": "Open",
   "button.damage-engine.open_config_folder": "Open Config Folder",
+  "button.damage-engine.enter_config_world": "Enter Preview World",
+
+  "text.damage-engine.config_world_title": "Preview World Required",
+  "text.damage-engine.config_world_needed": "The editor's world preview only shows inside Anima's dedicated preview world. Enter it, then open this config screen again to use the world preview.",
 
   "text.damage-engine.developed_by": "Developed by mitama",
   "text.damage-engine.preview": "Preview",

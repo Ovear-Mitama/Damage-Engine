@@ -205,6 +205,15 @@ public class DamageConfigScreen extends Screen {
         // 动画编辑器：载入跳字当前剪辑与文本属性，预览用 DE 自己的示例数字；关闭时两者一起回写配置
         addOption(new ButtonActionEntry("option.damage-engine.animationEditor", "button.damage-engine.open", () -> {
             playClickSound();
+            // 世界预览只在 Anima 的专用配置世界里生效，而那个世界只能从主菜单进
+            // （ConfigWorldLauncher.launch 在世界内是空操作）。所以：
+            //   不在世界内（主菜单）→ 先给提示页，进去后再开一次配置界面
+            //   已经在普通存档里 → 直接开编辑器，用 2D 界面，不做进不去的死路提示
+            Minecraft mc = Minecraft.getInstance();
+            if (!AnimaApi.isConfigWorld() && mc.level == null) {
+                mc.setScreen(new ConfigWorldNeededScreen(this));
+                return;
+            }
             AnimaApi.openClipEditor(this, DamageIndicator.charClipsJson(), DamageIndicator.textPropsJson(),
                 DamageIndicator.PREVIEW_TEXT, result -> {
                     config.indicatorCharClips = result.clips().toString();

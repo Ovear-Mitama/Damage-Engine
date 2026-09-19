@@ -15,6 +15,7 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Animal;
@@ -41,6 +42,9 @@ import java.util.Map;
  * 取景不依赖碰撞箱,而是遍历模型的 {@link ModelPart} 求出真实几何范围,
  * 这样幼年生物(幼年变换发生在 {@code renderToBuffer} 内部)、幻翼等
  * "模型尺寸与碰撞箱差异较大"的情况都能正确取景。
+ * <p>
+ * 模型几何按"渲染器实际施加的总缩放"换算(见 {@link #renderScale}):
+ * 史莱姆 / 岩浆怪这类体积会改变模型大小的生物,不会因为体积变大就撑爆头像框。
  * <p>
  * 关键点:几何范围按<b>初始(未动画)姿态</b>测量并按实体类型缓存,
  * 否则走路时四肢摆动会让取景尺寸逐帧变化,头像就会跟着一胀一缩地抖动。
@@ -225,17 +229,44 @@ public final class EntityIconRenderer {
         float extent = raw[3];
 
         // 模型渲染空间 -> 实体本地空间:
-        // 原版 LivingEntityRenderer 依次执行 scale(-1,-1,1) / scale(entityScale) / translate(0,-1.501,0)
+        // 原版 LivingEntityRenderer 依次执行 scale(-1,-1,1) / scale(总缩放) / translate(0,-1.501,0)
         // / 按身体朝向绕 Y 旋转,PoseStack 后置相乘,因此点先被旋转、再平移、最后缩放:
         //   x' = -s * xr,  y' = 1.501 * s - s * y,  z' = s * zr
-        float s = Math.max(entity.getScale(), 0.01f);
+        // 总缩放 s 同时乘在几何和那 1.501 的位移上(平移先施加到顶点、缩放后施加),所以取景尺寸
+        // extent 也必须一起乘 s:否则"渲染器按体积放大"的生物(史莱姆 / 岩浆怪)会按放大倍数撑爆头像
+        // (体积 4 的史莱姆被放大 4 倍,这就是之前史莱姆过大的原因)。
+        float s = renderScale(entity);
         float rotDeg = 180.0f - renderedBodyRot;
         Vector3f rotated = new Vector3f(px, py, pz)
             .rotate(new Quaternionf().rotateY((float) Math.toRadians(rotDeg)));
         float cx = -s * rotated.x();
         float cy = 1.501f * s - s * rotated.y();
         float cz = s * rotated.z();
-        return new float[]{cx, cy, cz, extent};
+        return new float[]{cx, cy, cz, extent * s};
+    }
+
+    /**
+     * 渲染管线对模型施加的总缩放 = 实体自身缩放 × 渲染器的额外缩放。
+     * <p>
+     * 渲染器的额外缩放(史莱姆 / 岩浆怪按体积、幻翼按体型……)发生在
+     * {@link LivingEntityRenderer#scale} 里,不在 {@link ModelPart} 树上,量取模型几何时拿不到,
+     * 但它同样作用在包围箱上,可用"当前包围箱 ÷ 类型基准包围箱"反推:
+     * {@code LivingEntity#getDimensions} 的实现是 {@code getDefaultDimensions(pose).scale(getScale())},
+     * 而史莱姆等又把基准包围箱按体积放大,所以这个比值就是总缩放(史莱姆 = 体积,含 SCALE 属性的 = 属性值)。
+     * <p>
+     * 取 {@code max(getScale, 包围箱比值)} 且不低于 1:趴下、睡觉、幼年等姿态会让包围箱变小,
+     * 那并不代表渲染器把模型缩小了,跟着缩小取景只会让头像忽大忽小,所以这里只放大、不缩小。
+     */
+    private static float renderScale(LivingEntity entity) {
+        float selfScale = Math.max(entity.getScale(), 0.01f);
+        try {
+            EntityDimensions base = entity.getType().getDimensions();
+            float ratioH = entity.getBbHeight() / Math.max(base.height(), 0.01f);
+            float ratioW = entity.getBbWidth() / Math.max(base.width(), 0.01f);
+            return Math.max(selfScale, Math.max(ratioH, ratioW));
+        } catch (Throwable t) {
+            return selfScale; // 取不到类型基准尺寸时退回实体自身缩放
+        }
     }
 
     /** 取模型的几何包围盒 {centerX, centerY, centerZ, extent}(模型空间,单位块,已含幼年补偿)。 */

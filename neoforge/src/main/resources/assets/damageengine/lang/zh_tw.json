@@ -85,6 +85,10 @@
   "button.damage-engine.edit_pos": "修改位置",
   "button.damage-engine.adjust": "調整",
   "button.damage-engine.open": "開啟",
+  "button.damage-engine.enter_config_world": "進入專用世界",
+
+  "text.damage-engine.config_world_title": "需要專用設定世界",
+  "text.damage-engine.config_world_needed": "動畫編輯器裡的世界預覽只在 Anima 的專用設定世界中顯示。進入後請再次開啟設定介面，就能用上世界預覽了。",
   
   "text.damage-engine.preview": "預覽",
   "text.damage-engine.reset_done": "已重置!",

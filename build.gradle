@@ -120,7 +120,7 @@ dependencies {
     // 本地产物来自同级仓库 texture-animation-library,先在那里执行 ./gradlew build。
     // 开发环境用 build/devlibs 的 -dev jar(已映射为 named,且不带新版 Loom 的版本校验);
     // 发布产物通过下面的 include 内置本库(见下)。
-    def animaJar = file('../texture-animation-library/build/devlibs/anima-1.0.0-dev.jar')
+    def animaJar = file('../texture-animation-library/build/devlibs/anima-1.0.1-dev.jar')
     if (!animaJar.exists()) {
         throw new GradleException("Anima dev jar 不存在: ${animaJar}\n请先在 texture-animation-library 执行 ./gradlew build")
     }
@@ -128,10 +128,10 @@ dependencies {
 }
 
 // 把库内置进产物（Jar-in-Jar）：Anima 还没上传 Modrinth，玩家不需要单独安装。
-// 手工嵌套：jar 里放 META-INF/jars/anima-1.0.0.jar，并在 fabric.mod.json 的 "jars" 里声明。
+// 手工嵌套：jar 里放 META-INF/jars/anima-1.0.1.jar，并在 fabric.mod.json 的 "jars" 里声明。
 // （Loom 的 include files(...) 不支持普通文件依赖，会报 "not a module component"。）
 tasks.named('jar') {
-    def animaProdJar = file('../texture-animation-library/build/libs/anima-1.0.0.jar')
+    def animaProdJar = file('../texture-animation-library/build/libs/anima-1.0.1.jar')
     if (!animaProdJar.exists()) {
         throw new GradleException("Anima 正式 jar 不存在: ${animaProdJar}\n请先在 texture-animation-library 执行 ./gradlew build")
     }
