@@ -44,6 +44,7 @@
   "option.damage-engine.damageIndicatorKillColor": "Kill! 顏色",
   "option.damage-engine.showDamageIndicator": "顯示傷害跳字",
   "option.damage-engine.indicatorBold": "粗體傷害數字",
+  "option.damage-engine.animationEditor": "動畫編輯器",
   "option.damage-engine.showHealIndicator": "恢復生命跳字",
   "option.damage-engine.healIndicatorColor": "恢復生命跳字顏色",
   "option.damage-engine.showGlobalDamageIndicator": "全圖跳字",
@@ -82,6 +83,7 @@
   "button.damage-engine.save_close": "儲存並關閉",
   "button.damage-engine.edit_pos": "修改位置",
   "button.damage-engine.adjust": "調整",
+  "button.damage-engine.open": "開啟",
   
   "text.damage-engine.preview": "預覽",
   "text.damage-engine.reset_done": "已重置!",

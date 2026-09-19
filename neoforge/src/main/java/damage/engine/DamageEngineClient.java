@@ -64,6 +64,9 @@ public class DamageEngineClient {
             IConfigScreenFactory.class,
             (container, screen) -> new HomeScreen(screen)
         );
+
+        // 跳字走 Anima 的世界渲染（真 3D：透视 + 遮挡），不再画在 2D HUD 层
+        anima.api.AnimaApi.onWorldRender(damage.engine.hud.DamageIndicator::renderWorld);
     }
 
     @SubscribeEvent

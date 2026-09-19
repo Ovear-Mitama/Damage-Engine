@@ -33,6 +33,9 @@ public class DamageEngineClient implements ClientModInitializer {
         clearDamageKeyBinding = ClientKeybindings.clearDamageKeyBinding;
         KeyMapping.resetMapping();
 
+        // 跳字走 Anima 的世界渲染（真 3D：透视 + 遮挡），不再画在 2D HUD 层
+        anima.api.AnimaApi.onWorldRender(DamageIndicator::renderWorld);
+
         // 用 NetworkRegistry 注册 S2C 处理器（不走 Fabric API 的 registerGlobalReceiver）
         NetworkRegistry.registerS2C(DamagePayload.TYPE, DamagePayload.STREAM_CODEC, (payload, ctx) -> {
             if (!serverHasMod) {

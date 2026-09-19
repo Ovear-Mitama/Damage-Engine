@@ -20,6 +20,7 @@
   "button.damage-engine.discard": "放弃更改",
   "button.damage-engine.edit_pos": "修改位置",
   "button.damage-engine.adjust": "调整",
+  "button.damage-engine.open": "打开",
   "button.damage-engine.open_config_folder": "打开配置文件夹",
 
   "text.damage-engine.developed_by": "由 mitama 开发",
@@ -75,8 +76,7 @@
   "option.damage-engine.indicatorMode": "模式",
   "option.damage-engine.mode.enhanced": "增强模式",
   "option.damage-engine.mode.cloud": "云状模式",
-  "option.damage-engine.indicatorScale": "缩放",
-  "option.damage-engine.indicatorOpacity": "伤害数字透明度",
+  "option.damage-engine.animationEditor": "动画编辑器",
   "option.damage-engine.indicatorBold": "粗体伤害数字",
   "option.damage-engine.showHealIndicator": "恢复生命跳字",
   "option.damage-engine.healIndicatorColor": "恢复生命跳字颜色",

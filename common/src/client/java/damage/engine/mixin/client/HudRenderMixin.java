@@ -1,7 +1,6 @@
 package damage.engine.mixin.client;
 
 import damage.engine.hud.DamageHud;
-import damage.engine.hud.DamageIndicator;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
@@ -18,6 +17,6 @@ public class HudRenderMixin {
     @Inject(method = "render", at = @At("TAIL"))
     private void damageEngine$onHudRender(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         damageHud.onHudRender(guiGraphics, deltaTracker);
-        DamageIndicator.render(guiGraphics, deltaTracker.getGameTimeDeltaPartialTick(false));
+        // 跳字不在这里画：它走 Anima 的世界渲染（见 DamageIndicator.renderWorld）
     }
 }

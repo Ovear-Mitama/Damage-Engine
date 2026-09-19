@@ -48,8 +48,11 @@ public class DamageEngineConfig {
     public boolean showDamageIndicator = true;
     public int indicatorDecimalPlaces = 1;
     public String indicatorMode = "enhanced"; // "enhanced" or "cloud"
-    public float indicatorScale = 0.8f;
-    public int indicatorOpacity = 100;
+    // 跳字的逐字剪辑（JSON: effect/start/duration/speed）；空 = 用代码里的默认（飘入 + 打字机出场）
+    public String indicatorCharClips = "";
+    // 跳字的文本对象属性（JSON: x/y/z/scale/alpha/durationMs/distanceScale + keys 关键帧）；
+    // 空 = 默认（无偏移、缩放与透明度 1）。由动画编辑器关闭时回传并保存。
+    public String indicatorTextProps = "";
     public boolean indicatorBold = false;
     public boolean showHealIndicator = false;
     public int healIndicatorColor = 0xFFB1EAC2;
@@ -394,8 +397,8 @@ public class DamageEngineConfig {
         this.showDamageIndicator = loaded.showDamageIndicator;
         this.indicatorDecimalPlaces = loaded.indicatorDecimalPlaces;
         this.indicatorMode = loaded.indicatorMode != null ? loaded.indicatorMode : "enhanced";
-        this.indicatorScale = loaded.indicatorScale > 0 ? loaded.indicatorScale : 1.5f;
-        this.indicatorOpacity = loaded.indicatorOpacity;
+        this.indicatorCharClips = loaded.indicatorCharClips != null ? loaded.indicatorCharClips : "";
+        this.indicatorTextProps = loaded.indicatorTextProps != null ? loaded.indicatorTextProps : "";
         this.indicatorBold = loaded.indicatorBold;
         this.showHealIndicator = loaded.showHealIndicator;
         this.healIndicatorColor = loaded.healIndicatorColor;
@@ -522,8 +525,8 @@ public class DamageEngineConfig {
         showDamageIndicator = true;
         indicatorDecimalPlaces = 1;
         indicatorMode = "enhanced";
-        indicatorScale = 0.8f;
-        indicatorOpacity = 100;
+        indicatorCharClips = "";
+        indicatorTextProps = "";
         indicatorBold = false;
         showHealIndicator = false;
         healIndicatorColor = 0xFFB1EAC2;

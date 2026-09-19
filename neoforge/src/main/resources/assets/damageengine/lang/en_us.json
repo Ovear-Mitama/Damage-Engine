@@ -20,6 +20,7 @@
   "button.damage-engine.discard": "Discard",
   "button.damage-engine.edit_pos": "Edit Position",
   "button.damage-engine.adjust": "Adjust",
+  "button.damage-engine.open": "Open",
   "button.damage-engine.open_config_folder": "Open Config Folder",
 
   "text.damage-engine.developed_by": "Developed by mitama",
@@ -76,8 +77,7 @@
   "option.damage-engine.indicatorMode": "Mode",
   "option.damage-engine.mode.enhanced": "Enhanced",
   "option.damage-engine.mode.cloud": "Cloud",
-  "option.damage-engine.indicatorScale": "Scale",
-  "option.damage-engine.indicatorOpacity": "Number Opacity",
+  "option.damage-engine.animationEditor": "Animation Editor",
   "option.damage-engine.indicatorBold": "Bold Numbers",
   "option.damage-engine.showHealIndicator": "Show Heal Numbers",
   "option.damage-engine.healIndicatorColor": "Heal Number Color",

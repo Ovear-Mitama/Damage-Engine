@@ -36,10 +36,17 @@
 	"depends": {
 		"fabricloader": ">=0.15.11",
 		"fabric-api": "*",
-		"minecraft": ">=1.21 <=1.21.8",
-		"java": ">=21"
+		"minecraft": ">=1.21 <=1.21.1",
+		"java": ">=21",
+		"anima": ">=1.0.0"
 	},
+	"jars": [
+		{
+			"file": "META-INF/jars/anima-1.0.0.jar"
+		}
+	],
 	"suggests": {
-		"modmenu": ">=11.0.0"
+		"modmenu": ">=11.0.0",
+		"quilt_loader": ">=0.20.0"
 	}
 }
