@@ -33,6 +33,11 @@ base {
     archivesName = mod_id
 }
 
+// 产物命名:damage-engine-<版本号>-<加载器>-<MC版本号>.jar
+tasks.named('jar') {
+    archiveFileName = "damage-engine-${mod_version}-NeoForge-${minecraft_version}.jar"
+}
+
 // Include common shared sources
 sourceSets {
     main {
