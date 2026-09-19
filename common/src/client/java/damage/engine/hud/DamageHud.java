@@ -846,12 +846,13 @@ public class DamageHud {
             } else if (infoAvatarEntity != null && entityRenderEnabled) {
                 // 非玩家实体:直接渲染 3D 模型(3D 模型需要深度测试,此处临时开启)
                 float fade = infoAvatarAlpha * globalAlpha;
-                boolean followRotation = !"fixed".equals(DamageEngineConfig.getInstance().entityRenderRotation);
+                boolean followRotation = "follow".equals(DamageEngineConfig.getInstance().entityRenderRotation);
+                int rotationAngle = DamageEngineConfig.getInstance().entityRenderRotationAngle;
                 // 不做边缘裁剪:模型允许溢出头像槽,本段先于下方文本与血条绘制,溢出的模型自然压在文本之下。
                 // 渲染前刷新一次绘制批次,替代原先 enableScissor 顺带完成的批次刷新。
                 guiGraphics.flush();
                 com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
-                EntityIconRenderer.render(guiGraphics, infoAvatarEntity, avatarDrawX, avatarY, avatarSize, fade, followRotation);
+                EntityIconRenderer.render(guiGraphics, infoAvatarEntity, avatarDrawX, avatarY, avatarSize, fade, followRotation, rotationAngle);
             }
 
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
