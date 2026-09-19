@@ -872,8 +872,9 @@ public class DamageHud {
                     int boxX = slotX - (boxSize - slotSize) / 2;
                     int boxY = slotY - (boxSize - slotSize) / 2;
                     float fade = infoAvatarAlpha * globalAlpha;
-                    boolean followRotation = !"fixed".equals(DamageEngineConfig.getInstance().entityRenderRotation);
-                    EntityIconRenderer.render(guiGraphics, infoAvatarEntity, boxX, boxY, boxSize, fade, followRotation);
+                    boolean followRotation = "follow".equals(DamageEngineConfig.getInstance().entityRenderRotation);
+                    int rotationAngle = DamageEngineConfig.getInstance().entityRenderRotationAngle;
+                    EntityIconRenderer.render(guiGraphics, infoAvatarEntity, boxX, boxY, boxSize, fade, followRotation, rotationAngle);
                 }
             }
         }
