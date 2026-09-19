@@ -37,7 +37,8 @@
 
   "text.damage-engine.update_available": "New version available %s, current version %s",
   "text.damage-engine.update_latest": "Current version: %s, up to date",
-  "text.damage-engine.update_checking": "Checking for updates...",
+  "text.damage-engine.checking_update": "Checking for updates...",
+  "text.damage-engine.update_check_failed": "Failed to check for updates",
 
   "hint.damage-engine.showDamageDisplay": "Show total damage and related info on the UI",
   "hint.damage-engine.resetEnabled": "Enable/Disable combo reset timer",
