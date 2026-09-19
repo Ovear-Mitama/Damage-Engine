@@ -75,8 +75,10 @@ public class DamageEngineConfig {
     public float infoTrackTime = 15.0f;
     // 实体信息面板是否渲染生物实体(3D 模型)
     public boolean entityRenderEnabled = true;
-    // 生物实体渲染朝向:"follow" = 跟随实际朝向(以玩家视角为基准),"fixed" = 固定正面朝向观察者
-    public String entityRenderRotation = "follow";
+    // 生物实体渲染朝向:"follow" = 跟随实际朝向(以玩家视角为基准),"custom" = 按自定义角度
+    public String entityRenderRotation = "custom";
+    // 自定义朝向角度(0~360,0 = 正面朝向观察者,角度增大为顺时针)
+    public int entityRenderRotationAngle = 30;
     public boolean infoNoRoundedBorder = false;
     public int infoBackgroundColor = 0xFF000000;
     public int infoBackgroundOpacity = 25;
@@ -417,7 +419,9 @@ public class DamageEngineConfig {
         this.showInfo = loaded.showInfo;
         this.infoTrackTime = loaded.infoTrackTime;
         this.entityRenderEnabled = loaded.entityRenderEnabled;
-        this.entityRenderRotation = "fixed".equals(loaded.entityRenderRotation) ? "fixed" : "follow";
+        // 旧版本写下的 "fixed" 与现在的 "custom" 同义(都是"不跟随、按固定角度")
+        this.entityRenderRotation = ("custom".equals(loaded.entityRenderRotation) || "fixed".equals(loaded.entityRenderRotation)) ? "custom" : "follow";
+        this.entityRenderRotationAngle = loaded.entityRenderRotationAngle;
         this.infoNoRoundedBorder = loaded.infoNoRoundedBorder;
         this.infoBackgroundColor = loaded.infoBackgroundColor;
         this.infoBackgroundOpacity = loaded.infoBackgroundOpacity;
@@ -537,7 +541,8 @@ public class DamageEngineConfig {
         showInfo = true;
         infoTrackTime = 15.0f;
         entityRenderEnabled = true;
-        entityRenderRotation = "follow";
+        entityRenderRotation = "custom";
+        entityRenderRotationAngle = 30;
         infoNoRoundedBorder = false;
         infoBackgroundColor = 0xFF000000;
         infoBackgroundOpacity = 25;
