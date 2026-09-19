@@ -130,7 +130,9 @@ public final class EntityIconRenderer {
                 // 只改渲染状态里的朝向,不改世界中的实体:
                 // 跟随模式以玩家视角为基准(生物正对你时显示正面,背对时显示背面);
                 // 自定义模式按配置角度摆姿势:0° = 正面朝向观察者(等价原「固定」),角度增大为顺时针。
-                livingState.bodyRot = followRotation ? (livingState.bodyRot - mc.player.getYRot()) : (180.0f + customAngle);
+                // 注:这里用减号——渲染状态的 yaw 与旧版管线(1.20/1.21 直接设 entity yaw)手性相反,
+                // 用减号才能让"角度增大"在两个管线家族里呈现同一方向。
+                livingState.bodyRot = followRotation ? (livingState.bodyRot - mc.player.getYRot()) : (180.0f - customAngle);
 
                 // 与 vanilla InventoryScreen / Damage-Indicators 一致:碰撞箱归一到 scale=1,
                 // 因为渲染管线会再乘一次实体自身缩放,不归一会让同一取景比例下的实际大小随实体缩放变化。
