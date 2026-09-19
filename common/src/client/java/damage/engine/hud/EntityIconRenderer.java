@@ -111,10 +111,11 @@ public final class EntityIconRenderer {
      * @param y             区域左上角 y(屏幕坐标,不套用当前 pose)
      * @param size          区域边长(像素)
      * @param alpha         整体透明度(0~1;当前版本的 GUI 实体管线不支持整体透明度,仅用作可见性阈值)
-     * @param followRotation true = 跟随实际朝向(以玩家视角为基准),false = 固定正面朝向观察者
+     * @param followRotation true = 跟随实际朝向(以玩家视角为基准),false = 按自定义角度旋转
+     * @param customAngle    自定义朝向角度(0~360,0 = 正面朝向观察者,顺时针增大;仅 followRotation=false 时生效)
      */
     public static void render(GuiGraphicsExtractor guiGraphics, LivingEntity entity, int x, int y, int size,
-                              float alpha, boolean followRotation) {
+                              float alpha, boolean followRotation, int customAngle) {
         if (guiGraphics == null || entity == null || size <= 0 || alpha <= 0.01f) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -128,8 +129,8 @@ public final class EntityIconRenderer {
             if (state instanceof LivingEntityRenderState livingState) {
                 // 只改渲染状态里的朝向,不改世界中的实体:
                 // 跟随模式以玩家视角为基准(生物正对你时显示正面,背对时显示背面);
-                // 固定模式直接摆成正面朝向观察者(state.yRot 是相对头偏,保持不变即可)。
-                livingState.bodyRot = followRotation ? (livingState.bodyRot - mc.player.getYRot()) : 180.0f;
+                // 自定义模式按配置角度摆姿势:0° = 正面朝向观察者(等价原「固定」),角度增大为顺时针。
+                livingState.bodyRot = followRotation ? (livingState.bodyRot - mc.player.getYRot()) : (180.0f + customAngle);
 
                 // 与 vanilla InventoryScreen / Damage-Indicators 一致:碰撞箱归一到 scale=1,
                 // 因为渲染管线会再乘一次实体自身缩放,不归一会让同一取景比例下的实际大小随实体缩放变化。
