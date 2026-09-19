@@ -40,12 +40,14 @@ public class DamageConfigScreen extends Screen {
     };
     private static final int TAB_COUNT = TAB_KEYS.length;
     
-    // Cursor types for 1.21.11 mouse cursor style support
-    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_HAND = createCursor(0x00036004, "hand");
-    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_EW = createCursor(0x00036005, "ewresize");
-    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_NS = createCursor(0x00036006, "nsresize");
-    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_MOVE = createCursor(0x00036009, "move");
-    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_NWSE = createCursor(0x00036007, "nwseresize");
+    // Cursor types for 1.21.11+ mouse cursor style support.
+    // 26.3 起系统光标由 GLFW 切换为 SDL,硬编码 GLFW 常量会导致光标创建失败回退 DEFAULT(悬停无手型/缩放光标)。
+    // 标准光标统一取 vanilla CursorTypes(版本自适应);对角缩放无 vanilla 对应,26.3 使用 SDL_SYSTEM_CURSOR_SIZENWSE(5)。
+    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_HAND = com.mojang.blaze3d.platform.cursor.CursorTypes.POINTING_HAND;
+    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_EW = com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_EW;
+    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_NS = com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_NS;
+    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_MOVE = com.mojang.blaze3d.platform.cursor.CursorTypes.RESIZE_ALL;
+    public static final com.mojang.blaze3d.platform.cursor.CursorType CURSOR_NWSE = createCursor(5, "nwseresize");
 
     private static com.mojang.blaze3d.platform.cursor.CursorType createCursor(int handle, String name) {
         try {

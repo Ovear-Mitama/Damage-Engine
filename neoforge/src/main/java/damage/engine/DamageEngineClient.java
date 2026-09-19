@@ -39,19 +39,19 @@ public class DamageEngineClient {
         KeyMapping.Category category = KeyMapping.Category.register(net.minecraft.resources.Identifier.fromNamespaceAndPath("damage-engine", "general"));
         configKeyBinding = new KeyMapping(
             "key.damage_engine.config",
-            InputConstants.Type.KEYSYM,
+            InputConstants.Type.KEYBOARD,
             GLFW.GLFW_KEY_UNKNOWN,
             category
         );
         toggleHudKeyBinding = new KeyMapping(
             "key.damage_engine.toggle_hud",
-            InputConstants.Type.KEYSYM,
+            InputConstants.Type.KEYBOARD,
             GLFW.GLFW_KEY_UNKNOWN,
             category
         );
         clearDamageKeyBinding = new KeyMapping(
             "key.damage_engine.clear_damage",
-            InputConstants.Type.KEYSYM,
+            InputConstants.Type.KEYBOARD,
             GLFW.GLFW_KEY_UNKNOWN,
             category
         );
