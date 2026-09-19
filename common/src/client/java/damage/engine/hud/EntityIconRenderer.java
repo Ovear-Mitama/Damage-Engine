@@ -99,6 +99,9 @@ public final class EntityIconRenderer {
             EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
             var camera = mc.gameRenderer.getMainCamera();
             dispatcher.prepare(mc.level, camera, mc.getCameraEntity());
+            // 碰撞箱开关是渲染器上的全局状态:按 F3+B 打开后,若这里只置 false 而不还原,
+            // 之后每帧的世界渲染都会读到 false,碰撞箱会被"自动关闭",故先记录原值以便还原。
+            boolean savedRenderHitBoxes = dispatcher.shouldRenderHitBoxes();
             dispatcher.setRenderShadow(false);
             dispatcher.setRenderHitBoxes(false);
 
@@ -181,6 +184,8 @@ public final class EntityIconRenderer {
                 RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
                 pose.popPose();
                 dispatcher.setRenderShadow(true);
+                // 还原 F3+B 的碰撞箱开关:否则头像渲染会把原版碰撞箱显示永久关掉
+                dispatcher.setRenderHitBoxes(savedRenderHitBoxes);
 
                 entity.yBodyRot = savedBodyRot;
                 entity.yBodyRotO = savedBodyRotO;
