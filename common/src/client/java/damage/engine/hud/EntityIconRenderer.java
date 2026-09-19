@@ -118,7 +118,8 @@ public final class EntityIconRenderer {
 
             // 跟随模式以玩家视角为基准:生物正对你时图标里是正面,转身背对时显示背面;
             // 自定义模式按配置角度摆姿势:0° = 正面朝向观察者(等价原「固定」),角度增大为顺时针。
-            float yawOffset = followRotation ? -mc.player.getYRot() : ((180.0f + customAngle) - savedBodyRot);
+            // 注:这里用减号——GUI 里实体被 z 轴负缩放镜像过,角度按"加"会看到逆时针,减号才是顺时针。
+            float yawOffset = followRotation ? -mc.player.getYRot() : ((180.0f - customAngle) - savedBodyRot);
             entity.yBodyRot = savedBodyRot + yawOffset;
             entity.yBodyRotO = savedBodyRotO + yawOffset;
             entity.setYRot(savedYRot + yawOffset);
