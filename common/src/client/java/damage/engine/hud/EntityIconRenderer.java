@@ -134,7 +134,10 @@ public final class EntityIconRenderer {
             if (bounds != null) {
                 focusX = bounds[0];
                 focusY = bounds[1];
-                scale = Mth.clamp(size * FILL_RATIO / (Math.max(bounds[2], 0.05f) * sizeFactor), 0.3f, 64.0f);
+                // computeModelBounds 返回 {centerX, centerY, centerZ, extent},取景尺寸必须用 extent(下标 3)。
+                // 曾误用下标 2(centerZ):僵尸这类 Z 中心接近 0 的模型取到 0,除法被钳到 scale 上限,
+                // 模型因此被放大约 5 倍、撑满面板。
+                scale = Mth.clamp(size * FILL_RATIO / (Math.max(bounds[3], 0.05f) * sizeFactor), 0.3f, 64.0f);
             } else {
                 // 退化:按碰撞箱取景
                 float height = Math.max(entity.getBbHeight(), 0.1f);
@@ -150,7 +153,7 @@ public final class EntityIconRenderer {
                     entity.getId(), entity.getType().getDescription().getString(),
                     String.format("%.1f", savedBodyRot + yawOffset),
                     bounds == null ? "无(退化)"
-                        : String.format("center=(%.3f,%.3f) extent=%.3f", bounds[0], bounds[1], bounds[2]),
+                        : String.format("center=(%.3f,%.3f) extent=%.3f", bounds[0], bounds[1], bounds[3]),
                     String.format("%.3f", entity.getBbHeight()),
                     String.format("%.2f", scale));
             }

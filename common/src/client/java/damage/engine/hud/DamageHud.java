@@ -17,24 +17,12 @@ import java.util.List;
 
 
 public class DamageHud {
-    /**
-     * 实体头像 scissor 框相对头像槽的放大倍数。
-     * <p>
-     * 允许模型溢出头像槽(溢出部分压在文本/血条下层),但不希望异常模型铺满屏幕,
-     * 故用一个放大的框兜底;同时 enableScissor/disableScissor 负责刷新当前绘制批次,
-     * 不能直接去掉。
-     */
-    private static final float ENTITY_ICON_OVERSIZE = 2.0f;
     private float smoothProgress = 0f;
     private boolean isRefilling = false;
     private int lastComboCount = 0;
     private int infoLastTargetId = -1;
     /** 非玩家追踪目标:用于直接渲染 3D 头像 */
     private LivingEntity infoAvatarEntity = null;
-    /** 当前模块的屏幕变换(供 scissor 换算:scissor 使用屏幕坐标,不套用 pose) */
-    private float moduleScreenX = 0f;
-    private float moduleScreenY = 0f;
-    private float moduleScreenScale = 1f;
     private float infoSmoothRatio = -1f;
     private float infoLagRatio = -1f;
     private float infoHealRatio = -1f;
@@ -309,11 +297,6 @@ public class DamageHud {
 
         int x = moduleConfig.x == -1.0f ? client.getWindow().getGuiScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getGuiScaledWidth());
         int y = moduleConfig.y == -1.0f ? client.getWindow().getGuiScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getGuiScaledHeight());
-
-        // 记录模块变换,供需要按屏幕坐标裁剪的子项(如头像模式)换算使用
-        this.moduleScreenX = x;
-        this.moduleScreenY = y;
-        this.moduleScreenScale = moduleConfig.scale;
 
         guiGraphics.pose().pushPose();
         guiGraphics.pose().translate(x, y, 0);
@@ -864,17 +847,11 @@ public class DamageHud {
                 // 非玩家实体:直接渲染 3D 模型(3D 模型需要深度测试,此处临时开启)
                 float fade = infoAvatarAlpha * globalAlpha;
                 boolean followRotation = !"fixed".equals(DamageEngineConfig.getInstance().entityRenderRotation);
-                // 模型允许溢出头像槽(溢出部分压在文本/血条下层),但用放大的 scissor 兜底,
-                // 避免个别模型铺满屏幕;enableScissor/disableScissor 同时负责刷新当前绘制批次,不能省略。
-                int expand = Math.round(avatarSize * (ENTITY_ICON_OVERSIZE - 1.0f) * 0.5f);
-                int scissorX0 = Math.round(moduleScreenX + (avatarDrawX - expand) * moduleScreenScale);
-                int scissorY0 = Math.round(moduleScreenY + (avatarY - expand) * moduleScreenScale);
-                int scissorX1 = Math.round(moduleScreenX + (avatarDrawX + avatarSize + expand) * moduleScreenScale);
-                int scissorY1 = Math.round(moduleScreenY + (avatarY + avatarSize + expand) * moduleScreenScale);
-                guiGraphics.enableScissor(scissorX0, scissorY0, scissorX1, scissorY1);
+                // 不做边缘裁剪:模型允许溢出头像槽,本段先于下方文本与血条绘制,溢出的模型自然压在文本之下。
+                // 渲染前刷新一次绘制批次,替代原先 enableScissor 顺带完成的批次刷新。
+                guiGraphics.flush();
                 com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
                 EntityIconRenderer.render(guiGraphics, infoAvatarEntity, avatarDrawX, avatarY, avatarSize, fade, followRotation);
-                guiGraphics.disableScissor();
             }
 
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
