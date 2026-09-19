@@ -259,8 +259,13 @@ public class DamageConfigScreen extends Screen {
             v -> { config.entityRenderEnabled = v; markChanged(); },
             Component.translatable("hint.damage-engine.entity_render")));
         addOption(new ModeSelectorEntry("option.damage-engine.entity_render_rotation", config.entityRenderRotation,
-            new String[]{"follow", "fixed"}, Component.translatable("hint.damage-engine.entity_render_rotation"),
-            v -> { config.entityRenderRotation = v; markChanged(); }));
+            new String[]{"follow", "custom"}, Component.translatable("hint.damage-engine.entity_render_rotation"),
+            v -> { config.entityRenderRotation = v; markChanged(); refreshOptions(); }));
+        // 自定义模式才需要角度;切换模式后靠 refreshOptions 让这一行出现/消失
+        if ("custom".equals(config.entityRenderRotation)) {
+            addOption(new IntegerSliderEntry("option.damage-engine.entity_render_rotation_angle", config.entityRenderRotationAngle,
+                0, 360, v -> { config.entityRenderRotationAngle = v; markChanged(); }, true));
+        }
         addOption(new BooleanOptionEntry("option.damage-engine.infoNoRoundedBorder", config.infoNoRoundedBorder, v -> { config.infoNoRoundedBorder = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.infoBackgroundColor", config.infoBackgroundColor, v -> { config.infoBackgroundColor = v; markChanged(); }));
         addOption(new IntegerSliderEntry("option.damage-engine.infoBackgroundOpacity", config.infoBackgroundOpacity, 0, 100, v -> { config.infoBackgroundOpacity = v; markChanged(); }, true));
