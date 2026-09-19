@@ -87,10 +87,11 @@ public final class EntityIconRenderer {
      * @param y             区域左上角 y
      * @param size          区域边长(像素)
      * @param alpha         整体透明度(0~1)
-     * @param followRotation true = 跟随实际朝向(以玩家视角为基准),false = 固定正面朝向观察者
+     * @param followRotation true = 跟随实际朝向(以玩家视角为基准),false = 按自定义角度旋转
+     * @param customAngle    自定义朝向角度(0~360,0 = 正面朝向观察者,顺时针增大;仅 followRotation=false 时生效)
      */
     public static void render(GuiGraphics guiGraphics, LivingEntity entity, int x, int y, int size,
-                              float alpha, boolean followRotation) {
+                              float alpha, boolean followRotation, int customAngle) {
         if (guiGraphics == null || entity == null || alpha <= 0.01f) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -116,8 +117,8 @@ public final class EntityIconRenderer {
             float savedYHeadRotO = entity.yHeadRotO;
 
             // 跟随模式以玩家视角为基准:生物正对你时图标里是正面,转身背对时显示背面;
-            // 固定模式则直接摆成正面朝向观察者。
-            float yawOffset = followRotation ? -mc.player.getYRot() : (180.0f - savedBodyRot);
+            // 自定义模式按配置角度摆姿势:0° = 正面朝向观察者(等价原「固定」),角度增大为顺时针。
+            float yawOffset = followRotation ? -mc.player.getYRot() : ((180.0f + customAngle) - savedBodyRot);
             entity.yBodyRot = savedBodyRot + yawOffset;
             entity.yBodyRotO = savedBodyRotO + yawOffset;
             entity.setYRot(savedYRot + yawOffset);
@@ -172,8 +173,10 @@ public final class EntityIconRenderer {
             pose.mulPose(angle);
 
             Lighting.setupForEntityInInventory();
-            // 覆盖相机朝向,使火焰等公告板元素朝向 GUI 观察者
-            dispatcher.overrideCameraOrientation(new Quaternionf(angle).conjugate().rotateY((float) Math.PI));
+            // 覆盖相机朝向:1.20.1 的 renderFlame 直接把它当作公告板旋转(mulPose)。
+            // 不能传 pose 的逆——那是绕 Z 轴 180°,会把火焰面片翻到背面(被面剔除)导致完全不显示;
+            // 这里改传一个合法的 Y 轴 180°:水平旋转不歪斜,且让面片朝向 GUI 观察者。
+            dispatcher.overrideCameraOrientation(new Quaternionf().rotateY((float) Math.PI));
 
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
             try {
