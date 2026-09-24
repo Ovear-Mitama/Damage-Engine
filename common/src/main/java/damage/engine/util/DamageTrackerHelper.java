@@ -10,7 +10,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.projectile.ThrownPotion;
 import net.minecraft.world.damagesource.DamageSource;
-import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.phys.AABB;
 import net.minecraft.util.Mth;
 import org.slf4j.Logger;
@@ -111,7 +110,7 @@ public class DamageTrackerHelper {
 
         boolean wasCrit = false;
         if (source.getEntity() instanceof Player attacker) {
-            if (attacker.fallDistance > 0.0F && !attacker.onGround()
+            if (attacker.fallDistance > 0.0F && !attacker.isOnGround()
                 && !attacker.onClimbable() && !attacker.isInWater()) {
                 wasCrit = true;
             }
@@ -139,11 +138,14 @@ public class DamageTrackerHelper {
             }
         }
 
-        if (attacker == null && (source.is(DamageTypes.ON_FIRE) || source.is(DamageTypes.IN_FIRE))) {
+        // 1.19 没有 DamageTypes(1.19.4 才引入),用 DamageSource 常量的 msgId 做等价判断:
+        // source.is(DamageTypes.ON_FIRE) || source.is(DamageTypes.IN_FIRE)
+        if (attacker == null && (DamageSource.ON_FIRE.getMsgId().equals(source.getMsgId())
+            || DamageSource.IN_FIRE.getMsgId().equals(source.getMsgId()))) {
             // 阳光燃烧属于环境伤害:白天露天且未在水/雨中时不归属给最后攻击者,
             // 否则"打过一下的怪被太阳烧"会把这串燃烧跳伤全算成玩家造成的。
             if (!isSunlightBurn(self)) {
-                attacker = self.getLastAttacker();
+                attacker = self.getLastHurtByMob();
             }
         }
 
@@ -218,8 +220,8 @@ public class DamageTrackerHelper {
 
         String debugInfo = "";
         if (DamageEngineConfig.getInstance().debugMode) {
-            String attackerName = source != null ? source.type().msgId() : "unknown";
-            if (snap.attackerId != 0 && self.level() instanceof ServerLevel serverWorld) {
+            String attackerName = source != null ? source.getMsgId() : "unknown";
+            if (snap.attackerId != 0 && self.getLevel() instanceof ServerLevel serverWorld) {
                 Entity attacker = serverWorld.getEntity(snap.attackerId);
                 if (attacker != null) {
                     attackerName = attacker.getName().getString();
@@ -232,7 +234,7 @@ public class DamageTrackerHelper {
 
         boolean killed = (!self.isAlive() || self.getHealth() <= 0f) && snap.prevHealth > 0f;
 
-        if ((actualDamage > 0 || killed) && broadcaster != null && self.level() instanceof ServerLevel sw) {
+        if ((actualDamage > 0 || killed) && broadcaster != null && self.getLevel() instanceof ServerLevel sw) {
             int tick = (int) sw.getGameTime();
             int directId = source != null && source.getDirectEntity() != null ? source.getDirectEntity().getId() : -1;
             int targetId = self.getId();
@@ -274,9 +276,9 @@ public class DamageTrackerHelper {
     private static boolean isSunlightBurn(LivingEntity self) {
         try {
             if (!self.fireImmune()) {
-                return self.level().isDay()
+                return self.getLevel().isDay()
                     && !self.isInWaterRainOrBubble()
-                    && self.level().canSeeSky(net.minecraft.core.BlockPos.containing(self.getX(), self.getEyeY(), self.getZ()));
+                    && self.getLevel().canSeeSky(new net.minecraft.core.BlockPos(self.getX(), self.getEyeY(), self.getZ()));
             }
         } catch (Exception ignored) {
         }

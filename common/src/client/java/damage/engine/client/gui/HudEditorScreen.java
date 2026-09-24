@@ -3,7 +3,8 @@ package damage.engine.client.gui;
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageSessionManager;
-import net.minecraft.client.gui.GuiGraphics;
+import com.mojang.blaze3d.vertex.PoseStack;
+import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -52,7 +53,7 @@ public class HudEditorScreen extends Screen {
     
     public void playClickSound() {
         try {
-             net.minecraft.client.resources.sounds.SimpleSoundInstance sound = net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.value(), 1.0F);
+             net.minecraft.client.resources.sounds.SimpleSoundInstance sound = net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F);
              
              Minecraft.getInstance().getSoundManager().play(sound);
         } catch (Exception e) {
@@ -177,20 +178,21 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics);
+    public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        this.renderBackground(pose);
         
         for (EditorModule m : modules) {
-            renderModule(guiGraphics, m);
+            renderModule(pose, m);
         }
         
         if (selectedModule != null) {
-            drawSelection(guiGraphics, selectedModule);
+            drawSelection(pose, selectedModule);
         }
         
         for (net.minecraft.client.gui.components.events.GuiEventListener element : this.children()) {
-            if (element instanceof net.minecraft.client.gui.components.Renderable) {
-                ((net.minecraft.client.gui.components.Renderable) element).render(guiGraphics, mouseX, mouseY, delta);
+            if (element instanceof net.minecraft.client.gui.components.Widget) {
+                ((net.minecraft.client.gui.components.Widget) element).render(pose, mouseX, mouseY, delta);
             }
         }
         
@@ -202,8 +204,8 @@ public class HudEditorScreen extends Screen {
 
 
     
-    private void renderModule(GuiGraphics guiGraphics, EditorModule m) {
-        damageHud.renderModule(guiGraphics, m.config, this.minecraft, 1.0f, () -> {
+    private void renderModule(PoseStack pose, EditorModule m) {
+        damageHud.renderModule(pose, m.config, this.minecraft, 1.0f, () -> {
             switch (m.type) {
                 case TOTAL:
                     int previewLimit = DamageEngineConfig.getInstance().historyLimit;
@@ -215,25 +217,26 @@ public class HudEditorScreen extends Screen {
                         previewTotal += dmg;
                         history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0L, 0));
                     }
-                    damageHud.renderTotalDamage(guiGraphics, previewTotal, 0.7f, true, 1.0f, previewLimit, this.minecraft);
-                    damageHud.renderHistory(guiGraphics, history, true, 1.0f, this.minecraft);
+                    damageHud.renderTotalDamage(pose, previewTotal, 0.7f, true, 1.0f, previewLimit, this.minecraft);
+                    damageHud.renderHistory(pose, history, true, 1.0f, this.minecraft);
                     break;
                 case RATING:
                     damageHud.cyclePreviewGrades();
-                    damageHud.renderRating(guiGraphics, true, 1.0f, this.minecraft);
+                    damageHud.renderRating(pose, true, 1.0f, this.minecraft);
                     break;
                 case INFO:
-                    damageHud.renderInfo(guiGraphics, null, true, 1.0f, this.minecraft);
+                    damageHud.renderInfo(pose, null, true, 1.0f, this.minecraft);
                     break;
             }
         });
     }
     
-    private void drawSelection(GuiGraphics guiGraphics, EditorModule m) {
+    private void drawSelection(PoseStack pose, EditorModule m) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         int[] b = getBounds(m);
         int greenColor = 0xFFB5F0C6;
         
-        drawBorder(guiGraphics, b[0], b[1], b[2], b[3], greenColor);
+        drawBorder(pose, b[0], b[1], b[2], b[3], greenColor);
         
         int handleSize = 5;
         int hx = b[0] + b[2] - handleSize;
@@ -241,7 +244,8 @@ public class HudEditorScreen extends Screen {
         guiGraphics.fill(hx, hy, hx + handleSize, hy + handleSize, greenColor);
     }
     
-    private void drawBorder(GuiGraphics guiGraphics, int x, int y, int width, int height, int color) {
+    private void drawBorder(PoseStack pose, int x, int y, int width, int height, int color) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         guiGraphics.fill(x, y, x + width, y + 1, color);
         guiGraphics.fill(x, y + height - 1, x + width, y + height, color);
         guiGraphics.fill(x, y + 1, x + 1, y + height - 1, color);
@@ -468,10 +472,11 @@ public class HudEditorScreen extends Screen {
         }
 
         @Override
-        public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-            this.renderBackground(guiGraphics);
+        public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+            GuiGraphics guiGraphics = GuiGraphics.of(pose);
+            this.renderBackground(pose);
             guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 10, 0xFFFFFFFF);
-            super.render(guiGraphics, mouseX, mouseY, delta);
+            super.render(pose, mouseX, mouseY, delta);
         }
 
         @Override

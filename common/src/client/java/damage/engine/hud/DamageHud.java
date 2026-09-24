@@ -4,9 +4,11 @@ import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.PlayerFaceRenderer;
+import com.mojang.blaze3d.vertex.PoseStack;
+import damage.engine.compat.GuiGraphics;
+import damage.engine.compat.PlayerFaceRenderer;
 import net.minecraft.client.player.AbstractClientPlayer;
+import net.minecraft.client.resources.DefaultPlayerSkin;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.network.chat.Component;
@@ -14,6 +16,7 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 
 public class DamageHud {
@@ -62,17 +65,25 @@ public class DamageHud {
     private String previewGrade = "";
     private int previewGradeColor = 0xFFFFFFFF;
 
-    private static final ResourceLocation STEVE_SKIN = new ResourceLocation("textures/entity/player/wide/steve.png");
+    /** 没有玩家实体时(主菜单里开预览)用的兜底皮肤 UUID。 */
+    private static final UUID FALLBACK_SKIN_UUID = new UUID(0L, 0L);
 
     /**
-     * Get the player's skin texture. Uses in-game player if available, otherwise Steve fallback.
-     * When you're in-game, this returns your own skin.
+     * Get the player's skin texture. Uses in-game player if available, otherwise the vanilla
+     * default skin.
+     * <p>
+     * 默认皮肤路径各版本不同(1.19.2 是 {@code textures/entity/steve.png},1.19.3 起改成
+     * {@code textures/entity/player/wide/steve.png}),写死会在不匹配的版本上变成缺失贴图
+     * —— 预览里的信息头像会整块发紫。这里交由 {@link DefaultPlayerSkin} 按版本返回。
      */
     private static ResourceLocation getPlayerSkin(Minecraft client) {
         if (client.player != null) {
-            return client.player.getSkinTextureLocation();
+            ResourceLocation skin = client.player.getSkinTextureLocation();
+            if (skin != null) {
+                return skin;
+            }
         }
-        return new ResourceLocation("textures/entity/player/wide/steve.png");
+        return DefaultPlayerSkin.getDefaultSkin(FALLBACK_SKIN_UUID);
     }
 
     public void cyclePreviewGrades() {
@@ -84,7 +95,8 @@ public class DamageHud {
         }
     }
 
-    public void onHudRender(GuiGraphics guiGraphics, float partialTick) {
+    public void onHudRender(PoseStack pose, float partialTick) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         try {
             Minecraft client = Minecraft.getInstance();
             if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
@@ -109,8 +121,8 @@ public class DamageHud {
             updateInfoAnimation(session, client);
             if (config.showInfo && infoAlpha > 0.01f) {
                 float a = infoAlpha;
-                renderModule(guiGraphics, config.infoConfig, client, a, () -> {
-                    renderInfo(guiGraphics, session, false, a, client);
+                renderModule(pose, config.infoConfig, client, a, () -> {
+                    renderInfo(pose, session, false, a, client);
                 });
             }
 
@@ -134,7 +146,7 @@ public class DamageHud {
                 }
                 
                 if (globalAlpha > 0.01f) {
-                    renderDamageContent(guiGraphics, session.getTotalDamage(), session.getComboCount(),
+                    renderDamageContent(pose, session.getTotalDamage(), session.getComboCount(),
                         session.getRemainingTimeProgress(), session.getDamageHistory(), false, globalAlpha);
                 }
             } else {
@@ -145,7 +157,8 @@ public class DamageHud {
         }
     }
 
-    public void renderPreview(GuiGraphics guiGraphics, int centerX, int centerY) {
+    public void renderPreview(PoseStack pose, int centerX, int centerY) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         Minecraft client = Minecraft.getInstance();
 
@@ -168,38 +181,40 @@ public class DamageHud {
             previewGradeColor = grades.get(idx).color;
         }
 
-        renderDamageContent(guiGraphics, total, combo, progress, history, true, 1.0f);
+        renderDamageContent(pose, total, combo, progress, history, true, 1.0f);
 
         if (config.showInfo) {
-            renderModule(guiGraphics, config.infoConfig, client, 1.0f, () -> {
-                renderInfo(guiGraphics, null, true, 1.0f, client);
+            renderModule(pose, config.infoConfig, client, 1.0f, () -> {
+                renderInfo(pose, null, true, 1.0f, client);
             });
         }
     }
 
-    private void renderDamageContent(GuiGraphics guiGraphics, float total, int combo, float targetProgress, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha) {
+    private void renderDamageContent(PoseStack pose, float total, int combo, float targetProgress, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         Minecraft client = Minecraft.getInstance();
 
         RatingManager rm = RatingManager.getInstance();
         if ((isPreview && config.showRating) || (!isPreview && config.showRating && rm.isVisible())) {
-            renderModule(guiGraphics, config.ratingConfig, client, globalAlpha, () -> {
-                renderRating(guiGraphics, isPreview, globalAlpha, client);
+            renderModule(pose, config.ratingConfig, client, globalAlpha, () -> {
+                renderRating(pose, isPreview, globalAlpha, client);
             });
         }
 
         if (!isPreview || config.showDamageDisplay) {
-            renderModule(guiGraphics, config.totalDamageConfig, client, globalAlpha, () -> {
-                renderTotalDamage(guiGraphics, total, targetProgress, isPreview, globalAlpha, combo, client);
+            renderModule(pose, config.totalDamageConfig, client, globalAlpha, () -> {
+                renderTotalDamage(pose, total, targetProgress, isPreview, globalAlpha, combo, client);
 
                 if (config.showDamageHistory) {
-                    renderHistory(guiGraphics, history, isPreview, globalAlpha, client);
+                    renderHistory(pose, history, isPreview, globalAlpha, client);
                 }
             });
         }
     }
 
-    public void renderRating(GuiGraphics guiGraphics, boolean isPreview, float globalAlpha, Minecraft client) {
+    public void renderRating(PoseStack pose, boolean isPreview, float globalAlpha, Minecraft client) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         Font font = client.font;
         RatingManager rm = RatingManager.getInstance();
         int baseAlpha = (int)(255 * globalAlpha);
@@ -292,7 +307,8 @@ public class DamageHud {
         }
     }
 
-    public void renderModule(GuiGraphics guiGraphics, DamageEngineConfig.ModuleConfig moduleConfig, Minecraft client, float globalAlpha, Runnable renderAction) {
+    public void renderModule(PoseStack pose, DamageEngineConfig.ModuleConfig moduleConfig, Minecraft client, float globalAlpha, Runnable renderAction) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         if (!moduleConfig.enabled) return;
 
         int x = moduleConfig.x == -1.0f ? client.getWindow().getGuiScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getGuiScaledWidth());
@@ -307,7 +323,8 @@ public class DamageHud {
         guiGraphics.pose().popPose();
     }
 
-    public void renderTotalDamage(GuiGraphics guiGraphics, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
+    public void renderTotalDamage(PoseStack pose, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         Font font = client.font;
         int baseAlpha = (int)(255 * globalAlpha);
 
@@ -436,7 +453,8 @@ public class DamageHud {
         guiGraphics.pose().popPose();
     }
 
-    public void renderHistory(GuiGraphics guiGraphics, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha, Minecraft client) {
+    public void renderHistory(PoseStack pose, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha, Minecraft client) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         Font font = client.font;
         int limit = DamageEngineConfig.getInstance().historyLimit;
         int decimalPlaces = DamageEngineConfig.getInstance().historyDecimalPlaces;
@@ -530,7 +548,7 @@ public class DamageHud {
                     if (skin != null) {
                         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
                         // drawString's y is the text top; align the avatar's top with it
-                        PlayerFaceRenderer.draw(guiGraphics, skin, (int)(xPos - 11), (int)yPos, 8);
+                        PlayerFaceRenderer.draw(pose, skin, (int)(xPos - 11), (int)yPos, 8);
                         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
                     }
                 }
@@ -539,7 +557,7 @@ public class DamageHud {
             // Draw player avatar for preview mode
             if (avatarGap > 0 && previewSkin != null) {
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
-                PlayerFaceRenderer.draw(guiGraphics, previewSkin, (int)(xPos - avatarGap), (int)yPos, 8);
+                PlayerFaceRenderer.draw(pose, previewSkin, (int)(xPos - avatarGap), (int)yPos, 8);
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             }
 
@@ -572,7 +590,9 @@ public class DamageHud {
 
             int targetId = session.getLastTargetEntityId();
             if (targetId != infoLastTargetId) {
-                if (!wasInactive && infoSmoothRatio >= 0) {
+                // 切换目标时面板仍在显示(不是首次出现)
+                boolean switchingWhileVisible = !wasInactive && infoSmoothRatio >= 0;
+                if (switchingWhileVisible) {
                     infoPrevSmoothRatio = infoSmoothRatio;
                     infoPrevLagRatio = infoLagRatio;
                     infoPrevHealRatio = infoHealRatio;
@@ -592,8 +612,17 @@ public class DamageHud {
                 infoDamageTailActive = false;
                 infoDamageTailPending = false;
                 infoHealthLastUpdateMs = 0;
-                // Update avatar state when target changes
-                infoAvatarFactor = targetAvatar ? 1.0f : 0.0f;
+                if (switchingWhileVisible) {
+                    // 头像槽的宽度只取决于"是否占用头像槽",切换目标前后并不会变。
+                    // 这里若按 targetAvatar 归零再展开,面板背景(hud 面板宽度由头像槽撑开)
+                    // 就会跟着重新展开一次 —— 表现为"切换生物目标时背景又做了一次切换动画"。
+                    // 故切换时直接把槽位置为目标状态,不做展开动画。
+                    boolean showsAvatar = targetAvatar || DamageEngineConfig.getInstance().entityRenderEnabled;
+                    infoAvatarFactor = showsAvatar ? 1.0f : 0.0f;
+                } else {
+                    // 首次出现:保留头像槽从 0 展开的入场动画
+                    infoAvatarFactor = targetAvatar ? 1.0f : 0.0f;
+                }
                 infoAvatarAlpha = infoAvatarFactor;
             }
 
@@ -699,7 +728,8 @@ public class DamageHud {
         infoAbsorption = target.getAbsorptionAmount();
     }
 
-    public void renderInfo(GuiGraphics guiGraphics, DamageSessionManager session, boolean isPreview, float globalAlpha, Minecraft client) {
+    public void renderInfo(PoseStack pose, DamageSessionManager session, boolean isPreview, float globalAlpha, Minecraft client) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         float health;
         float maxHealth;
         float absorption;
@@ -783,7 +813,7 @@ public class DamageHud {
         if (DamageEngineConfig.getInstance().infoNoRoundedBorder) {
             guiGraphics.fill(baseX - 2, baseY - 2, baseX + panelW + 2, baseY + panelH + 2, bg);
         } else {
-            drawRoundedRect(guiGraphics, baseX - 2, baseY - 2, panelW + 4, panelH + 4, 3, bg);
+            drawRoundedRect(pose, baseX - 2, baseY - 2, panelW + 4, panelH + 4, 3, bg);
         }
 
         Font font = client.font;
@@ -824,7 +854,7 @@ public class DamageHud {
                     if (skinToDraw != null) {
                         float fade = infoAvatarAlpha * globalAlpha;
                         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, fade);
-                        PlayerFaceRenderer.draw(guiGraphics, skinToDraw, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize);
+                        PlayerFaceRenderer.draw(pose, skinToDraw, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize);
                     }
                 } else {
                     if (switchT < 0.5f) {
@@ -832,14 +862,14 @@ public class DamageHud {
                             float localT = switchT * 2.0f;
                             float alpha = infoAvatarAlpha * (1.0f - localT) * globalAlpha;
                             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-                            PlayerFaceRenderer.draw(guiGraphics, infoPrevResourceLocation, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize);
+                            PlayerFaceRenderer.draw(pose, infoPrevResourceLocation, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize);
                         }
                     } else {
                         if (skinToDraw != null) {
                             float localT = (switchT - 0.5f) * 2.0f;
                             float alpha = infoAvatarAlpha * localT * globalAlpha;
                             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
-                            PlayerFaceRenderer.draw(guiGraphics, skinToDraw, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize);
+                            PlayerFaceRenderer.draw(pose, skinToDraw, avatarDrawX + faceOffset, avatarY + faceOffset, faceSize);
                         }
                     }
                 }
@@ -852,7 +882,7 @@ public class DamageHud {
                 // 渲染前刷新一次绘制批次,替代原先 enableScissor 顺带完成的批次刷新。
                 guiGraphics.flush();
                 com.mojang.blaze3d.systems.RenderSystem.enableDepthTest();
-                EntityIconRenderer.render(guiGraphics, infoAvatarEntity, avatarDrawX, avatarY, avatarSize, fade, followRotation, rotationAngle);
+                EntityIconRenderer.render(pose, infoAvatarEntity, avatarDrawX, avatarY, avatarSize, fade, followRotation, rotationAngle);
             }
 
             com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -885,7 +915,7 @@ public class DamageHud {
         int barBg = ((int)(128 * globalAlpha) << 24);
         boolean rounded = !DamageEngineConfig.getInstance().infoNoRoundedBorder;
         if (rounded) {
-            drawRoundedRect(guiGraphics, barX, barY, barW, barH, barH / 2, barBg);
+            drawRoundedRect(pose, barX, barY, barW, barH, barH / 2, barBg);
         } else {
             guiGraphics.fill(barX, barY, barX + barW, barY + barH, barBg);
         }
@@ -971,21 +1001,21 @@ public class DamageHud {
 
             int fillW = (int)Math.floor(barW * s);
             int barColorWithAlpha = (barColor & 0x00FFFFFF) | (a << 24);
-            drawBarFill(guiGraphics, barX, barY, fillW, barH, barColorWithAlpha, rounded);
+            drawBarFill(pose, barX, barY, fillW, barH, barColorWithAlpha, rounded);
 
             if (heal > s) {
                 int healStart = barX + (int)Math.floor(barW * s);
                 int healEnd = barX + (int)Math.floor(barW * heal);
                 int healAlpha = (int)(a * 0.45f);
                 int healColor = (healColorBase & 0x00FFFFFF) | (healAlpha << 24);
-                drawBarSegment(guiGraphics, healStart, barY, healEnd - healStart, barH, healColor, rounded);
+                drawBarSegment(pose, healStart, barY, healEnd - healStart, barH, healColor, rounded);
             }
 
             if (infoPrevDamageTailActive && lag > s) {
                 int lagStart = barX + (int)Math.floor(barW * s);
                 int lagEnd = barX + (int)Math.floor(barW * lag);
                 int lagColor = (damageColorBase & 0x00FFFFFF) | (a << 24);
-                drawBarSegment(guiGraphics, lagStart, barY, lagEnd - lagStart, barH, lagColor, rounded);
+                drawBarSegment(pose, lagStart, barY, lagEnd - lagStart, barH, lagColor, rounded);
             }
         }
 
@@ -994,21 +1024,21 @@ public class DamageHud {
             int a = (int)(baseAlpha * newMul);
             int fillW = (int)Math.floor(barW * infoSmoothRatio);
             int barColorWithAlpha = (barColor & 0x00FFFFFF) | (a << 24);
-            drawBarFill(guiGraphics, barX, barY, fillW, barH, barColorWithAlpha, rounded);
+            drawBarFill(pose, barX, barY, fillW, barH, barColorWithAlpha, rounded);
 
             if (infoHealRatio > infoSmoothRatio) {
                 int healStart = barX + (int)Math.floor(barW * infoSmoothRatio);
                 int healEnd = barX + (int)Math.floor(barW * infoHealRatio);
                 int healAlpha = (int)(a * 0.45f);
                 int healColor = (healColorBase & 0x00FFFFFF) | (healAlpha << 24);
-                drawBarSegment(guiGraphics, healStart, barY, healEnd - healStart, barH, healColor, rounded);
+                drawBarSegment(pose, healStart, barY, healEnd - healStart, barH, healColor, rounded);
             }
 
             if (infoDamageTailActive && infoLagRatio > infoSmoothRatio) {
                 int lagStart = barX + (int)Math.floor(barW * infoSmoothRatio);
                 int lagEnd = barX + (int)Math.floor(barW * infoLagRatio);
                 int lagColor = (damageColorBase & 0x00FFFFFF) | (a << 24);
-                drawBarSegment(guiGraphics, lagStart, barY, lagEnd - lagStart, barH, lagColor, rounded);
+                drawBarSegment(pose, lagStart, barY, lagEnd - lagStart, barH, lagColor, rounded);
                 if (Math.abs(infoLagRatio - infoSmoothRatio) < 0.0025f) {
                     infoDamageTailActive = false;
                 }
@@ -1048,7 +1078,8 @@ public class DamageHud {
         return DamageNumberFormat.formatDamage(damage, decimalPlaces);
     }
 
-    private static void drawRoundedRect(GuiGraphics guiGraphics, int x, int y, int w, int h, int radius, int color) {
+    private static void drawRoundedRect(PoseStack pose, int x, int y, int w, int h, int radius, int color) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         if (radius <= 0 || w < radius * 2 || h < radius * 2) {
             guiGraphics.fill(x, y, x + w, y + h, color);
             return;
@@ -1064,15 +1095,17 @@ public class DamageHud {
         }
     }
 
-    private static void drawBarFill(GuiGraphics guiGraphics, int x, int y, int w, int h, int color, boolean rounded) {
+    private static void drawBarFill(PoseStack pose, int x, int y, int w, int h, int color, boolean rounded) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         if (rounded && w > 0) {
-            drawRoundedRect(guiGraphics, x, y, w, h, h / 2, color);
+            drawRoundedRect(pose, x, y, w, h, h / 2, color);
         } else {
             guiGraphics.fill(x, y, x + w, y + h, color);
         }
     }
 
-    private static void drawBarSegment(GuiGraphics guiGraphics, int x, int y, int w, int h, int color, boolean rounded) {
+    private static void drawBarSegment(PoseStack pose, int x, int y, int w, int h, int color, boolean rounded) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         if (!rounded || w <= 0 || h < 4) {
             guiGraphics.fill(x, y, x + w, y + h, color);
             return;

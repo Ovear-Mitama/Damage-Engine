@@ -16,7 +16,7 @@ import io.netty.buffer.Unpooled;
 
 public class DamageEngine implements ModInitializer {
 	public static final String MOD_ID = "damage-engine";
-	public static final String MOD_VERSION = "1.4.7.3";
+	public static final String MOD_VERSION = "1.4.7.4";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
 	public static final ResourceLocation DAMAGE_PACKET_ID = new ResourceLocation(MOD_ID, "damage_packet");
@@ -56,7 +56,9 @@ public class DamageEngine implements ModInitializer {
 		DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
 			TaczCompat.tryGetTaczShooter(directSource));
 
-		// TaCZ: Refabricated compatibility (headshot -> crit). Only when TaCZ is installed.
+		// TaCZ compatibility (headshot -> crit). Only when TaCZ is installed.
+		// 注意:TaCZ 本体只有 Forge 版,"TaCZ: Refabricated" 无 1.19.2 构建,
+		// 因此 Fabric 端这里是空实现(见 TaczFabricCompat);子弹/射手识别走反射,仍然生效。
 		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("tacz")) {
 			try {
 				damage.engine.compat.tacz.TaczFabricCompat.init();

@@ -1,9 +1,10 @@
 package damage.engine.client.gui;
 
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Renderable;
+import com.mojang.blaze3d.vertex.PoseStack;
+import damage.engine.compat.GuiGraphics;
+import net.minecraft.client.gui.components.Widget;
 
-public class TextDrawable implements Renderable {
+public class TextDrawable implements Widget {
     private final String text;
     private final int x, y;
     private final int color;
@@ -18,7 +19,8 @@ public class TextDrawable implements Renderable {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
+    public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         guiGraphics.drawString(font, text, x, y, color);
     }
 }

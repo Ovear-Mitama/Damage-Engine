@@ -26,7 +26,7 @@ public final class ClientHealthMonitor {
     private ClientHealthMonitor() {}
 
     public static void onTick(LivingEntity self) {
-        if (!self.level().isClientSide()) return;
+        if (!self.getLevel().isClientSide()) return;
 
         int id = self.getId();
         float h = self.getHealth();

@@ -2,7 +2,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'net.minecraftforge.gradle' version '[5.1,5.2)'
 }
 
 tasks.named('wrapper', Wrapper).configure {
@@ -34,7 +34,7 @@ sourceSets {
 }
 
 minecraft {
-    mappings channel: 'official', version: '1.20.1'
+    mappings channel: 'official', version: '1.19'
 
     accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
 
@@ -89,15 +89,21 @@ repositories {
             includeGroup "curse.maven"
         }
     }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content {
+            includeGroup "maven.modrinth"
+        }
+    }
 }
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    compileOnly fg.deobf("curse.maven:timeless-and-classics-zero-1028108:${tacz_file_id}")
-    // Run TaCZ from the classpath in dev (deobfuscated, matches the dev mojmap
-    // environment) instead of the raw mods/ jar - the raw release jar's mixins
-    // use SRG names and fail to apply in the forge dev (mapped_official) runtime.
-    // TaCZ not loaded at runtime in dev (compileOnly only).
+    // TaCZ (Timeless and Classics Zero) - compileOnly, optional at runtime.
+    // 只用于编译"爆头算暴击"的事件钩子;运行期由 Class.forName 守卫,玩家没装 TaCZ 也不会加载。
+    // 用 Modrinth maven 而不是 CurseForge(cursemaven 需要文件 id,Modrinth 直接用版本号)。
+    compileOnly fg.deobf("maven.modrinth:timeless-and-classics-zero:${tacz_version}")
 }
 
 tasks.withType(ProcessResources).configureEach {

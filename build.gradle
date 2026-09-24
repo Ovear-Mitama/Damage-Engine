@@ -82,12 +82,12 @@ dependencies {
     // the dev runtime (jar-in-jar deps are not unpacked on the dev classpath and the
     // dependency chain is heavy). Headshot->crit compatibility activates only when the
     // player has TaCZ installed in their own game.
-    modCompileOnly "curse.maven:tacz-refabricated-1334246:${project.tacz_refabricated_file_id}"
+    // 1.19 尝试构建:先停用(需要 1.19 对应的 TaCZ 构建;否则 1.20.1 的类会污染编译错误清单)
+    // modCompileOnly "curse.maven:tacz-refabricated-1334246:${project.tacz_refabricated_file_id}"
 }
 
 processResources {
 	inputs.property "version", project.version
-
 	filesMatching("fabric.mod.json") {
 		expand "version": inputs.properties.version
 	}
