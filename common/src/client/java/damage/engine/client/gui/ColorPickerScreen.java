@@ -346,8 +346,8 @@ public class ColorPickerScreen extends Screen {
         g.fill(bx, y + FIELD_H - 1, bx + FIELD_W, y + FIELD_H, bc);
         g.fill(bx, y, bx + 1, y + FIELD_H, bc);
         g.fill(bx + FIELD_W - 1, y, bx + FIELD_W, y + FIELD_H, bc);
-        field.x = bx + 3;
-        field.y = y + 5;
+        field.setX(bx + 3);
+        field.setY(y + 5);
         field.setWidth(FIELD_W - 6);
         field.render(pose, mx, my, 0f);
     }

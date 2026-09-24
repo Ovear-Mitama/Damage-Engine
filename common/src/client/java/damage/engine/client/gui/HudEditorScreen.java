@@ -191,8 +191,8 @@ public class HudEditorScreen extends Screen {
         }
         
         for (net.minecraft.client.gui.components.events.GuiEventListener element : this.children()) {
-            if (element instanceof net.minecraft.client.gui.components.Widget) {
-                ((net.minecraft.client.gui.components.Widget) element).render(pose, mouseX, mouseY, delta);
+            if (element instanceof net.minecraft.client.gui.components.Renderable) {
+                ((net.minecraft.client.gui.components.Renderable) element).render(pose, mouseX, mouseY, delta);
             }
         }
         

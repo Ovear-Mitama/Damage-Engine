@@ -1,6 +1,5 @@
 package damage.engine;
 
-import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.DamagePayload;
 import damage.engine.network.HandshakePayload;
 import damage.engine.util.DamageTrackerHelper;
@@ -50,22 +49,6 @@ public class DamageEngine implements ModInitializer {
 				ServerPlayNetworking.send(player, DAMAGE_PACKET_ID, buf);
 			}
 		});
-
-		// Mod compat: allow external mods (e.g. TACZ) to resolve the attacker from
-		// the direct damage source (bullet). Reflection-based, safe when TACZ is absent.
-		DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
-			TaczCompat.tryGetTaczShooter(directSource));
-
-		// TaCZ compatibility (headshot -> crit). Only when TaCZ is installed.
-		// 注意:TaCZ 本体只有 Forge 版,"TaCZ: Refabricated" 无 1.19.2 构建,
-		// 因此 Fabric 端这里是空实现(见 TaczFabricCompat);子弹/射手识别走反射,仍然生效。
-		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("tacz")) {
-			try {
-				damage.engine.compat.tacz.TaczFabricCompat.init();
-			} catch (Throwable t) {
-				LOGGER.warn("Failed to enable TaCZ compatibility: {}", t.toString());
-			}
-		}
 
 		// Flush any pending (merged) damage payload at the end of each server tick.
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(

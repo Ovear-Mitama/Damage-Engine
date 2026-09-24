@@ -56,7 +56,7 @@ public class ConfirmExitScreen extends Screen {
 
         // Render widgets manually (avoid super.render() blur)
         for (var child : this.children()) {
-            if (child instanceof net.minecraft.client.gui.components.Widget r) {
+            if (child instanceof net.minecraft.client.gui.components.Renderable r) {
                 r.render(pose, mouseX, mouseY, delta);
             }
         }

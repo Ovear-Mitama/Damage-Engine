@@ -1,7 +1,6 @@
 package damage.engine;
 
 import com.mojang.logging.LogUtils;
-import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.NetworkHandler;
 import damage.engine.util.DamageTrackerHelper;
 import net.minecraftforge.common.MinecraftForge;
@@ -52,40 +51,6 @@ public class DamageEngine {
 		DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
 			() -> () -> new DamageEngineClient());
 
-		// Register TACZ compat attacker resolver
-		DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
-			TaczCompat.tryGetTaczShooter(directSource));
-		LOGGER.info("TACZ compatibility handler registered.");
-
-		// Forge-side TaCZ headshot hook: only when TaCZ is loaded.
-		try {
-			Class.forName("com.tacz.guns.api.event.common.EntityHurtByGunEvent$Pre");
-			damage.engine.compat.tacz.TaczForgeCompat.register(MinecraftForge.EVENT_BUS);
-			LOGGER.info("TaCZ headshot event hook registered.");
-		} catch (Throwable t) {
-			// TaCZ not loaded - headshot hook stays inactive.
-		}
-
-		// Epic Fight compat: Epic Fight's LivingHurtEvent handler runs at the default
-		// (NORMAL) priority and recalculates the damage amount (armor penetration,
-		// damage modifiers, executions). The snapshot above was captured at HIGHEST
-		// with the pre-modification amount; re-capture the final amount at LOWEST so
-		// entities that accept the hit without losing health (e.g. test dummies
-		// intercepting setHealth) fall back to Epic Fight's real damage value.
-		try {
-			Class.forName("yesman.epicfight.main.EpicFightMod");
-			MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
-				(LivingHurtEvent event) -> {
-				int id = event.getEntity().getId();
-				DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.get(id);
-				if (snap != null) {
-					PRE_DAMAGE_SNAPS.put(id, snap.withSourceAmount(event.getAmount()));
-				}
-			});
-			LOGGER.info("Epic Fight compatibility handler registered.");
-		} catch (Throwable t) {
-			// Epic Fight not loaded - compat stays inactive.
-		}
 
 		IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 

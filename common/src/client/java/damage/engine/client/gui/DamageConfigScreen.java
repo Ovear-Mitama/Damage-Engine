@@ -81,6 +81,22 @@ public class DamageConfigScreen extends Screen {
     }
 
     @Override
+    public void tick() {
+        super.tick();
+        // 列表不会把 tick() 转发给条目里的子控件,EditBox 的光标(靠 frame/6%2 闪烁)
+        // 因此会卡住不动。原先是靠注入 EditBox.renderButton 的 mixin 驱动,但那个方法
+        // 在 1.19.3/1.19.4 之间被 Mojang 改名,refmap 跟不上就崩。改回直接调 EditBox.tick()
+        // —— 普通 Java 调用会由加载器按版本重映射,天然跨版本稳定。
+        if (optionList != null) {
+            for (OptionEntry entry : optionList.children()) {
+                for (GuiEventListener c : entry.children()) {
+                    if (c instanceof net.minecraft.client.gui.components.EditBox box) box.tick();
+                }
+            }
+        }
+    }
+
+    @Override
     protected void init() {
         try {
             if (optionList != null) lastScroll = optionList.getScrollAmount();
@@ -577,8 +593,8 @@ public class DamageConfigScreen extends Screen {
                 if (rowBottom <= listTop || rowTop >= listBottom) continue;
                 for (GuiEventListener c : entry.children()) {
                     if (c instanceof AbstractWidget w && w.active && w.visible) {
-                        if (mouseX >= w.x && mouseX < w.x + w.getWidth()
-                            && mouseY >= w.y && mouseY < w.y + w.getHeight()) {
+                        if (mouseX >= w.getX() && mouseX < w.getX() + w.getWidth()
+                            && mouseY >= w.getY() && mouseY < w.getY() + w.getHeight()) {
                             // Record the interacted widget (slider / edit box) so this
                             // screen can drive press-and-hold drags and text input
                             // directly, without relying on AbstractSelectionList's
@@ -716,8 +732,8 @@ public class DamageConfigScreen extends Screen {
         @Override
         public boolean mouseClicked(double mx, double my, int btn) {
             if (this.active && this.visible && btn == 0) {
-                if (mx >= (double)this.x && mx < (double)(this.x + this.getWidth())
-                    && my >= (double)this.y && my < (double)(this.y + this.getHeight())) {
+                if (mx >= (double)this.getX() && mx < (double)(this.getX() + this.getWidth())
+                    && my >= (double)this.getY() && my < (double)(this.getY() + this.getHeight())) {
                     this.playDownSound(Minecraft.getInstance().getSoundManager());
                     this.onPress.run();
                     return true;
@@ -728,9 +744,9 @@ public class DamageConfigScreen extends Screen {
         @Override
         public void renderButton(PoseStack pose, int mx, int my, float d) {
             GuiGraphics g = GuiGraphics.of(pose);
-            g.fill(this.x, this.y, this.x + getWidth(), this.y + getHeight(), 0x20000000);
+            g.fill(this.getX(), this.getY(), this.getX() + getWidth(), this.getY() + getHeight(), 0x20000000);
             int bc = isHovered ? 0xFFFFFFFF : 0xFFA0A0A0;
-            int x = this.x, y = this.y, w = getWidth(), h = getHeight();
+            int x = getX(), y = getY(), w = getWidth(), h = getHeight();
             g.fill(x, y, x + w, y + 1, bc);
             g.fill(x, y + h - 1, x + w, y + h, bc);
             g.fill(x, y, x + 1, y + h, bc);
@@ -742,7 +758,7 @@ public class DamageConfigScreen extends Screen {
             }
         }
         @Override
-        public void updateNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }
+        protected void updateWidgetNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }
     }
 
     private static class PlainTextButton extends AbstractWidget implements TooltipHolder {
@@ -761,8 +777,8 @@ public class DamageConfigScreen extends Screen {
         @Override
         public boolean mouseClicked(double mx, double my, int btn) {
             if (this.active && this.visible && btn == 0) {
-                if (mx >= (double)this.x && mx < (double)(this.x + this.getWidth())
-                    && my >= (double)this.y && my < (double)(this.y + this.getHeight())) {
+                if (mx >= (double)this.getX() && mx < (double)(this.getX() + this.getWidth())
+                    && my >= (double)this.getY() && my < (double)(this.getY() + this.getHeight())) {
                     this.playDownSound(Minecraft.getInstance().getSoundManager());
                     this.onPress.run();
                     return true;
@@ -779,14 +795,14 @@ public class DamageConfigScreen extends Screen {
         public void renderButton(PoseStack pose, int mx, int my, float d) {
             GuiGraphics g = GuiGraphics.of(pose);
             int c = (isHovered || forceHover) ? hoverColor : defaultColor;
-            g.drawCenteredString(Minecraft.getInstance().font, getMessage(), this.x + getWidth() / 2, this.y + (getHeight() - 8) / 2, c);
+            g.drawCenteredString(Minecraft.getInstance().font, getMessage(), this.getX() + getWidth() / 2, this.getY() + (getHeight() - 8) / 2, c);
             // 1.19 没有 AbstractWidget 的悬停提示系统,悬停时自行绘制
             if (damageEngine$tooltip != null && isHovered) {
                 g.renderTooltip(Minecraft.getInstance().font, damageEngine$tooltip.toCharSequence(Minecraft.getInstance()), mx, my);
             }
         }
         @Override
-        public void updateNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }
+        protected void updateWidgetNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }
         @Override
         public void playDownSound(net.minecraft.client.sounds.SoundManager sm) {
             if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) s.playClickSound();
@@ -858,6 +874,7 @@ public class DamageConfigScreen extends Screen {
         public int listBottom() { return this.y1; }
         public int rowTop(int index) { return this.getRowTop(index); }
         public int rowBottom(int index) { return this.getRowTop(index) + this.itemHeight - 4; }
+        /** 列表控件要实现 NarrationSupplier#updateNarration(1.19.3 起控件侧改名为 updateWidgetNarration)。 */
         @Override public void updateNarration(NarrationElementOutput n) {}
         @Override public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
             if (dragScrolling) {
@@ -969,7 +986,7 @@ public class DamageConfigScreen extends Screen {
         public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
-            button.x = x + ew - 110; button.y = y + 2; button.setFocused(false);
+            button.setX(x + ew - 110); button.setY(y + 2); button.setFocused(false);
             button.render(pose, mx, my, dt);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
@@ -990,7 +1007,7 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
-            slider.x = x + ew - 110; slider.y = y + 2;
+            slider.setX(x + ew - 110); slider.setY(y + 2);
             slider.render(pose, mx, my, dt);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(slider); }
@@ -1023,7 +1040,7 @@ public class DamageConfigScreen extends Screen {
             GuiGraphics g = GuiGraphics.of(pose);
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
             int bx = x + ew - 110, by = y + 2, bw = 100, bh = 20;
-            field.x = bx + 4; field.y = by + 6; field.setWidth(bw - 8);
+            field.setX(bx + 4); field.setY(by + 6); field.setWidth(bw - 8);
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
             int bc = (field.isFocused() || field.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
             g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
@@ -1052,7 +1069,7 @@ public class DamageConfigScreen extends Screen {
             GuiGraphics g = GuiGraphics.of(pose);
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
             int bx = x + ew - 110, by = y + 2, bw = 100, bh = 20;
-            field.x = bx + 4; field.y = by + 6; field.setWidth(bw - 8);
+            field.setX(bx + 4); field.setY(by + 6); field.setWidth(bw - 8);
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
             int bc = (field.isFocused() || field.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
             g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
@@ -1109,7 +1126,7 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
-            button.x = x + ew - 110; button.y = y + 2; button.setFocused(false);
+            button.setX(x + ew - 110); button.setY(y + 2); button.setFocused(false);
             button.render(pose, mx, my, dt);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
@@ -1135,7 +1152,7 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
-            button.x = x + ew - 110; button.y = y + 2; button.setFocused(false);
+            button.setX(x + ew - 110); button.setY(y + 2); button.setFocused(false);
             button.render(pose, mx, my, dt);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
@@ -1167,7 +1184,7 @@ public class DamageConfigScreen extends Screen {
             GuiGraphics g = GuiGraphics.of(pose);
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
             int sx = x + ew - 110, bx = sx, by = y + 2, bw = 75, bh = 20;
-            field.x = bx + 4; field.y = by + 6; field.setWidth(bw - 8);
+            field.setX(bx + 4); field.setY(by + 6); field.setWidth(bw - 8);
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
             int bc = (field.isFocused() || field.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
             g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
@@ -1210,7 +1227,7 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
-            button.x = x + ew - 110; button.y = y + 2; button.setFocused(false);
+            button.setX(x + ew - 110); button.setY(y + 2); button.setFocused(false);
             button.render(pose, mx, my, dt);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
@@ -1241,7 +1258,7 @@ public class DamageConfigScreen extends Screen {
             boolean isHov = hovered || (mx >= x && mx <= x + ew && my >= y && my <= y + eh);
             int color = isHov ? 0xFFFBFB54 : 0xFFFFFFFF;
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, color);
-            button.x = x + ew - 25; button.y = y + 2; button.setFocused(false); button.setForceHover(isHov);
+            button.setX(x + ew - 25); button.setY(y + 2); button.setFocused(false); button.setForceHover(isHov);
             button.render(pose, mx, my, dt);
         }
         @Override public boolean mouseClicked(double mx, double my, int btn) {
@@ -1289,7 +1306,7 @@ public class DamageConfigScreen extends Screen {
                 button.setMessage(Component.translatable("gui.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
             }
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFC887E);
-            button.x = x + ew - 110; button.y = y + 2; button.setFocused(false);
+            button.setX(x + ew - 110); button.setY(y + 2); button.setFocused(false);
             button.render(pose, mx, my, dt);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
@@ -1320,14 +1337,14 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             int rx = x + ew;
-            delBtn.x = rx - 25; delBtn.y = y + 2; delBtn.setWidth(20); delBtn.setForceHover(hovered);
+            delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
             int ps = 18, px = rx - 25 - 5 - ps, py = y + 3;
             swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
             boolean overSwatch = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
             int cbw = 55, cbx = px - 5 - cbw, cby = y + 2, cbh = 20;
-            colField.x = cbx + 4; colField.y = cby + 6; colField.setWidth(cbw - 8);
+            colField.setX(cbx + 4); colField.setY(cby + 6); colField.setWidth(cbw - 8);
             int vbw = 40, vbx = cbx - 5 - vbw, vby = y + 2, vbh = 20;
-            valField.x = vbx + 4; valField.y = vby + 6; valField.setWidth(vbw - 8);
+            valField.setX(vbx + 4); valField.setY(vby + 6); valField.setWidth(vbw - 8);
             g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.damage_reach"), x + 10, y + 8, 0xFFFFFFFF);
             drawTextBox(pose, vbx, vby, vbw, vbh, valField, mx, my);
             drawTextBox(pose, cbx, cby, cbw, cbh, colField, mx, my);
@@ -1381,7 +1398,7 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             boolean rowHov = mx >= x && mx <= x + ew && my >= y && my <= y + eh;
-            button.x = x + ew - 25; button.y = y + 2; button.setFocused(false); button.setForceHover(rowHov && !disabled);
+            button.setX(x + ew - 25); button.setY(y + 2); button.setFocused(false); button.setForceHover(rowHov && !disabled);
             button.render(pose, mx, my, dt);
         }
         @Override public boolean mouseClicked(double mx, double my, int btn) {
@@ -1435,18 +1452,18 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             int rx = x + ew;
-            delBtn.x = rx - 25; delBtn.y = y + 2; delBtn.setWidth(20); delBtn.setForceHover(hovered);
+            delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
             int bw = 60, bh = 20, by = y + (eh - bh) / 2;
             int sizeLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.damage_size"));
             int ptsLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.bonus_points"));
             int sx = x + 10;
             g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.damage_size"), sx, y + 8, 0xFFFFFFFF);
             int sxb = sx + sizeLblW + 4;
-            sizeField.x = sxb + 4; sizeField.y = by + 6; sizeField.setWidth(bw - 8);
+            sizeField.setX(sxb + 4); sizeField.setY(by + 6); sizeField.setWidth(bw - 8);
             int pxl = sxb + bw + 12;
             g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.bonus_points"), pxl, y + 8, 0xFFFFFFFF);
             int pxb = pxl + ptsLblW + 4;
-            pointsField.x = pxb + 4; pointsField.y = by + 6; pointsField.setWidth(bw - 8);
+            pointsField.setX(pxb + 4); pointsField.setY(by + 6); pointsField.setWidth(bw - 8);
             drawBox(pose, sxb, by, bw, bh, sizeField, mx, my);
             drawBox(pose, pxb, by, bw, bh, pointsField, mx, my);
             sizeField.render(pose, mx, my, dt); pointsField.render(pose, mx, my, dt); delBtn.render(pose, mx, my, dt);
@@ -1488,7 +1505,7 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             int rx = x + ew;
-            delBtn.x = rx - 25; delBtn.y = y + 2; delBtn.setWidth(20); delBtn.setForceHover(hovered);
+            delBtn.setX(rx - 25); delBtn.setY(y + 2); delBtn.setWidth(20); delBtn.setForceHover(hovered);
             int bh = 20, by = y + (eh - bh) / 2;
             int nbw = 110, dbw = 45;
             int nameLblW = Minecraft.getInstance().font.width(Component.translatable("text.damage-engine.registry_name"));
@@ -1497,9 +1514,9 @@ public class DamageConfigScreen extends Screen {
             int dlx = nx + nbw + 12;
             int dbx = dlx + distLblW + 4;
             g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.registry_name"), x + 10, y + 8, 0xFFFFFFFF);
-            nameField.x = nx + 4; nameField.y = by + 6; nameField.setWidth(nbw - 8);
+            nameField.setX(nx + 4); nameField.setY(by + 6); nameField.setWidth(nbw - 8);
             g.drawString(Minecraft.getInstance().font, Component.translatable("text.damage-engine.distance"), dlx, y + 8, 0xFFFFFFFF);
-            distField.x = dbx + 4; distField.y = by + 6; distField.setWidth(dbw - 8);
+            distField.setX(dbx + 4); distField.setY(by + 6); distField.setWidth(dbw - 8);
             drawBox(pose, nx, by, nbw, bh, nameField, mx, my);
             drawBox(pose, dbx, by, dbw, bh, distField, mx, my);
             nameField.render(pose, mx, my, dt); distField.render(pose, mx, my, dt); delBtn.render(pose, mx, my, dt);
@@ -1536,11 +1553,11 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             int rx = x + ew, bw = 60, bh = 20, by = y + (eh - bh) / 2;
-            delBtn.x = rx - 25; delBtn.y = by; delBtn.setWidth(20); delBtn.setForceHover(hovered);
+            delBtn.setX(rx - 25); delBtn.setY(by); delBtn.setWidth(20); delBtn.setForceHover(hovered);
             int tbx = rx - 25 - 3 - bw;
-            textField.x = tbx + 4; textField.y = by + 6; textField.setWidth(bw - 8);
+            textField.setX(tbx + 4); textField.setY(by + 6); textField.setWidth(bw - 8);
             int sbx = tbx - 3 - bw;
-            scoreField.x = sbx + 4; scoreField.y = by + 6; scoreField.setWidth(bw - 8);
+            scoreField.setX(sbx + 4); scoreField.setY(by + 6); scoreField.setWidth(bw - 8);
             g.drawString(Minecraft.getInstance().font, Component.literal("≥"), x + 10, y + 8, 0xFFFFFFFF);
             drawBox(pose, sbx, by, bw, bh, scoreField, mx, my);
             drawBox(pose, tbx, by, bw, bh, textField, mx, my);
@@ -1612,9 +1629,9 @@ public class DamageConfigScreen extends Screen {
             int rx = x + ew, by = y + 2;
             if (config.ratingUseImages) {
                 boolean hasImg = grade.imagePath != null && !grade.imagePath.isEmpty();
-                selectImageBtn.x = rx - 110; selectImageBtn.y = by; selectImageBtn.setWidth(100); selectImageBtn.visible = true;
+                selectImageBtn.setX(rx - 110); selectImageBtn.setY(by); selectImageBtn.setWidth(100); selectImageBtn.visible = true;
                 resetImageBtn.visible = hasImg;
-                if (hasImg) { resetImageBtn.x = rx - 110 - 25; resetImageBtn.y = by; resetImageBtn.setWidth(20); }
+                if (hasImg) { resetImageBtn.setX(rx - 110 - 25); resetImageBtn.setY(by); resetImageBtn.setWidth(20); }
                 String pt = hasImg ? grade.imagePath : "Not set";
                 if (pt.contains("/")) pt = pt.substring(pt.lastIndexOf("/") + 1);
                 g.drawString(Minecraft.getInstance().font, Component.literal(grade.text), x + 10, y + 8, 0xFFFFFFFF);
@@ -1629,7 +1646,7 @@ public class DamageConfigScreen extends Screen {
                 int sx = x + ew - 110, ps = 17, px = sx + 80, py = by + 1;
                 swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
                 boolean overSwatch = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
-                colField.x = sx + 4; colField.y = by + 6; colField.setWidth(75 - 8); colField.visible = true;
+                colField.setX(sx + 4); colField.setY(by + 6); colField.setWidth(75 - 8); colField.visible = true;
                 g.drawString(Minecraft.getInstance().font, Component.literal(grade.text), x + 10, y + 8, 0xFFFFFFFF);
                 drawBox(pose, sx, by, 75, 20, colField, mx, my);
                 colField.render(pose, mx, my, dt);
@@ -1694,7 +1711,7 @@ public class DamageConfigScreen extends Screen {
             int bc = (input.isFocused() || input.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
             g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
             g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
-            input.x = bx + 4; input.y = by + 6; input.setWidth(bw - 8);
+            input.setX(bx + 4); input.setY(by + 6); input.setWidth(bw - 8);
             input.render(pose, mx, my, dt);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(input); }
@@ -1732,7 +1749,7 @@ public class DamageConfigScreen extends Screen {
             @Override public void renderButton(PoseStack pose, int mx, int my, float d) {
                 GuiGraphics g = GuiGraphics.of(pose);
                 int bc = isHovered || isBinding() ? 0xFFFFFFFF : 0xFFA0A0A0;
-                int x = this.x, y = this.y, w = getWidth(), h = getHeight();
+                int x = getX(), y = getY(), w = getWidth(), h = getHeight();
                 g.fill(x, y, x + w, y + 1, bc); g.fill(x, y + h - 1, x + w, y + h, bc);
                 g.fill(x, y, x + 1, y + h, bc); g.fill(x + w - 1, y, x + w, y + h, bc);
                 g.drawCenteredString(Minecraft.getInstance().font, getMessage(), x + w / 2, y + (h - 8) / 2, 0xFFFFFFFF);
@@ -1741,7 +1758,7 @@ public class DamageConfigScreen extends Screen {
                     g.renderTooltip(Minecraft.getInstance().font, damageEngine$tooltip.toCharSequence(Minecraft.getInstance()), mx, my);
                 }
             }
-            @Override public void updateNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }
+            @Override protected void updateWidgetNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }
             @Override public boolean keyPressed(int kc, int sc, int mod) {
                 if (isBinding()) {
                     if (kc == org.lwjgl.glfw.GLFW.GLFW_KEY_ESCAPE) keyBinding.setKey(com.mojang.blaze3d.platform.InputConstants.UNKNOWN);
@@ -1788,13 +1805,13 @@ public class DamageConfigScreen extends Screen {
                     tt.append(Component.translatable(conflicts.get(i).getName()));
                 }
                 button.setTooltip(Tooltip.create(tt));
-            } else button.setTooltip(null);
+            } else button.setTooltip((damage.engine.compat.Tooltip) null);
         }
         @Override public void renderContent(PoseStack pose, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             GuiGraphics g = GuiGraphics.of(pose);
             if (!binding) updateMessage();
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
-            button.x = x + ew - 110; button.y = y + 2; button.setWidth(100); button.setFocused(false);
+            button.setX(x + ew - 110); button.setY(y + 2); button.setWidth(100); button.setFocused(false);
             button.render(pose, mx, my, dt);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
@@ -1845,13 +1862,13 @@ public class DamageConfigScreen extends Screen {
         /** Drag the slider to the given mouse X (screen coords), regardless of hover. */
         public void updateValueFromMouse(double mx) {
             // setValue/setValueFromMouse are private in 1.20.1; replicate the formula.
-            this.value = Mth.clamp((mx - (double) (this.x + 4)) / (double) (this.getWidth() - 8), 0.0, 1.0);
+            this.value = Mth.clamp((mx - (double) (this.getX() + 4)) / (double) (this.getWidth() - 8), 0.0, 1.0);
             this.updateMessage();
             this.applyValue();
         }
         @Override public void renderButton(PoseStack pose, int mx, int my, float d) {
             GuiGraphics g = GuiGraphics.of(pose);
-            int x = this.x, y = this.y, w = getWidth(), h = getHeight();
+            int x = getX(), y = getY(), w = getWidth(), h = getHeight();
             g.fill(x, y, x + w, y + h, 0x20000000);
             int bc = isHovered ? 0xFFFFFFFF : 0xFFA0A0A0;
             g.fill(x, y, x + w, y + 1, bc); g.fill(x, y + h - 1, x + w, y + h, bc);

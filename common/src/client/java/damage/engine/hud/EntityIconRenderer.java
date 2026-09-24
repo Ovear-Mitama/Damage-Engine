@@ -21,10 +21,10 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.WaterAnimal;
 import net.minecraft.world.entity.monster.Slime;
-import com.mojang.math.Matrix4f;
-import com.mojang.math.Quaternion;
-import com.mojang.math.Vector3f;
-import com.mojang.math.Vector4f;
+import org.joml.Matrix4f;
+import org.joml.Quaternionf;
+import org.joml.Vector3f;
+import org.joml.Vector4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -176,8 +176,7 @@ public final class EntityIconRenderer {
             }
 
             // 与原版一致:基础角度为绕 Z 轴 180°,配合 z 轴负缩放修正朝向
-            // (1.19 用 com.mojang.math 的四元数;向量 rotation(弧度) 即绕该轴旋转)
-            Quaternion angle = new Vector3f(0.0f, 0.0f, 1.0f).rotation((float) Math.PI);
+            Quaternionf angle = new Quaternionf().rotateZ((float) Math.PI);
 
             pose.pushPose();
             pose.translate(x + size / 2.0f, y + size / 2.0f, GUI_Z);
@@ -189,7 +188,7 @@ public final class EntityIconRenderer {
             // 覆盖相机朝向:1.20.1 的 renderFlame 直接把它当作公告板旋转(mulPose)。
             // 不能传 pose 的逆——那是绕 Z 轴 180°,会把火焰面片翻到背面(被面剔除)导致完全不显示;
             // 这里改传一个合法的 Y 轴 180°:水平旋转不歪斜,且让面片朝向 GUI 观察者。
-            dispatcher.overrideCameraOrientation(new Vector3f(0.0f, 1.0f, 0.0f).rotation((float) Math.PI));
+            dispatcher.overrideCameraOrientation(new Quaternionf().rotateY((float) Math.PI));
 
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
             try {
@@ -245,8 +244,8 @@ public final class EntityIconRenderer {
         // (体积 4 的史莱姆被放大 4 倍,这就是之前史莱姆过大的原因)。
         float s = renderScale(entity);
         float rotDeg = 180.0f - renderedBodyRot;
-        Vector3f rotated = new Vector3f(px, py, pz);
-        rotated.transform(new Vector3f(0.0f, 1.0f, 0.0f).rotation((float) Math.toRadians(rotDeg)));
+        Vector3f rotated = new Vector3f(px, py, pz)
+            .rotate(new Quaternionf().rotateY((float) Math.toRadians(rotDeg)));
         float cx = -s * rotated.x();
         float cy = 1.501f * s - s * rotated.y();
         float cz = s * rotated.z();
@@ -435,8 +434,7 @@ public final class EntityIconRenderer {
         for (float cx : xs) {
             for (float cy : ys) {
                 for (float cz : zs) {
-                    Vector4f v = new Vector4f(cx, cy, cz, 1.0f);
-                    v.transform(matrix);
+                    Vector4f v = new Vector4f(cx, cy, cz, 1.0f).mul(matrix);
                     mm[0] = Math.min(mm[0], v.x());
                     mm[1] = Math.min(mm[1], v.y());
                     mm[2] = Math.min(mm[2], v.z());
