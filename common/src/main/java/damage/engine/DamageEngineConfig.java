@@ -1,6 +1,6 @@
 package damage.engine;
 
-import net.minecraft.core.Registry;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
@@ -254,7 +254,7 @@ public class DamageEngineConfig {
         }
         String regName = null;
         try {
-            net.minecraft.resources.ResourceLocation key = Registry.ENTITY_TYPE.getKey(victim.getType());
+            net.minecraft.resources.ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType());
             regName = key == null ? null : key.toString();
         } catch (Exception ignored) {
             regName = null;

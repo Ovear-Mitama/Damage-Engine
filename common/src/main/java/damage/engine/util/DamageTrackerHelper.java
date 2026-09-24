@@ -71,34 +71,12 @@ public class DamageTrackerHelper {
      */
     public static void flushPendingDamage() {
         if (!pending || broadcaster == null || pendingLevel == null) return;
-        // TaCZ headshot: the conditional mixin marks the victim when TaCZ
-        // constructs ServerMessageGunHurt (right after hurt(), before the tick-end
-        // flush). Consume the mark here so the crit flag rides this exact payload.
-        if (damage.engine.compat.tacz.TaczServerHeadshotTracker.consumeHeadshot(pendingTarget)) {
-            pendingCrit = true;
-        }
         DamagePayload payload = new DamagePayload(pendingTarget, pendingDamage, pendingCrit,
             pendingAttackerId, pendingDebug,
             pendingX, pendingY, pendingZ, pendingProjectile, pendingKilled);
         broadcaster.broadcast(payload, pendingLevel);
         pending = false;
         pendingLevel = null;
-    }
-
-    /**
-     * Optional hook for mod compat. Called during capturePreDamage to allow
-     * external mods (e.g., TACZ) to provide additional attacker resolution.
-     */
-    @FunctionalInterface
-    public interface AttackerResolver {
-        /** @return the resolved attacker Entity or null */
-        Entity resolve(LivingEntity victim, Entity directSource, DamageSource source);
-    }
-
-    private static AttackerResolver attackerResolver = null;
-
-    public static void setAttackerResolver(AttackerResolver resolver) {
-        attackerResolver = resolver;
     }
 
     /**
@@ -149,11 +127,6 @@ public class DamageTrackerHelper {
             }
         }
 
-        // Mod compat hook: allow external mods (e.g. TACZ) to resolve attacker
-        if (attacker == null && attackerResolver != null) {
-            attacker = attackerResolver.resolve(self, directSource, source);
-        }
-
         if (attacker != null) {
             attackerId = attacker.getId();
         }
@@ -161,19 +134,13 @@ public class DamageTrackerHelper {
         boolean isProjectile = false;
         double srcX, srcY, srcZ;
 
-        // Treat any projectile as a "bow-like" hit: TACZ bullets are standard
-        // Projectile subclasses, but we also explicitly detect them via reflection
-        // so guns always use the same handling as bows even if a TACZ version
-        // deviates from the standard Projectile hierarchy.
-        boolean projectileLike = (directSource instanceof Projectile && !(directSource instanceof ThrownPotion))
-            || damage.engine.compat.tacz.TaczCompat.isTaczBullet(directSource);
+        // 任何弹射物都按"弓类命中"处理
+        boolean projectileLike = directSource instanceof Projectile && !(directSource instanceof ThrownPotion);
 
         if (projectileLike) {
             isProjectile = true;
-            // Clamp the projectile hit point into the victim's AABB. TACZ bullets can
-            // report a server position away from the victim (e.g. right at the
-            // shooter), which made floats appear on the player; clamping keeps the
-            // float on the victim no matter what.
+            // 把弹射物的命中点夹进受击者的包围盒:某些枪械模组的子弹会报一个远离受击者的
+            // 服务端坐标(比如就在射手身上),不夹的话跳字会飘到玩家身上。
             AABB box = self.getBoundingBox();
             srcX = Mth.clamp(directSource.getX(), box.minX, box.maxX);
             srcY = Mth.clamp(directSource.getY(), box.minY, box.maxY);

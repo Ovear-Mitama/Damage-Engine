@@ -2,9 +2,9 @@ package damage.engine.client.gui;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import damage.engine.compat.GuiGraphics;
-import net.minecraft.client.gui.components.Widget;
+import net.minecraft.client.gui.components.Renderable;
 
-public class TextDrawable implements Widget {
+public class TextDrawable implements Renderable {
     private final String text;
     private final int x, y;
     private final int color;

@@ -109,10 +109,9 @@ public class DamageEngineClient {
                     // Use the event's PoseStack (same source as Fabric's
                     // BEFORE_ENTITIES matrixStack) instead of RenderSystem's
                     // modelview, which is not the pure camera view at this point.
-                    // 1.19 的矩阵类型是 com.mojang.math.Matrix4f
                     damage.engine.hud.DamageIndicator.captureMatrices(
-                        new com.mojang.math.Matrix4f(ev.getProjectionMatrix()),
-                        new com.mojang.math.Matrix4f(ev.getPoseStack().last().pose()));
+                        new org.joml.Matrix4f(ev.getProjectionMatrix()),
+                        new org.joml.Matrix4f(ev.getPoseStack().last().pose()));
                 }
             });
 

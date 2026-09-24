@@ -145,7 +145,7 @@ public class ProfileManagerScreen extends Screen {
         @Override
         public void renderButton(PoseStack pose, int mouseX, int mouseY, float delta) {
             GuiGraphics guiGraphics = GuiGraphics.of(pose);
-            int x = this.x; int y = this.y; int w = getWidth(); int h = getHeight();
+            int x = getX(); int y = getY(); int w = getWidth(); int h = getHeight();
 
             // Background
             int bgColor = isHovered ? 0x30FFFFFF : 0x10000000;
@@ -168,7 +168,7 @@ public class ProfileManagerScreen extends Screen {
         }
 
         @Override
-        public void updateNarration(NarrationElementOutput builder) {
+        protected void updateWidgetNarration(NarrationElementOutput builder) {
             this.defaultButtonNarrationText(builder);
         }
     }
@@ -201,20 +201,20 @@ public class ProfileManagerScreen extends Screen {
         @Override
         public void renderButton(PoseStack pose, int mouseX, int mouseY, float delta) {
             GuiGraphics guiGraphics = GuiGraphics.of(pose);
-            guiGraphics.fill(this.x, this.y, this.x + getWidth(), this.y + getHeight(), 0x20000000);
+            guiGraphics.fill(this.getX(), this.getY(), this.getX() + getWidth(), this.getY() + getHeight(), 0x20000000);
 
             int borderColor = isHovered ? 0xFFFFFFFF : 0xFFA0A0A0;
-            int x = this.x; int y = this.y; int w = getWidth(); int h = getHeight();
+            int x = getX(); int y = getY(); int w = getWidth(); int h = getHeight();
             guiGraphics.fill(x, y, x + w, y + 1, borderColor);
             guiGraphics.fill(x, y + h - 1, x + w, y + h, borderColor);
             guiGraphics.fill(x, y, x + 1, y + h, borderColor);
             guiGraphics.fill(x + w - 1, y, x + w, y + h, borderColor);
 
-            guiGraphics.drawCenteredString(Minecraft.getInstance().font, getMessage(), this.x + getWidth() / 2, this.y + (getHeight() - 8) / 2, 0xFFFFFFFF);
+            guiGraphics.drawCenteredString(Minecraft.getInstance().font, getMessage(), this.getX() + getWidth() / 2, this.getY() + (getHeight() - 8) / 2, 0xFFFFFFFF);
         }
 
         @Override
-        public void updateNarration(NarrationElementOutput builder) {
+        protected void updateWidgetNarration(NarrationElementOutput builder) {
             this.defaultButtonNarrationText(builder);
         }
     }

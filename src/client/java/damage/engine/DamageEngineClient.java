@@ -50,11 +50,10 @@ public class DamageEngineClient implements ClientModInitializer {
         // the world. Earlier capture points (e.g. inside renderLevel) grab a stale
         // modelview which collapses all floats to one screen position.
         net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BEFORE_ENTITIES.register(ctx -> {
-            // 1.19 的矩阵类型是 com.mojang.math.Matrix4f(1.20 起才换成 org.joml.Matrix4f)
-            com.mojang.math.Matrix4f proj = ctx.projectionMatrix();
-            com.mojang.math.Matrix4f view = new com.mojang.math.Matrix4f(ctx.matrixStack().last().pose());
+            org.joml.Matrix4f proj = ctx.projectionMatrix();
+            org.joml.Matrix4f view = new org.joml.Matrix4f(ctx.matrixStack().last().pose());
             damage.engine.hud.DamageIndicator.captureMatrices(
-                proj != null ? new com.mojang.math.Matrix4f(proj) : null, view);
+                proj != null ? new org.joml.Matrix4f(proj) : null, view);
         });
 
         // Register S2C damage packet handler
