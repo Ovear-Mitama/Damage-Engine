@@ -63,7 +63,7 @@ dependencies {
     implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
     // ModMenu (optional, for config screen integration)
-    // 26.3 仅有 beta 版且打开其界面会导致 JVM 崩溃,故仅保留 compileOnly(不参与运行时)
+    // 26.4 快照暂无对应 ModMenu 版本,沿用 26.3 版本仅作编译期 API,保留 compileOnly(不参与运行时)
     compileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
 
 }

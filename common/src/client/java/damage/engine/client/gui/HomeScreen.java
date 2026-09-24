@@ -31,7 +31,7 @@ public class HomeScreen extends Screen {
     private boolean updateChecked = false;
 
     private static final String UPDATE_URL =
-        "https://api.modrinth.com/v2/project/damage-engine/version?game_versions=%5B%221.21.11%22%5D&loaders=%5B%22" + DamageEngineMeta.PLATFORM + "%22%5D";
+        "https://api.modrinth.com/v2/project/damage-engine/version?game_versions=%5B%2226.4-snapshot-1%22%5D&loaders=%5B%22" + DamageEngineMeta.PLATFORM + "%22%5D";
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5))
         .build();
