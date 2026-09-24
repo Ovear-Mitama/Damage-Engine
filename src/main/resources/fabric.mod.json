@@ -42,7 +42,7 @@
 	},
 	"jars": [
 		{
-			"file": "META-INF/jars/anima-1.0.3.jar"
+			"file": "META-INF/jars/anima-1.0.4.jar"
 		}
 	],
 	"suggests": {

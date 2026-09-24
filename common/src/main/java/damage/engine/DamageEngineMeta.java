@@ -5,7 +5,7 @@ package damage.engine;
  * Keep in sync with gradle.properties (mod_version).
  */
 public final class DamageEngineMeta {
-    public static final String VERSION = "2.0.2";
+    public static final String VERSION = "2.0.4";
 
     /** Current loader platform: "fabric" or "neoforge". Detected at runtime via reflection. */
     public static final String PLATFORM;

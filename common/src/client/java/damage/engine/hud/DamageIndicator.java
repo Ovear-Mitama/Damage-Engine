@@ -1,6 +1,7 @@
 package damage.engine.hud;
 
 import anima.api.AnimaApi;
+import anima.client.world.ClipParticles;
 import anima.client.world.TextSpread;
 import anima.client.world.WorldText3D;
 import anima.text.CharClips;
@@ -112,6 +113,23 @@ public class DamageIndicator {
     /** 编辑器预览里显示的示例数字（DE 自己的样例，不用库的示例文本）。 */
     public static final String PREVIEW_TEXT = "123,456.789";
 
+    private static String particleClipsCacheKey = null;
+    private static ClipParticles particleClipsCache = null;
+
+    /**
+     * 配置里的粒子剪辑（与逐字剪辑是同一份 JSON，编辑器里拖进来的粒子就在里面）。
+     * 返回可复用的模板：每次跳字用它建一个播放器，按剪辑时间发射真正的 3D 粒子 ——
+     * 否则粒子只会在编辑器预览里出现，实际打怪时什么都看不到。
+     */
+    private static ClipParticles particleClips() {
+        String raw = rawCharClips();
+        if (particleClipsCache == null || !raw.equals(particleClipsCacheKey)) {
+            particleClipsCacheKey = raw;
+            particleClipsCache = AnimaApi.particleClips(charClipsJson());
+        }
+        return particleClipsCache;
+    }
+
     private static String textPropsCacheKey = null;
     private static JsonObject textPropsCache = null;
 
@@ -139,6 +157,8 @@ public class DamageIndicator {
         final boolean isKill;
         final boolean isHeal;
         final long spawnTime;
+        /** 这个跳字自己的粒子播放器（按配置里的粒子剪辑发射真实 3D 粒子），实例间互不影响。 */
+        final ClipParticles.Player particles = particleClips().newPlayer();
         // Drift direction (consistent with ring spawn angle)
         final float moveDirX;
         final float moveDirY;
@@ -281,6 +301,9 @@ public class DamageIndicator {
 
                 // 逐字动画（默认飘入入场 + 打字机出场）：剪辑由 DE 给出，逐字求值由库完成
                 WorldText3D.Glyph[] glyphs = AnimaApi.charGlyphs(text, charClips(), localMs);
+
+                // 粒子剪辑：编辑器里拖进来的粒子同样要按剪辑时间发射，否则只会在编辑器预览里出现
+                ind.particles.emit(tx, ty, tz, localMs);
 
                 // 双绘（同原版名字牌）：先 see-through 一遍（不做深度测试 → 不被方块 / 实体遮挡），
                 // 再常规画一遍（有遮挡）——这样即使穿透那遍在某些渲染阶段没生效，跳字也一定可见
