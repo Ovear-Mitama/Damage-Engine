@@ -2,6 +2,9 @@
 build/
 .gradle/
 run/
+run-*/
+.de_backup/
+.reasonix/
 .idea/
 *.iml
 *.ipr
