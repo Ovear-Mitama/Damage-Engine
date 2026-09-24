@@ -2,7 +2,8 @@ package damage.engine.client.gui;
 
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import com.mojang.blaze3d.vertex.PoseStack;
+import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
@@ -45,8 +46,9 @@ public class ConfirmExitScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics);
+    public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        this.renderBackground(pose);
 
         // Warning message
         String msg = Component.translatable("text.damage-engine.unsaved_changes").getString();
@@ -54,8 +56,8 @@ public class ConfirmExitScreen extends Screen {
 
         // Render widgets manually (avoid super.render() blur)
         for (var child : this.children()) {
-            if (child instanceof net.minecraft.client.gui.components.Renderable r) {
-                r.render(guiGraphics, mouseX, mouseY, delta);
+            if (child instanceof net.minecraft.client.gui.components.Widget r) {
+                r.render(pose, mouseX, mouseY, delta);
             }
         }
     }

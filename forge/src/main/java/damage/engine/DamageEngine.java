@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.4.7.3";
+	public static final String MOD_VERSION = "1.4.7.4";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	// NOTE: keyed by entity id, NOT LivingEntity - referencing LivingEntity in a
@@ -107,7 +107,7 @@ public class DamageEngine {
 		// damage MDC actually dealt.
 		MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.HIGHEST,
 			(LivingHurtEvent event) -> {
-			if (event.getEntity().level() instanceof net.minecraft.server.level.ServerLevel sl) {
+			if (event.getEntity().getLevel() instanceof net.minecraft.server.level.ServerLevel sl) {
 				int id = event.getEntity().getId();
 				PRE_DAMAGE_LEVELS.put(id, sl);
 				PRE_DAMAGE_SNAPS.putIfAbsent(id,

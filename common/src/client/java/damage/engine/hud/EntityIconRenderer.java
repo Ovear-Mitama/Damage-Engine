@@ -4,7 +4,7 @@ import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.model.AgeableListModel;
 import net.minecraft.client.model.EntityModel;
 import net.minecraft.client.model.HierarchicalModel;
@@ -15,14 +15,16 @@ import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.animal.Animal;
 import net.minecraft.world.entity.animal.WaterAnimal;
-import org.joml.Matrix4f;
-import org.joml.Quaternionf;
-import org.joml.Vector3f;
-import org.joml.Vector4f;
+import net.minecraft.world.entity.monster.Slime;
+import com.mojang.math.Matrix4f;
+import com.mojang.math.Quaternion;
+import com.mojang.math.Vector3f;
+import com.mojang.math.Vector4f;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +70,14 @@ public final class EntityIconRenderer {
      */
     private static final float ANIMAL_SHRINK = 1.25f;
 
+    /**
+     * 史莱姆 / 岩浆怪的额外收缩系数。
+     * <p>
+     * 它们是实心方块 —— 模型在三个方向都填满取景框,而人形、动物都是细长或凹凸的轮廓,
+     * 按同一个取景比例画出来会比同尺寸的其它生物更"占地",所以单独再收一档。
+     */
+    private static final float SLIME_SHRINK = 1.3f;
+
     /** 模型几何缓存(按实体类型 + 是否幼年);几何是静态的,缓存后取景比例不随行走摆动而抖动。 */
     private static final Map<CacheKey, float[]> MODEL_CACHE = new HashMap<>();
 
@@ -90,8 +100,9 @@ public final class EntityIconRenderer {
      * @param followRotation true = 跟随实际朝向(以玩家视角为基准),false = 按自定义角度旋转
      * @param customAngle    自定义朝向角度(0~360,0 = 正面朝向观察者,顺时针增大;仅 followRotation=false 时生效)
      */
-    public static void render(GuiGraphics guiGraphics, LivingEntity entity, int x, int y, int size,
+    public static void render(PoseStack pose, LivingEntity entity, int x, int y, int size,
                               float alpha, boolean followRotation, int customAngle) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         if (guiGraphics == null || entity == null || alpha <= 0.01f) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -131,8 +142,9 @@ public final class EntityIconRenderer {
 
             // 用模型真实几何取景(比碰撞箱更贴合实际绘制尺寸)
             float[] bounds = computeModelBounds(entity, savedBodyRot + yawOffset);
-            // 动物类整体再收一档,避免和怪物放在一起时显得过大
-            float sizeFactor = isAnimal(entity) ? ANIMAL_SHRINK : 1.0f;
+            // 动物类、史莱姆 / 岩浆怪整体再收一档,避免和怪物放在一起时显得过大
+            float sizeFactor = entity instanceof Slime ? SLIME_SHRINK
+                : (isAnimal(entity) ? ANIMAL_SHRINK : 1.0f);
             float focusX;
             float focusY;
             float scale;
@@ -164,9 +176,9 @@ public final class EntityIconRenderer {
             }
 
             // 与原版一致:基础角度为绕 Z 轴 180°,配合 z 轴负缩放修正朝向
-            Quaternionf angle = new Quaternionf().rotateZ((float) Math.PI);
+            // (1.19 用 com.mojang.math 的四元数;向量 rotation(弧度) 即绕该轴旋转)
+            Quaternion angle = new Vector3f(0.0f, 0.0f, 1.0f).rotation((float) Math.PI);
 
-            PoseStack pose = guiGraphics.pose();
             pose.pushPose();
             pose.translate(x + size / 2.0f, y + size / 2.0f, GUI_Z);
             pose.scale(scale, scale, -scale);
@@ -177,7 +189,7 @@ public final class EntityIconRenderer {
             // 覆盖相机朝向:1.20.1 的 renderFlame 直接把它当作公告板旋转(mulPose)。
             // 不能传 pose 的逆——那是绕 Z 轴 180°,会把火焰面片翻到背面(被面剔除)导致完全不显示;
             // 这里改传一个合法的 Y 轴 180°:水平旋转不歪斜,且让面片朝向 GUI 观察者。
-            dispatcher.overrideCameraOrientation(new Quaternionf().rotateY((float) Math.PI));
+            dispatcher.overrideCameraOrientation(new Vector3f(0.0f, 1.0f, 0.0f).rotation((float) Math.PI));
 
             RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, alpha);
             try {
@@ -228,14 +240,49 @@ public final class EntityIconRenderer {
         // 原版 LivingEntityRenderer 依次执行 scale(-1,-1,1) / scale(entityScale) / translate(0,-1.501,0)
         // / 按身体朝向绕 Y 旋转,PoseStack 后置相乘,因此点先被旋转、再平移、最后缩放:
         //   x' = -s * xr,  y' = 1.501 * s - s * y,  z' = s * zr
-        float s = Math.max(entity.getScale(), 0.01f);
+        // 总缩放 s 同时乘在几何和那 1.501 的位移上(平移先施加到顶点、缩放后施加),所以取景尺寸
+        // extent 也必须一起乘 s:否则"渲染器按体积放大"的生物(史莱姆 / 岩浆怪)会按放大倍数撑爆头像
+        // (体积 4 的史莱姆被放大 4 倍,这就是之前史莱姆过大的原因)。
+        float s = renderScale(entity);
         float rotDeg = 180.0f - renderedBodyRot;
-        Vector3f rotated = new Vector3f(px, py, pz)
-            .rotate(new Quaternionf().rotateY((float) Math.toRadians(rotDeg)));
+        Vector3f rotated = new Vector3f(px, py, pz);
+        rotated.transform(new Vector3f(0.0f, 1.0f, 0.0f).rotation((float) Math.toRadians(rotDeg)));
         float cx = -s * rotated.x();
         float cy = 1.501f * s - s * rotated.y();
         float cz = s * rotated.z();
-        return new float[]{cx, cy, cz, extent};
+        if (entity.isBaby()) {
+            // 幼年:measureModel 里那套补偿只收缩了"取景尺寸"(让幼体在头像里显得小),
+            // 而渲染器实际是按 getScale 把模型整体缩小、并把脚底锚定在本地 y=0 的,
+            // 所以真实几何的竖直中心只有收缩后中心的一半高度 —— 沿用收缩后的中心
+            // 会让幼体在头像框里整体偏上(用户反馈:僵尸幼体位置偏高)。
+            // 这里改用真实渲染高度的一半(以碰撞箱高度近似)。
+            cy = entity.getBbHeight() * 0.5f;
+        }
+        return new float[]{cx, cy, cz, extent * s};
+    }
+
+    /**
+     * 渲染器施加在模型上的总缩放。
+     * <p>
+     * 取 {@code max(getScale, 包围箱比值)} 且不低于 1:趴下、睡觉、幼年等姿态会让包围箱变小,
+     * 那并不代表渲染器把模型缩小了,跟着缩小取景只会让头像忽大忽小,所以这里只放大、不缩小。
+     */
+    private static float renderScale(LivingEntity entity) {
+        float selfScale = Math.max(entity.getScale(), 0.01f);
+        if (entity instanceof Slime slime) {
+            // 1.19 里史莱姆的包围箱是 type 基准(2.04) × 0.255 × 体积,和渲染器实际施加的
+            // 体积缩放(× 体积)不成比例,靠上面的比值只能反推出约 1.02,量不出真正的放大倍数;
+            // 渲染器用的就是这个体积值,直接取它。
+            return Math.max(1f, Math.max(selfScale, slime.getSize()));
+        }
+        try {
+            EntityDimensions base = entity.getType().getDimensions();
+            float ratioH = entity.getBbHeight() / Math.max(base.height, 0.01f);
+            float ratioW = entity.getBbWidth() / Math.max(base.width, 0.01f);
+            return Math.max(1f, Math.max(selfScale, Math.max(ratioH, ratioW)));
+        } catch (Throwable t) {
+            return Math.max(1f, selfScale);
+        }
     }
 
     /** 取模型的几何包围盒 {centerX, centerY, centerZ, extent}(模型空间,单位块,已含幼年补偿)。 */
@@ -388,7 +435,8 @@ public final class EntityIconRenderer {
         for (float cx : xs) {
             for (float cy : ys) {
                 for (float cz : zs) {
-                    Vector4f v = new Vector4f(cx, cy, cz, 1.0f).mul(matrix);
+                    Vector4f v = new Vector4f(cx, cy, cz, 1.0f);
+                    v.transform(matrix);
                     mm[0] = Math.min(mm[0], v.x());
                     mm[1] = Math.min(mm[1], v.y());
                     mm[2] = Math.min(mm[2], v.z());

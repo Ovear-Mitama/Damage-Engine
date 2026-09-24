@@ -28,7 +28,7 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Inject(method = "hurt", at = @At("HEAD"), require = 0)
     private void onHurtHead(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
-        if (this.level().isClientSide()) return;
+        if (this.getLevel().isClientSide()) return;
         if ((Object) this instanceof Player) return;
 
         damageEngine$snap = DamageTrackerHelper.capturePreDamage((LivingEntity) (Object) this, source, amount);
@@ -36,7 +36,7 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Inject(method = "hurt", at = @At("RETURN"), require = 0)
     private void onHurtReturn(DamageSource source, float amount, CallbackInfoReturnable<Boolean> ci) {
-        if (this.level().isClientSide()) return;
+        if (this.getLevel().isClientSide()) return;
         if ((Object) this instanceof Player) return;
 
         if (damageEngine$snap != null) {

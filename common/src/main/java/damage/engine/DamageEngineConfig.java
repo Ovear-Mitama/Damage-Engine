@@ -1,6 +1,6 @@
 package damage.engine;
 
-import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.core.Registry;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 
@@ -103,9 +103,6 @@ public class DamageEngineConfig {
     public boolean debugMode = false;
     public boolean debugShowDamageInfo = false;
     public boolean debugShowRating = false;
-    
-    // ========== Update Check ==========
-    public boolean checkUpdate = true;
     
     // ========== Preview ==========
     public boolean previewEnabled = false;
@@ -257,7 +254,7 @@ public class DamageEngineConfig {
         }
         String regName = null;
         try {
-            net.minecraft.resources.ResourceLocation key = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType());
+            net.minecraft.resources.ResourceLocation key = Registry.ENTITY_TYPE.getKey(victim.getType());
             regName = key == null ? null : key.toString();
         } catch (Exception ignored) {
             regName = null;
@@ -462,9 +459,6 @@ public class DamageEngineConfig {
         this.debugShowDamageInfo = loaded.debugShowDamageInfo;
         this.debugShowRating = loaded.debugShowRating;
         
-        // Update Check
-        this.checkUpdate = loaded.checkUpdate;
-        
         // Preview
         this.previewEnabled = loaded.previewEnabled;
         this.hasShownWelcomeMessage = loaded.hasShownWelcomeMessage;
@@ -583,9 +577,6 @@ public class DamageEngineConfig {
         debugMode = false;
         debugShowDamageInfo = false;
         debugShowRating = false;
-        
-        // Update Check
-        checkUpdate = true;
         
         // Preview
         previewEnabled = false;
