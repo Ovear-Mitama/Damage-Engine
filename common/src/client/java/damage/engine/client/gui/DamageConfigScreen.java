@@ -489,7 +489,7 @@ public class DamageConfigScreen extends Screen {
         }
         // Forward keys to the active edit box (the box is focused via mouseClicked).
         if (activeWidget instanceof EditBox box) {
-            box.setFocus(true);
+            box.setFocused(true);
             if (box.keyPressed(keyCode, scanCode, modifiers)) {
                 return true;
             }
@@ -500,7 +500,7 @@ public class DamageConfigScreen extends Screen {
     @Override
     public boolean charTyped(char codePoint, int modifiers) {
         if (activeWidget instanceof EditBox box) {
-            box.setFocus(true);
+            box.setFocused(true);
             if (box.charTyped(codePoint, modifiers)) {
                 return true;
             }
@@ -558,7 +558,7 @@ public class DamageConfigScreen extends Screen {
             for (GuiEventListener widget : optionList.children()) {
                 if (widget instanceof OptionEntry entry) {
                     for (GuiEventListener child : entry.children()) {
-                        if (child instanceof EditBox tf) tf.setFocus(false);
+                        if (child instanceof EditBox tf) tf.setFocused(false);
                     }
                 }
             }
@@ -630,7 +630,7 @@ public class DamageConfigScreen extends Screen {
         GuiGraphics guiGraphics = GuiGraphics.of(pose);
         // Keep the active edit box focused so its cursor stays visible while typing.
         // (Caret blink itself is driven by EditBoxCursorMixin using wall-clock time.)
-        if (activeWidget instanceof EditBox box) box.setFocus(true);
+        if (activeWidget instanceof EditBox box) box.setFocused(true);
         this.renderBackground(pose);
         
         // Render tabs
@@ -742,7 +742,7 @@ public class DamageConfigScreen extends Screen {
             return false;
         }
         @Override
-        public void renderButton(PoseStack pose, int mx, int my, float d) {
+        public void renderWidget(PoseStack pose, int mx, int my, float d) {
             GuiGraphics g = GuiGraphics.of(pose);
             g.fill(this.getX(), this.getY(), this.getX() + getWidth(), this.getY() + getHeight(), 0x20000000);
             int bc = isHovered ? 0xFFFFFFFF : 0xFFA0A0A0;
@@ -792,7 +792,7 @@ public class DamageConfigScreen extends Screen {
         /** 1.19 的 setFocused 是 protected,覆写成 public 供同包其它类调用。 */
         @Override public void setFocused(boolean focused) { super.setFocused(focused); }
         @Override
-        public void renderButton(PoseStack pose, int mx, int my, float d) {
+        public void renderWidget(PoseStack pose, int mx, int my, float d) {
             GuiGraphics g = GuiGraphics.of(pose);
             int c = (isHovered || forceHover) ? hoverColor : defaultColor;
             g.drawCenteredString(Minecraft.getInstance().font, getMessage(), this.getX() + getWidth() / 2, this.getY() + (getHeight() - 8) / 2, c);
@@ -836,8 +836,8 @@ public class DamageConfigScreen extends Screen {
         public boolean mouseClicked(double mx, double my, int btn) {
             for (GuiEventListener c : children()) {
                 if (c instanceof EditBox tf) {
-                    if (tf.isMouseOver(mx, my)) { tf.setFocus(true); return true; }
-                    else tf.setFocus(false);
+                    if (tf.isMouseOver(mx, my)) { tf.setFocused(true); return true; }
+                    else tf.setFocused(false);
                 } else if (c.mouseClicked(mx, my, btn)) return true;
             }
             return false;
@@ -1746,7 +1746,7 @@ public class DamageConfigScreen extends Screen {
                 }
                 return false;
             }
-            @Override public void renderButton(PoseStack pose, int mx, int my, float d) {
+            @Override public void renderWidget(PoseStack pose, int mx, int my, float d) {
                 GuiGraphics g = GuiGraphics.of(pose);
                 int bc = isHovered || isBinding() ? 0xFFFFFFFF : 0xFFA0A0A0;
                 int x = getX(), y = getY(), w = getWidth(), h = getHeight();
@@ -1866,7 +1866,7 @@ public class DamageConfigScreen extends Screen {
             this.updateMessage();
             this.applyValue();
         }
-        @Override public void renderButton(PoseStack pose, int mx, int my, float d) {
+        @Override public void renderWidget(PoseStack pose, int mx, int my, float d) {
             GuiGraphics g = GuiGraphics.of(pose);
             int x = getX(), y = getY(), w = getWidth(), h = getHeight();
             g.fill(x, y, x + w, y + h, 0x20000000);

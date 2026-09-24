@@ -225,7 +225,7 @@ public class ColorPickerScreen extends Screen {
             return true;
         }
         for (EditBox f : new EditBox[]{hexField, rField, gField, bField}) {
-            f.setFocus(f.isMouseOver(mx, my));
+            f.setFocused(f.isMouseOver(mx, my));
         }
         return super.mouseClicked(mx, my, btn);
     }

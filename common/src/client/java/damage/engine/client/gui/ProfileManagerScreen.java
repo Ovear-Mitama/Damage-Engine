@@ -143,7 +143,7 @@ public class ProfileManagerScreen extends Screen {
         }
 
         @Override
-        public void renderButton(PoseStack pose, int mouseX, int mouseY, float delta) {
+        public void renderWidget(PoseStack pose, int mouseX, int mouseY, float delta) {
             GuiGraphics guiGraphics = GuiGraphics.of(pose);
             int x = getX(); int y = getY(); int w = getWidth(); int h = getHeight();
 
@@ -199,7 +199,7 @@ public class ProfileManagerScreen extends Screen {
         }
 
         @Override
-        public void renderButton(PoseStack pose, int mouseX, int mouseY, float delta) {
+        public void renderWidget(PoseStack pose, int mouseX, int mouseY, float delta) {
             GuiGraphics guiGraphics = GuiGraphics.of(pose);
             guiGraphics.fill(this.getX(), this.getY(), this.getX() + getWidth(), this.getY() + getHeight(), 0x20000000);
 

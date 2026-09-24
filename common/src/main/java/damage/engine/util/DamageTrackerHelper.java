@@ -116,10 +116,9 @@ public class DamageTrackerHelper {
             }
         }
 
-        // 1.19 没有 DamageTypes(1.19.4 才引入),用 DamageSource 常量的 msgId 做等价判断:
-        // source.is(DamageTypes.ON_FIRE) || source.is(DamageTypes.IN_FIRE)
-        if (attacker == null && (DamageSource.ON_FIRE.getMsgId().equals(source.getMsgId())
-            || DamageSource.IN_FIRE.getMsgId().equals(source.getMsgId()))) {
+        // 1.19.4 起 DamageSource 常量被移除,改用 DamageType 标签判断火焰伤害:
+        // source.is(DamageTypeTags.IS_FIRE) 等价于原 DamageTypes.ON_FIRE / IN_FIRE
+        if (attacker == null && source.is(net.minecraft.tags.DamageTypeTags.IS_FIRE)) {
             // 阳光燃烧属于环境伤害:白天露天且未在水/雨中时不归属给最后攻击者,
             // 否则"打过一下的怪被太阳烧"会把这串燃烧跳伤全算成玩家造成的。
             if (!isSunlightBurn(self)) {
@@ -245,7 +244,7 @@ public class DamageTrackerHelper {
             if (!self.fireImmune()) {
                 return self.getLevel().isDay()
                     && !self.isInWaterRainOrBubble()
-                    && self.getLevel().canSeeSky(new net.minecraft.core.BlockPos(self.getX(), self.getEyeY(), self.getZ()));
+                    && self.getLevel().canSeeSky(net.minecraft.core.BlockPos.containing(self.getX(), self.getEyeY(), self.getZ()));
             }
         } catch (Exception ignored) {
         }
