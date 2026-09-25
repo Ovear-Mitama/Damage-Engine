@@ -14,10 +14,23 @@ public class HudRenderMixin {
 
     private static final DamageHud damageHud = new DamageHud();
 
-    @Inject(method = "extractRenderState", at = @At("TAIL"))
+    // HUD 惯性要在原版 HUD 画之前算好,"整层 HUD"模式下还得先把偏移压进矩阵栈,
+    // 这样后面所有层(原版 + Fabric HUD API 织进来的其它模组层)才会一起跟着让位。
+    @Inject(method = "extractRenderState", at = @At("HEAD"))
+    private void damageEngine$updateInertia(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+        damageHud.updateHudInertia();
+        damageHud.beginGlobalShift(guiGraphics);
+    }
+
+    @Inject(method = "extractRenderState", at = @At("RETURN"))
     private void damageEngine$onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
-        damageHud.onHudRender(guiGraphics, deltaTracker);
-        // 伤害跳字不再画在 HUD 上：改为交给 Anima 在世界渲染阶段画真 3D 文字
-        // （见 DamageIndicator.renderWorld，由 DamageEngineClient 注册到 AnimaApi.onWorldRender）
+        try {
+            // 此时整层偏移(若有)还在栈上,DE 自己的 HUD 也就跟着走了
+            damageHud.onHudRender(guiGraphics, deltaTracker);
+            // 伤害跳字不再画在 HUD 上：改为交给 Anima 在世界渲染阶段画真 3D 文字
+            // （见 DamageIndicator.renderWorld，由 DamageEngineClient 注册到 AnimaApi.onWorldRender）
+        } finally {
+            damageHud.endGlobalShift(guiGraphics);
+        }
     }
 }

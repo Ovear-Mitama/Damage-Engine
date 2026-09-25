@@ -8,6 +8,8 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.world.entity.player.PlayerSkin;
+import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 import net.minecraft.client.player.AbstractClientPlayer;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
@@ -89,7 +91,6 @@ public class DamageHud {
     public void onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker) {
         try {
             Minecraft client = Minecraft.getInstance();
-            updateHudInertia(client);
             if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
             if (client.screen instanceof damage.engine.client.gui.HudEditorScreen) return;
 
@@ -295,9 +296,10 @@ public class DamageHud {
         int y = moduleConfig.y == -1.0f ? client.getWindow().getGuiScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getGuiScaledHeight());
 
         // 记录模块变换,供需要按屏幕坐标定位的子项(如实体头像渲染)换算使用
-        // 惯性偏移取整后加在缩放外层,各模块缩放不同时位移量仍然一致
-        int inertiaOffX = Math.round(inertiaX);
-        int inertiaOffY = Math.round(inertiaY);
+        // 惯性偏移取整后加在缩放外层,各模块缩放不同时位移量仍然一致。
+        // "整层 HUD"模式下由外层统一偏移,这里就不再叠加,免得让两次。
+        int inertiaOffX = applyOwnInertiaOffset() ? Math.round(inertiaX) : 0;
+        int inertiaOffY = applyOwnInertiaOffset() ? Math.round(inertiaY) : 0;
         this.moduleScreenX = x + inertiaOffX;
         this.moduleScreenY = y + inertiaOffY;
         this.moduleScreenScale = moduleConfig.scale;
@@ -311,10 +313,12 @@ public class DamageHud {
         guiGraphics.pose().popMatrix();
     }
 
-    // ---- HUD 惯性:转动视角时整层 HUD 先朝反方向让一点,再靠临界阻尼弹簧平滑回正 ----
+    // ---- HUD 惯性:视角转动/移动时整层 HUD 先朝反方向让一点,再靠临界阻尼弹簧平滑回正 ----
 
     /** 视角每转 1 度,HUD 反向让出多少像素。 */
     private static final float INERTIA_GAIN = 0.22f;
+    /** 每移动 1 格,HUD 反向让出多少像素。 */
+    private static final float INERTIA_MOVE_GAIN = 4.0f;
     /** 弹簧刚度,越大回正越快。 */
     private static final float INERTIA_STIFFNESS = 220f;
     /** 最大让位距离(像素)。 */
@@ -326,14 +330,23 @@ public class DamageHud {
     private float inertiaVelY = 0f;
     private float inertiaPrevYaw = 0f;
     private float inertiaPrevPitch = 0f;
+    private Vec3 inertiaPrevPos = null;
     private long inertiaLastMs = 0L;
     private boolean inertiaPrevInit = false;
+    /** 整层偏移当前是否已经压进 HUD 的矩阵栈 */
+    private boolean globalShiftActive = false;
+
+    /** 只让 DE 自己的 HUD 让位时才在模块变换里叠偏移;"整层 HUD"模式由外层统一偏移。 */
+    private static boolean applyOwnInertiaOffset() {
+        return "de_only".equals(DamageEngineConfig.getInstance().hudInertiaMode);
+    }
 
     /**
-     * 每帧更新惯性偏移。朝反方向的位移由本帧视角变化量直接推动,回正交给弹簧,
-     * 所以快速甩视角时 HUD 会先让开、随后自己平滑归位且不过冲。
+     * 每帧更新惯性偏移。朝反方向的位移由本帧视角变化量与位移量直接推动,回正交给弹簧,
+     * 所以转动视角或移动时 HUD 会先让开、随后自己平滑归位且不过冲。
      */
-    private void updateHudInertia(Minecraft client) {
+    public void updateHudInertia() {
+        Minecraft client = Minecraft.getInstance();
         long now = System.currentTimeMillis();
         float rawDt = inertiaLastMs == 0L ? 0.016f : (now - inertiaLastMs) / 1000.0f;
         inertiaLastMs = now;
@@ -344,14 +357,15 @@ public class DamageHud {
         float dt = Mth.clamp(rawDt, 1f / 240f, 0.1f);
 
         Camera camera = client.level == null ? null : client.gameRenderer.getMainCamera();
-        if (camera == null || !DamageEngineConfig.getInstance().hudInertia) {
+        if (camera == null || "off".equals(DamageEngineConfig.getInstance().hudInertiaMode)) {
             // 关掉或还没进世界:本帧不再推动,只让弹簧把残余偏移收回去
             inertiaPrevInit = false;
         } else {
-            // 取相机朝向而不是 player.getYRot():后者一个 tick 才更新一次,
+            // 取相机朝向/位置而不是 player.getYRot():后者一个 tick 才更新一次,
             // 按帧读会变成"一跳一跳",看起来卡顿,单帧 delta 也大得离谱。
             float yaw = camera.yRot();
             float pitch = camera.xRot();
+            Vec3 pos = camera.position();
             if (inertiaPrevInit) {
                 float dYaw = Mth.wrapDegrees(yaw - inertiaPrevYaw);
                 float dPitch = pitch - inertiaPrevPitch;
@@ -361,9 +375,22 @@ public class DamageHud {
                     inertiaX -= dYaw * INERTIA_GAIN;
                     inertiaY -= dPitch * INERTIA_GAIN;
                 }
+                if (inertiaPrevPos != null) {
+                    Vec3 delta = pos.subtract(inertiaPrevPos);
+                    // 一帧走 4 格以上(含飞行/坐骑)只可能是传送
+                    if (delta.lengthSqr() < 16.0) {
+                        // 把世界位移转到视角坐标系:此时 x 是左右、y 是上下,
+                        // 往哪边走 HUD 就往屏幕反方向让。视角系 y 向上、GUI 的 y 向下,故 y 取加号。
+                        Vector3f v = camera.rotation()
+                            .transform(new Vector3f((float) delta.x, (float) delta.y, (float) delta.z));
+                        inertiaX -= v.x * INERTIA_MOVE_GAIN;
+                        inertiaY += v.y * INERTIA_MOVE_GAIN;
+                    }
+                }
             }
             inertiaPrevYaw = yaw;
             inertiaPrevPitch = pitch;
+            inertiaPrevPos = pos;
             inertiaPrevInit = true;
         }
 
@@ -380,6 +407,28 @@ public class DamageHud {
         if (Math.abs(inertiaY) < 0.02f && Math.abs(inertiaVelY) < 0.02f) {
             inertiaY = 0f;
             inertiaVelY = 0f;
+        }
+    }
+
+    /**
+     * "整层 HUD"模式下,把偏移压到整个 HUD 的矩阵栈上,让原版和其它模组的 HUD 一起让位。
+     * 偏移为 0 时不压栈,常态下没有任何额外开销。需与 {@link #endGlobalShift} 成对调用。
+     */
+    public void beginGlobalShift(GuiGraphicsExtractor guiGraphics) {
+        globalShiftActive = false;
+        if (!"all".equals(DamageEngineConfig.getInstance().hudInertiaMode)) return;
+        int offX = Math.round(inertiaX);
+        int offY = Math.round(inertiaY);
+        if (offX == 0 && offY == 0) return;
+        guiGraphics.pose().pushMatrix();
+        guiGraphics.pose().translate(offX, offY);
+        globalShiftActive = true;
+    }
+
+    public void endGlobalShift(GuiGraphicsExtractor guiGraphics) {
+        if (globalShiftActive) {
+            guiGraphics.pose().popMatrix();
+            globalShiftActive = false;
         }
     }
 

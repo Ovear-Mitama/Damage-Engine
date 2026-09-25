@@ -55,7 +55,7 @@
   "hint.damage-engine.global_smart_hide": "隐藏看不见和听不见的生物受到的伤害跳字。",
   "hint.damage-engine.abbreviateNumbers": "大数字改用 K/M/B/T 缩写：1500 显示为 1.5K，2000000 显示为 2M。",
   "hint.damage-engine.showDamageOverflow": "显示伤害不受目标剩余生命限制。原版会把伤害截断到目标血量（满血打死 20 血的怪只显示 20），开启后显示武器实际打出的伤害，便于测试伤害上限。",
-  "hint.damage-engine.hudInertia": "转动视角时整层 HUD 先朝反方向让一点、再平滑回正，做出类似《战地》的阻力手感。",
+  "hint.damage-engine.hudInertia": "转动视角或移动（走路、飞行、坐骑）时，HUD 先朝反方向让一点、再平滑回正，做出类似《战地》的阻力手感。\n关闭：不生效。仅 DE 界面：只让本模组的 HUD 让位。全部界面：原版与其它模组的 HUD 一起让位。",
 
   "option.damage-engine.showDamage": "HUD显示",
   "option.damage-engine.edit_pos_label": "调整HUD",
@@ -158,6 +158,9 @@
   "hint.damage-engine.entity_registry_name": "输入实体注册名称，输入 All 为全部非玩家实体",
   "option.damage-engine.mode.block": "屏蔽",
   "option.damage-engine.mode.show": "显示",
+  "option.damage-engine.mode.off": "关闭",
+  "option.damage-engine.mode.de_only": "仅 DE 界面",
+  "option.damage-engine.mode.all": "全部界面",
   "text.damage-engine.registry_name": "注册名",
   "text.damage-engine.distance": "距离",
   "options.on": "开启",
