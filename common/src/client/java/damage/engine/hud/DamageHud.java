@@ -3,6 +3,7 @@ package damage.engine.hud;
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.DeltaTracker;
@@ -313,11 +314,11 @@ public class DamageHud {
     // ---- HUD 惯性:转动视角时整层 HUD 先朝反方向让一点,再靠临界阻尼弹簧平滑回正 ----
 
     /** 视角每转 1 度,HUD 反向让出多少像素。 */
-    private static final float INERTIA_GAIN = 0.6f;
+    private static final float INERTIA_GAIN = 0.22f;
     /** 弹簧刚度,越大回正越快。 */
     private static final float INERTIA_STIFFNESS = 220f;
     /** 最大让位距离(像素)。 */
-    private static final float INERTIA_MAX_OFFSET = 12f;
+    private static final float INERTIA_MAX_OFFSET = 6f;
 
     private float inertiaX = 0f;
     private float inertiaY = 0f;
@@ -342,32 +343,29 @@ public class DamageHud {
         }
         float dt = Mth.clamp(rawDt, 1f / 240f, 0.1f);
 
-        float dYaw = 0f;
-        float dPitch = 0f;
-        if (client.player == null || !DamageEngineConfig.getInstance().hudInertia) {
+        Camera camera = client.level == null ? null : client.gameRenderer.getMainCamera();
+        if (camera == null || !DamageEngineConfig.getInstance().hudInertia) {
             // 关掉或还没进世界:本帧不再推动,只让弹簧把残余偏移收回去
             inertiaPrevInit = false;
-        } else if (inertiaPrevInit) {
-            float yaw = client.player.getYRot();
-            float pitch = client.player.getXRot();
-            dYaw = Mth.wrapDegrees(yaw - inertiaPrevYaw);
-            dPitch = pitch - inertiaPrevPitch;
+        } else {
+            // 取相机朝向而不是 player.getYRot():后者一个 tick 才更新一次,
+            // 按帧读会变成"一跳一跳",看起来卡顿,单帧 delta 也大得离谱。
+            float yaw = camera.yRot();
+            float pitch = camera.xRot();
+            if (inertiaPrevInit) {
+                float dYaw = Mth.wrapDegrees(yaw - inertiaPrevYaw);
+                float dPitch = pitch - inertiaPrevPitch;
+                // 一帧转 90 度以上只可能是传送/切维度,不当玩家操作
+                if (Math.abs(dYaw) < 90f && Math.abs(dPitch) < 90f) {
+                    // 向右转 yaw 增大、向下看 pitch 增大,HUD 要往屏幕反方向走,所以是减
+                    inertiaX -= dYaw * INERTIA_GAIN;
+                    inertiaY -= dPitch * INERTIA_GAIN;
+                }
+            }
             inertiaPrevYaw = yaw;
             inertiaPrevPitch = pitch;
-            // 单帧转过 30 度以上多半不是玩家在操作(刚进世界/视角被程序设定),这一帧不算
-            if (Math.abs(dYaw) > 30f || Math.abs(dPitch) > 30f) {
-                dYaw = 0f;
-                dPitch = 0f;
-            }
-        } else {
-            inertiaPrevYaw = client.player.getYRot();
-            inertiaPrevPitch = client.player.getXRot();
             inertiaPrevInit = true;
         }
-
-        // 向右转 yaw 增大、向下看 pitch 增大,HUD 要往屏幕反方向走,所以是减
-        inertiaX -= dYaw * INERTIA_GAIN;
-        inertiaY -= dPitch * INERTIA_GAIN;
 
         float damp = 2f * (float) Math.sqrt(INERTIA_STIFFNESS);
         inertiaVelX += (-INERTIA_STIFFNESS * inertiaX - damp * inertiaVelX) * dt;
