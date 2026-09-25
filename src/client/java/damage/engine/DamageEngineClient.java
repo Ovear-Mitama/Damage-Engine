@@ -10,6 +10,7 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.network.FriendlyByteBuf;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
 
@@ -50,10 +51,10 @@ public class DamageEngineClient implements ClientModInitializer {
         // the world. Earlier capture points (e.g. inside renderLevel) grab a stale
         // modelview which collapses all floats to one screen position.
         net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BEFORE_ENTITIES.register(ctx -> {
-            org.joml.Matrix4f proj = ctx.projectionMatrix();
-            org.joml.Matrix4f view = new org.joml.Matrix4f(ctx.matrixStack().last().pose());
+            com.mojang.math.Matrix4f proj = ctx.projectionMatrix();
+            com.mojang.math.Matrix4f view = new com.mojang.math.Matrix4f(ctx.matrixStack().last().pose());
             damage.engine.hud.DamageIndicator.captureMatrices(
-                proj != null ? new org.joml.Matrix4f(proj) : null, view);
+                proj != null ? new com.mojang.math.Matrix4f(proj) : null, view);
         });
 
         // Register S2C damage packet handler
@@ -83,14 +84,14 @@ public class DamageEngineClient implements ClientModInitializer {
                     if (config.debugShowDamageInfo) {
                         if (debugInfo != null && !debugInfo.isEmpty()) {
                             client.player.displayClientMessage(
-                                Component.literal("[DE Debug] ").withStyle(s -> s.withColor(TextColor.fromRgb(0xB3EDC4)))
-                                    .append(Component.literal(debugInfo).withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFFFF)))),
+                                new TextComponent("[DE Debug] ").withStyle(s -> s.withColor(TextColor.fromRgb(0xB3EDC4)))
+                                    .append(new TextComponent(debugInfo).withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFFFF)))),
                                 false
                             );
                         }
                         client.player.displayClientMessage(
-                            Component.literal("[DE Debug] ").withStyle(s -> s.withColor(TextColor.fromRgb(0xB3EDC4)))
-                                .append(Component.literal("Dmg: " + String.format("%.1f", amount)
+                            new TextComponent("[DE Debug] ").withStyle(s -> s.withColor(TextColor.fromRgb(0xB3EDC4)))
+                                .append(new TextComponent("Dmg: " + String.format("%.1f", amount)
                                 + (isCrit ? " Crit" : "") + " | Entity: " + entityId
                                 + " | Projectile: " + (isProjectile ? "Yes" : "No")).withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFFFF)))),
                             false
@@ -158,8 +159,8 @@ public class DamageEngineClient implements ClientModInitializer {
                         RatingManager rm = RatingManager.getInstance();
                         if (rm.isVisible()) {
                             client.player.displayClientMessage(
-                                Component.literal("[DE Debug] ").withStyle(s -> s.withColor(TextColor.fromRgb(0xB3EDC4)))
-                                    .append(Component.literal("Rating: " + rm.getGrade() + " | Score: " + String.format("%.1f", rm.getScore())).withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFFFF)))),
+                                new TextComponent("[DE Debug] ").withStyle(s -> s.withColor(TextColor.fromRgb(0xB3EDC4)))
+                                    .append(new TextComponent("Rating: " + rm.getGrade() + " | Score: " + String.format("%.1f", rm.getScore())).withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFFFF)))),
                                 true
                             );
                         }
