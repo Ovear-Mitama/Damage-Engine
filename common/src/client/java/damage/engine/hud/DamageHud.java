@@ -53,14 +53,6 @@ public class DamageHud {
     private long infoFadeStartMs = 0;
     private static final long INFO_FADE_MS = 500;
     private static final long INFO_SWITCH_MS = 500;
-    /**
-     * 实体头像渲染框相对头像槽的放大倍数。
-     * <p>
-     * 26.x 的实体头像是画进"按渲染框尺寸生成"的离屏纹理再合成的,框就是裁剪边界;
-     * 把框放大到头像槽的 {@code 2.0} 倍,模型(含末影龙这种翼展明显大于身躯的)即使超出头像槽
-     * 也不会被切边。实际大小由 {@link EntityIconRenderer} 的 FILL_RATIO 按框折算,保持不变。
-     */
-    private static final float ENTITY_ICON_OVERSIZE = 2.0f;
     private boolean infoDeathDrain = false;
     private boolean infoDamageTailActive = false;
     private boolean infoDamageTailPending = false;
@@ -991,21 +983,17 @@ public class DamageHud {
 
                 guiGraphics.pose().popMatrix();
             } else if (infoAvatarEntity != null && entityRenderEnabled) {
-                // 非玩家实体:交给 GUI 实体渲染管线画 3D 模型。
+                // 非玩家实体:交给 GUI 实体渲染管线按真实体型画 3D 模型。
                 // 该管线用屏幕坐标(不套用模块 pose),因此这里手动换算。
-                // 不做边缘裁剪:渲染框比头像槽略大且以槽心对齐,允许模型溢出到面板/文本上;
-                // 本段先于下方文本与血条绘制,因此溢出的模型自然压在文本之下。
+                // 渲染框由 EntityIconRenderer 按实体实际尺寸自行放大,不需要裁剪或限制。
                 int slotX = Math.round(moduleScreenX + avatarDrawX * moduleScreenScale);
                 int slotY = Math.round(moduleScreenY + avatarY * moduleScreenScale);
                 int slotSize = Math.round(avatarSize * moduleScreenScale);
-                int boxSize = Math.round(slotSize * ENTITY_ICON_OVERSIZE);
-                if (boxSize > 0) {
-                    int boxX = slotX - (boxSize - slotSize) / 2;
-                    int boxY = slotY - (boxSize - slotSize) / 2;
+                if (slotSize > 0) {
                     float fade = infoAvatarAlpha * globalAlpha;
                     boolean followRotation = "follow".equals(DamageEngineConfig.getInstance().entityRenderRotation);
                     int rotationAngle = DamageEngineConfig.getInstance().entityRenderRotationAngle;
-                    EntityIconRenderer.render(guiGraphics, infoAvatarEntity, boxX, boxY, boxSize, fade, followRotation, rotationAngle);
+                    EntityIconRenderer.render(guiGraphics, infoAvatarEntity, slotX, slotY, slotSize, fade, followRotation, rotationAngle);
                 }
             }
         }
