@@ -1,7 +1,6 @@
 package damage.engine.mixin.client;
 
 import damage.engine.hud.DamageHud;
-import damage.engine.hud.DamageIndicator;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -18,6 +17,7 @@ public class HudRenderMixin {
     @Inject(method = "extractRenderState", at = @At("TAIL"))
     private void damageEngine$onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
         damageHud.onHudRender(guiGraphics, deltaTracker);
-        DamageIndicator.render(guiGraphics, deltaTracker.getGameTimeDeltaPartialTick(false));
+        // 伤害跳字不再画在 HUD 上：改为交给 Anima 在世界渲染阶段画真 3D 文字
+        // （见 DamageIndicator.renderWorld，由 DamageEngineClient 注册到 AnimaApi.onWorldRender）
     }
 }

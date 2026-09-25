@@ -34,6 +34,9 @@ public class DamageEngineClient implements ClientModInitializer {
         clearDamageKeyBinding = ClientKeybindings.clearDamageKeyBinding;
         KeyMapping.resetMapping();
 
+        // 伤害跳字交给 Anima 在世界渲染阶段画真 3D 文字（有透视、随距离缩放、会被方块遮挡）
+        anima.api.AnimaApi.onWorldRender(DamageIndicator::renderWorld);
+
         // 进入服务器/世界时重置服务端 mod 检测状态；单机世界由 ClientTickMixin 直接标记
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> {
             serverHasMod = false;
