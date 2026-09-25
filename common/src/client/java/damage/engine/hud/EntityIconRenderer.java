@@ -8,6 +8,7 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
@@ -112,12 +113,16 @@ public final class EntityIconRenderer {
 
             ModelExtents model = modelExtents(entity, dispatcher);
             float pixelsPerBlock = slotSize / PLAYER_HEIGHT_BLOCKS;
+            // 渲染器内部施加的体型缩放(史莱姆/岩浆怪按大小属性放大、模组自定义缩放)。
+            // 它不在渲染状态里,而且只作用在模型本体上、不作用于下面那个固定的 1.501 位移,
+            // 所以算居中时必须让模型中点乘上它,否则个体越大越往上飘。
+            float bodyScale = rendererBodyScale(dispatcher, entity, state);
 
             // 垂直居中按"模型自身的垂直中点"算,而不是碰撞箱中心。
-            // 原版实体渲染会把模型沿 Y 下移 1.501 格(脚底对齐原点),故中点落在槽心对应的位移是 1.501 - 中点;
+            // 原版实体渲染会把模型沿 Y 下移 1.501 格(脚底对齐原点),故中点落在槽心对应的位移是 1.501 - 中点×体型缩放;
             // 模型不可测时回退到碰撞箱中心。
             float translateY = model != null
-                ? (MODEL_VERTICAL_PIVOT - model.centerY())
+                ? (MODEL_VERTICAL_PIVOT - model.centerY() * bodyScale)
                 : (bbH / 2.0f + CENTER_OFFSET_Y);
 
             // 渲染框按实体实际尺寸放大:它只是画布与裁剪边界,放大只为留出溢出的余地、不切边,
@@ -139,7 +144,7 @@ public final class EntityIconRenderer {
 
             if (entity.getId() != lastLogId) {
                 lastLogId = entity.getId();
-                LOGGER.info("[DE] icon: id={} 类型={} follow={} 包围箱={}x{} 模型XYZ={}x{}x{} 中点Y={} 每格像素={} 位移Y={} 渲染框={}",
+                LOGGER.info("[DE] icon: id={} 类型={} follow={} 包围箱={}x{} 模型XYZ={}x{}x{} 中点Y={} 体型缩放={} 每格像素={} 位移Y={} 渲染框={}",
                     entity.getId(), entity.getType().getDescription().getString(), followRotation,
                     String.format("%.2f", bbW),
                     String.format("%.2f", bbH),
@@ -147,6 +152,7 @@ public final class EntityIconRenderer {
                     model != null ? String.format("%.2f", model.spanY()) : "n/a",
                     model != null ? String.format("%.2f", model.spanZ()) : "n/a",
                     model != null ? String.format("%.2f", model.centerY()) : "n/a",
+                    String.format("%.2f", bodyScale),
                     String.format("%.2f", pixelsPerBlock),
                     String.format("%.2f", translateY),
                     boxSize);
@@ -156,6 +162,28 @@ public final class EntityIconRenderer {
                 boxX, boxY, boxX + boxSize, boxY + boxSize);
         } catch (Throwable t) {
             LOGGER.warn("[DE] 实体头像渲染失败: {}", t.toString());
+        }
+    }
+
+    /**
+     * 读出渲染器内部施加的体型缩放。
+     * <p>
+     * 史莱姆/岩浆怪这类"同一个实体按大小属性放大"的缩放是在 {@code LivingEntityRenderer#scale} 里做的:
+     * 既不在 {@link EntityRenderState} 里,也不改变碰撞箱与模型几何各自的比例。这里给它一个空
+     * {@link PoseStack} 当探针,从返回的矩阵里读出缩放值,用于修正垂直居中。取不到就按 1 处理。
+     */
+    private static float rendererBodyScale(EntityRenderDispatcher dispatcher, LivingEntity entity, EntityRenderState state) {
+        if (!(state instanceof LivingEntityRenderState livingState)) return 1.0f;
+        try {
+            EntityRenderer<?, ?> renderer = dispatcher.getRenderer(entity);
+            if (!(renderer instanceof LivingEntityRenderer)) return 1.0f;
+            PoseStack probe = new PoseStack();
+            ((LivingEntityRenderer) renderer).scale(livingState, probe);
+            Vector3f scale = probe.last().pose().getScale(new Vector3f());
+            float s = Math.abs(scale.y);
+            return s > 0.001f ? s : 1.0f;
+        } catch (Throwable t) {
+            return 1.0f;
         }
     }
 
