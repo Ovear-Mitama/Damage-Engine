@@ -342,6 +342,19 @@ public class DamageHud {
     private float globalShiftX = 0f;
     private float globalShiftY = 0f;
 
+    /**
+     * 当前整层偏移。只在"整层 HUD"模式下、且偏移非 0 时才有值(见 {@link #beginGlobalShift}),
+     * 供不经过 HUD 矩阵栈的自绘模组跟随 —— 比如 Xaero 小地图,它把坐标提交给原版的
+     * PictureInPicture 延迟渲染状态,pose 平移对它无效,只能按这个偏移改它提交的坐标。
+     */
+    public float getGlobalShiftX() {
+        return globalShiftX;
+    }
+
+    public float getGlobalShiftY() {
+        return globalShiftY;
+    }
+
     /** 只让 DE 自己的 HUD 让位时才在模块变换里叠偏移;"整层 HUD"模式由外层统一偏移。 */
     private static boolean applyOwnInertiaOffset() {
         return "de_only".equals(DamageEngineConfig.getInstance().hudInertiaMode);

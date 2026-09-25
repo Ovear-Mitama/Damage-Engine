@@ -1,0 +1,11 @@
+{
+	"required": false,
+	"package": "damage.engine.mixin.client.compat.xaero",
+	"compatibilityLevel": "JAVA_25",
+	"client": [
+		"XaeroMinimapPipShiftMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}

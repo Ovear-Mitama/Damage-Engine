@@ -31,6 +31,10 @@
 		{
 			"config": "damage-engine.client.mixins.json",
 			"environment": "client"
+		},
+		{
+			"config": "damage-engine.xaero.mixins.json",
+			"environment": "client"
 		}
 	],
 	"depends": {
