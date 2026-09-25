@@ -17,13 +17,16 @@ tasks.named('jar') {
     archiveFileName = "${project.archives_base_name}-${project.mod_version}-Fabric-${project.minecraft_version}.jar"
 
     // 把库内置进产物（Jar-in-Jar）：Anima 还没上传 Modrinth，玩家不需要单独安装。
-    // 手工嵌套：jar 里放 META-INF/jars/anima-<版本>.jar，并在 fabric.mod.json 的 "jars" 里声明。
-    def animaProdJar = file('../texture-animation-library/build/libs/anima-1.0.5.jar')
+    // 库产物命名与 DE 一致：anima-<版本>-Fabric-<MC>.jar；嵌套进 jar 后统一叫
+    // META-INF/jars/anima-<版本>.jar，fabric.mod.json 的 "jars" 按这个名字声明。
+    def animaProdJar = file("../texture-animation-library/build/libs/anima-${anima_version}-Fabric-${project.minecraft_version}.jar")
     if (!animaProdJar.exists()) {
         throw new GradleException("Anima 正式 jar 不存在: ${animaProdJar}\n请先在 texture-animation-library 执行 ./gradlew build")
     }
+    def animaNestedName = "anima-${anima_version}.jar"
     from(animaProdJar) {
         into 'META-INF/jars'
+        rename { animaNestedName }
     }
 }
 
@@ -78,7 +81,7 @@ dependencies {
     // Anima: 跳字（伤害数字）动画 / 渲染库,必需依赖。
     // 本地产物来自同级仓库 texture-animation-library,先在那里执行 ./gradlew build。
     // 26.1+ 为非混淆版本,库产物可直接作为普通依赖使用;发布产物通过上面的 jar 任务内置（Jar-in-Jar）。
-    def animaJar = file('../texture-animation-library/build/libs/anima-1.0.5.jar')
+    def animaJar = file("../texture-animation-library/build/libs/anima-${anima_version}-Fabric-${project.minecraft_version}.jar")
     if (!animaJar.exists()) {
         throw new GradleException("Anima jar 不存在: ${animaJar}\n请先在 texture-animation-library 执行 ./gradlew build")
     }
