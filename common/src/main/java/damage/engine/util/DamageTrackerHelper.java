@@ -231,6 +231,13 @@ public class DamageTrackerHelper {
 
         boolean killed = (!self.isAlive() || self.getHealth() <= 0f) && snap.prevHealth > 0f;
 
+        // 原版会把伤害截断到目标剩余生命,所以满血打死一只 20 血的怪永远只显示 20。
+        // 开启"伤害溢出显示"后改用 hurt() 收到的入伤,仅在本次伤害确实生效时替换,
+        // 避免无敌帧里被拦下的攻击也跳出数字。
+        if ((actualDamage > 0 || killed) && DamageEngineConfig.getInstance().showDamageOverflow) {
+            actualDamage = Math.max(snap.sourceAmount, actualDamage);
+        }
+
         if ((actualDamage > 0 || killed) && broadcaster != null && self.getLevel() instanceof ServerLevel sw) {
             int tick = (int) sw.getGameTime();
             int directId = source != null && source.getDirectEntity() != null ? source.getDirectEntity().getId() : -1;

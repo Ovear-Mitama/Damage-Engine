@@ -14,11 +14,8 @@ import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.renderer.entity.EntityRenderer;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.LivingEntityRenderer;
-import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.WaterAnimal;
 import com.mojang.math.Matrix4f;
 import com.mojang.math.Quaternion;
 import com.mojang.math.Vector3f;
@@ -50,8 +47,19 @@ public final class EntityIconRenderer {
 
     /** 原版 GUI 深度:实体画在 z=50(比面板背景 z=0 更靠近观察者,因此覆盖在面板之上)。 */
     private static final double GUI_Z = 50.0;
-    /** 实体在头像框内占据的比例(超出部分由上层文本/血条盖住,外层 scissor 只做兜底限制)。 */
-    private static final float FILL_RATIO = 0.98f;
+    /**
+     * 换算基准:多少格高度对应"刚好填满头像槽"。
+     * <p>
+     * 以玩家身高(1.8 格)为基准,即 1 格 = 头像槽边长 / 1.8 像素。实体按这个比例画出来就是它的
+     * 真实体型——大史莱姆是大的、小史莱姆是小的,不再把每个实体都缩放去"填满头像槽"。
+     */
+    private static final float PLAYER_HEIGHT_BLOCKS = 1.8f;
+
+    /** 垂直微调,与 Damage-Indicators 的 offsetY 取值一致(模型不可测时的回退分支使用)。 */
+    private static final float CENTER_OFFSET_Y = 0.0625f;
+
+    /** 原版实体渲染把模型沿 Y 下移 1.501 格(脚底对齐模型原点),用它作为垂直居中的基准。 */
+    private static final float MODEL_VERTICAL_PIVOT = 1.501f;
 
     /**
      * 幼年补偿系数:{@link AgeableListModel} 的幼年缩放不在 ModelPart 树内,
@@ -59,14 +67,6 @@ public final class EntityIconRenderer {
      * 默认参数下约 0.56),这里按其等效比例做补偿。
      */
     private static final float BABY_EXTENT_FACTOR = 0.5625f;
-
-    /**
-     * 动物类(牛/猪/羊/鸡/狼/鱿鱼等)的额外收缩系数。
-     * <p>
-     * 这些生物的模型相对碰撞箱偏"方",按统一取景比例画出来会比同尺寸的怪物更占地方,
-     * 与怪物混在一起时显得过大,故单独把它们的取景尺寸放大一点(等价于整体画小一些)。
-     */
-    private static final float ANIMAL_SHRINK = 1.25f;
 
     /** 模型几何缓存(按实体类型 + 是否幼年);几何是静态的,缓存后取景比例不随行走摆动而抖动。 */
     private static final Map<CacheKey, float[]> MODEL_CACHE = new HashMap<>();
@@ -130,37 +130,37 @@ public final class EntityIconRenderer {
             entity.setXRot(savedXRot);
             entity.xRotO = savedXRotO;
 
-            // 用模型真实几何取景(比碰撞箱更贴合实际绘制尺寸)
-            float[] bounds = computeModelBounds(entity, savedBodyRot + yawOffset);
-            // 动物类整体再收一档,避免和怪物放在一起时显得过大
-            float sizeFactor = isAnimal(entity) ? ANIMAL_SHRINK : 1.0f;
+            // 真实体型:1 格 = 头像槽边长 / 1.8(玩家身高)。实体多大就画多大,
+            // 不再按"填满头像槽"反推缩放,也不对模型缩放做归一化或上限限制
+            // (史莱姆/岩浆怪这类按大小属性放大的生物,放大由渲染器自己施加)。
+            float scale = size / PLAYER_HEIGHT_BLOCKS;
+            // 渲染器内部施加的体型缩放:它连同模型一起缩放,居中基准必须按它换算,
+            // 否则个体越大越往上飘。取不到按 1 处理。
+            float bodyScale = rendererBodyScale(entity);
+            // 用模型真实几何做垂直居中(比碰撞箱中心更贴合实际绘制范围)
+            float[] bounds = computeModelBounds(entity, savedBodyRot + yawOffset, bodyScale);
             float focusX;
             float focusY;
-            float scale;
             if (bounds != null) {
+                // computeModelBounds 返回 {centerX, centerY, centerZ, extent}:取前两项做居中
                 focusX = bounds[0];
                 focusY = bounds[1];
-                // computeModelBounds 返回 {centerX, centerY, centerZ, extent},取景尺寸必须用 extent(下标 3)。
-                // 曾误用下标 2(centerZ):僵尸这类 Z 中心接近 0 的模型取到 0,除法被钳到 scale 上限,
-                // 模型因此被放大约 5 倍、撑满面板。
-                scale = Mth.clamp(size * FILL_RATIO / (Math.max(bounds[3], 0.05f) * sizeFactor), 0.3f, 64.0f);
             } else {
                 // 退化:按碰撞箱取景
                 float height = Math.max(entity.getBbHeight(), 0.1f);
-                float width = Math.max(entity.getBbWidth(), 0.05f);
                 focusX = 0.0f;
-                focusY = height * 0.5f;
-                scale = Mth.clamp(size * FILL_RATIO / (Math.max(height, width) * sizeFactor), 0.3f, 64.0f);
+                focusY = height * 0.5f + CENTER_OFFSET_Y;
             }
 
             if (entity.getId() != lastLogId) {
                 lastLogId = entity.getId();
-                LOGGER.info("[DE] icon: 取景 id={} 类型={} yaw={} 模型={} 碰撞箱高={} scale={}",
+                LOGGER.info("[DE] icon: 取景 id={} 类型={} yaw={} 模型={} 碰撞箱高={} 体型缩放={} 每格像素={}",
                     entity.getId(), entity.getType().getDescription().getString(),
                     String.format("%.1f", savedBodyRot + yawOffset),
                     bounds == null ? "无(退化)"
-                        : String.format("center=(%.3f,%.3f) extent=%.3f", bounds[0], bounds[1], bounds[3]),
+                        : String.format("center=(%.3f,%.3f)", bounds[0], bounds[1]),
                     String.format("%.3f", entity.getBbHeight()),
+                    String.format("%.2f", bodyScale),
                     String.format("%.2f", scale));
             }
 
@@ -214,8 +214,9 @@ public final class EntityIconRenderer {
      * @return {centerX, centerY, extent},单位:块,位于实体本地空间(脚底约 y=0、+Y 向上);
      *         无法取到几何时返回 null
      * @param renderedBodyRot 渲染时使用的身体朝向,用于把模型内的偏移一起旋转
+     * @param bodyScale 渲染器实际施加的体型缩放(史莱姆/岩浆怪按大小属性放大等)
      */
-    private static float[] computeModelBounds(LivingEntity entity, float renderedBodyRot) {
+    private static float[] computeModelBounds(LivingEntity entity, float renderedBodyRot, float bodyScale) {
         float[] raw = rawBounds(entity);
         if (raw == null) return null;
 
@@ -228,14 +229,45 @@ public final class EntityIconRenderer {
         // 原版 LivingEntityRenderer 依次执行 scale(-1,-1,1) / scale(entityScale) / translate(0,-1.501,0)
         // / 按身体朝向绕 Y 旋转,PoseStack 后置相乘,因此点先被旋转、再平移、最后缩放:
         //   x' = -s * xr,  y' = 1.501 * s - s * y,  z' = s * zr
-        float s = Math.max(entity.getScale(), 0.01f);
+        // s 必须取渲染器实际的体型缩放:居中基准要跟着一起放大,否则个体越大越往上飘。
+        float s = Math.max(bodyScale, 0.01f);
         float rotDeg = 180.0f - renderedBodyRot;
         Vector3f rotated = new Vector3f(px, py, pz);
         rotated.transform(Vector3f.YP.rotationDegrees(rotDeg));
         float cx = -s * rotated.x();
-        float cy = 1.501f * s - s * rotated.y();
+        float cy = MODEL_VERTICAL_PIVOT * s - s * rotated.y();
         float cz = s * rotated.z();
         return new float[]{cx, cy, cz, extent};
+    }
+
+    /**
+     * 读出渲染器内部施加的体型缩放。
+     * <p>
+     * 史莱姆/岩浆怪这类"同一个实体按大小属性放大"的缩放是在 {@code LivingEntityRenderer#scale} 里做的,
+     * 既不在碰撞箱里、也不改变模型几何各自的比例。这里给它一个空 {@link PoseStack} 当探针,从结果矩阵
+     * 里读出缩放值,用于换算垂直居中基准。取不到就按 1 处理。
+     * <p>
+     * 1.18.2 的签名是 {@code protected void scale(T entity, PoseStack poseStack, float partialTicks)},
+     * 只能反射调用;而 1.18.2 的 {@code com.mojang.math.Matrix4f} 没有公开的 {@code getScale(Vector3f)},
+     * 故直接反射读取其受保护的 Y 轴元素 {@code m11}(纯缩放矩阵的对角元素)。
+     */
+    private static float rendererBodyScale(LivingEntity entity) {
+        try {
+            EntityRenderer<?> renderer = Minecraft.getInstance().getEntityRenderDispatcher().getRenderer(entity);
+            if (!(renderer instanceof LivingEntityRenderer<?, ?> living)) return 1.0f;
+            java.lang.reflect.Method m = LivingEntityRenderer.class
+                .getDeclaredMethod("scale", LivingEntity.class, PoseStack.class, float.class);
+            m.setAccessible(true);
+            PoseStack probe = new PoseStack();
+            m.invoke(living, entity, probe, 1.0f);
+            Matrix4f matrix = probe.last().pose();
+            java.lang.reflect.Field f = Matrix4f.class.getDeclaredField("m11");
+            f.setAccessible(true);
+            float s = Math.abs(f.getFloat(matrix));
+            return s > 0.001f ? s : 1.0f;
+        } catch (Throwable t) {
+            return 1.0f;
+        }
     }
 
     /** 取模型的几何包围盒 {centerX, centerY, centerZ, extent}(模型空间,单位块,已含幼年补偿)。 */
@@ -350,11 +382,6 @@ public final class EntityIconRenderer {
     private static ModelPart[] humanoidParts(HumanoidModel<?> humanoid) {
         return new ModelPart[]{humanoid.head, humanoid.hat, humanoid.body,
             humanoid.rightArm, humanoid.leftArm, humanoid.rightLeg, humanoid.leftLeg};
-    }
-
-    /** 动物类(含鱿鱼/鱼/海豚等水生动物)判定,用于取景时再收一档。 */
-    private static boolean isAnimal(LivingEntity entity) {
-        return entity instanceof Animal || entity instanceof WaterAnimal;
     }
 
     /**
