@@ -268,8 +268,10 @@ public class HudEditorScreen extends Screen {
                 ox = -w/2; oy = -h/2 - (int)(2 * s);
                 break;
             case INFO:
-                w = (int)(106 * s); h = (int)(34 * s);
-                ox = (int)(-65 * s); oy = (int)(-17 * s);
+                // 与 renderInfo 的实际面板一致:头像槽 27 + 左内边距 2 + 血条 80 + 右内边距 2
+                // (共 113 宽、30 高,左上角相对中心 -71,-15);写小了会框不住左侧。
+                w = (int)(113 * s); h = (int)(30 * s);
+                ox = (int)(-71 * s); oy = (int)(-15 * s);
                 break;
         }
         return new int[]{cx + ox - 2, cy + oy - 2, w + 4, h + 4};

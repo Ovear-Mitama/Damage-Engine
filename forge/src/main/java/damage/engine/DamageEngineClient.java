@@ -32,8 +32,6 @@ public class DamageEngineClient {
     
     public static final Logger LOGGER = LogUtils.getLogger();
 
-    private static final damage.engine.hud.DamageHud damageHud = new damage.engine.hud.DamageHud();
-
     public DamageEngineClient() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
@@ -84,6 +82,14 @@ public class DamageEngineClient {
         // used to live in HudRenderMixin / ClientTickMixin / ForgeWorldRenderMixin
         // is wired up with events instead.
 
+        // HUD 惯性要在原版 HUD 画之前算好,并在"整层 HUD"模式下先把偏移压进矩阵栈,
+        // 这样后面所有层(原版 + 其它模组的 HUD 层)才会一起跟着让位。
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.client.event.RenderGuiEvent.Pre ev) -> {
+                damage.engine.hud.DamageHud.INSTANCE.updateHudInertia();
+                damage.engine.hud.DamageHud.INSTANCE.beginGlobalShift(ev.getGuiGraphics());
+            });
+
         // HUD render (replaces HudRenderMixin). RenderGuiEvent.Post fires at the
         // very end of Gui.render, where the vanilla GUI blend state is active -
         // RenderGuiOverlayEvent ran too early and its GuiGraphics ignored the
@@ -91,15 +97,26 @@ public class DamageEngineClient {
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
             (net.minecraftforge.client.event.RenderGuiEvent.Post ev) -> {
                 Minecraft mc = Minecraft.getInstance();
-                if (mc.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
-                if (mc.screen instanceof damage.engine.client.gui.HudEditorScreen) return;
+                if (mc.screen instanceof damage.engine.client.gui.DamageConfigScreen) {
+                    damage.engine.hud.DamageHud.INSTANCE.endGlobalShift(ev.getGuiGraphics());
+                    return;
+                }
+                if (mc.screen instanceof damage.engine.client.gui.HudEditorScreen) {
+                    damage.engine.hud.DamageHud.INSTANCE.endGlobalShift(ev.getGuiGraphics());
+                    return;
+                }
                 // Force a clean 2D state just in case another mod polluted it.
                 com.mojang.blaze3d.systems.RenderSystem.enableBlend();
                 com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
                 com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-                damageHud.onHudRender(ev.getGuiGraphics(), ev.getPartialTick());
-                damage.engine.hud.DamageIndicator.render(ev.getGuiGraphics(), ev.getPartialTick());
+                try {
+                    // 此时整层偏移(若有)还在栈上,DE 自己的 HUD 也就跟着走了
+                    damage.engine.hud.DamageHud.INSTANCE.onHudRender(ev.getGuiGraphics(), ev.getPartialTick());
+                    damage.engine.hud.DamageIndicator.render(ev.getGuiGraphics(), ev.getPartialTick());
+                } finally {
+                    damage.engine.hud.DamageHud.INSTANCE.endGlobalShift(ev.getGuiGraphics());
+                }
             });
 
         // Matrix capture (replaces ForgeWorldRenderMixin)
