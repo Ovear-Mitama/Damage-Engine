@@ -128,15 +128,18 @@ dependencies {
 }
 
 // 把库内置进产物（Jar-in-Jar）：Anima 还没上传 Modrinth，玩家不需要单独安装。
-// 手工嵌套：jar 里放 META-INF/jars/anima-1.0.4.jar，并在 fabric.mod.json 的 "jars" 里声明。
+// 库产物命名与 DE 一致：anima-<版本>-Fabric-<MC>.jar；嵌套进 jar 后统一叫
+// META-INF/jars/anima-<版本>.jar，fabric.mod.json 的 "jars" 按这个名字声明。
 // （Loom 的 include files(...) 不支持普通文件依赖，会报 "not a module component"。）
 tasks.named('jar') {
-    def animaProdJar = file('../texture-animation-library/build/libs/anima-1.0.4.jar')
+    def animaProdJar = file("../texture-animation-library/build/libs/anima-${anima_version}-Fabric-${project.minecraft_version}.jar")
     if (!animaProdJar.exists()) {
         throw new GradleException("Anima 正式 jar 不存在: ${animaProdJar}\n请先在 texture-animation-library 执行 ./gradlew build")
     }
+    def animaNestedName = "anima-${anima_version}.jar"
     from(animaProdJar) {
         into 'META-INF/jars'
+        rename { animaNestedName }
     }
 }
 

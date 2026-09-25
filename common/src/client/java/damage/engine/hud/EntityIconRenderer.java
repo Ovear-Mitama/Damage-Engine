@@ -54,8 +54,16 @@ public final class EntityIconRenderer {
 
     /** 原版 GUI 深度:实体画在 z=50(比面板背景 z=0 更靠近观察者,因此覆盖在面板之上)。 */
     private static final double GUI_Z = 50.0;
-    /** 实体在头像框内占据的比例(超出部分由上层文本/血条盖住,外层 scissor 只做兜底限制)。 */
+    /** 实体在头像框内占据的比例(超出部分由上层文本/血条盖住,不做裁剪限制)。 */
     private static final float FILL_RATIO = 0.98f;
+
+    /**
+     * 换算基准:多少格高度对应"刚好填满头像槽"。
+     * <p>
+     * 以玩家身高(1.8 格)为基准,即 1 格 = 头像槽边长 / 1.8 像素。实体按这个比例画出来就是它的
+     * 真实体型——大史莱姆是大的、小史莱姆是小的,不再把每个实体都缩放去"填满头像槽"。
+     */
+    private static final float PLAYER_HEIGHT_BLOCKS = 1.8f;
 
     /**
      * 幼年补偿系数:{@link AgeableListModel} 的幼年缩放不在 ModelPart 树内,
@@ -63,14 +71,6 @@ public final class EntityIconRenderer {
      * 默认参数下约 0.56),这里按其等效比例做补偿。
      */
     private static final float BABY_EXTENT_FACTOR = 0.5625f;
-
-    /**
-     * 动物类(牛/猪/羊/鸡/狼/鱿鱼等)的额外收缩系数。
-     * <p>
-     * 这些生物的模型相对碰撞箱偏"方",按统一取景比例画出来会比同尺寸的怪物更占地方,
-     * 与怪物混在一起时显得过大,故单独把它们的取景尺寸放大一点(等价于整体画小一些)。
-     */
-    private static final float ANIMAL_SHRINK = 1.25f;
 
     /** 模型几何缓存(按实体类型 + 是否幼年);几何是静态的,缓存后取景比例不随行走摆动而抖动。 */
     private static final Map<CacheKey, float[]> MODEL_CACHE = new HashMap<>();
@@ -133,36 +133,32 @@ public final class EntityIconRenderer {
             entity.setXRot(savedXRot);
             entity.xRotO = savedXRotO;
 
-            // 用模型真实几何取景(比碰撞箱更贴合实际绘制尺寸)
+            // 真实体型:1 格 = 头像槽边长 / 1.8(玩家身高)。实体多大就画多大,
+            // 不再按"填满头像槽"反推缩放,也不对模型缩放做归一化或上限限制
+            // (史莱姆/岩浆怪这类按体积放大的生物,放大由渲染器自己施加)。
+            float scale = size / PLAYER_HEIGHT_BLOCKS;
+            // 用模型真实几何做垂直居中(比碰撞箱中心更贴合实际绘制范围)
             float[] bounds = computeModelBounds(entity, savedBodyRot + yawOffset);
-            // 动物类整体再收一档,避免和怪物放在一起时显得过大
-            float sizeFactor = isAnimal(entity) ? ANIMAL_SHRINK : 1.0f;
             float focusX;
             float focusY;
-            float scale;
             if (bounds != null) {
+                // computeModelBounds 返回 {centerX, centerY, centerZ, extent}:取前两项做居中
                 focusX = bounds[0];
                 focusY = bounds[1];
-                // computeModelBounds 返回 {centerX, centerY, centerZ, extent},取景尺寸必须用 extent(下标 3)。
-                // 曾误用下标 2(centerZ):僵尸这类 Z 中心接近 0 的模型取到 0,除法被钳到 scale 上限,
-                // 模型因此被放大约 5 倍、撑满面板。
-                scale = Mth.clamp(size * FILL_RATIO / (Math.max(bounds[3], 0.05f) * sizeFactor), 0.3f, 64.0f);
             } else {
                 // 退化:按碰撞箱取景
                 float height = Math.max(entity.getBbHeight(), 0.1f);
-                float width = Math.max(entity.getBbWidth(), 0.05f);
                 focusX = 0.0f;
                 focusY = height * 0.5f;
-                scale = Mth.clamp(size * FILL_RATIO / (Math.max(height, width) * sizeFactor), 0.3f, 64.0f);
             }
 
             if (entity.getId() != lastLogId) {
                 lastLogId = entity.getId();
-                LOGGER.info("[DE] icon: 取景 id={} 类型={} yaw={} 模型={} 碰撞箱高={} scale={}",
+                LOGGER.info("[DE] icon: 取景 id={} 类型={} yaw={} 模型={} 碰撞箱高={} 每格像素={}",
                     entity.getId(), entity.getType().getDescription().getString(),
                     String.format("%.1f", savedBodyRot + yawOffset),
                     bounds == null ? "无(退化)"
-                        : String.format("center=(%.3f,%.3f) extent=%.3f", bounds[0], bounds[1], bounds[3]),
+                        : String.format("center=(%.3f,%.3f)", bounds[0], bounds[1]),
                     String.format("%.3f", entity.getBbHeight()),
                     String.format("%.2f", scale));
             }
