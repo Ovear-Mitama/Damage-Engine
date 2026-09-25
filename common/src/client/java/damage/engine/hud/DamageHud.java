@@ -1108,21 +1108,21 @@ public class DamageHud {
 
             int fillW = (int)Math.floor(barW * s);
             int barColorWithAlpha = (barColor & 0x00FFFFFF) | (a << 24);
-            drawBarFill(guiGraphics, barX, barY, fillW, barH, barColorWithAlpha, rounded);
+            drawBarRange(guiGraphics, barX, barY, barW, barH, barX, barX + fillW, barColorWithAlpha, rounded);
 
             if (heal > s) {
                 int healStart = barX + (int)Math.floor(barW * s);
                 int healEnd = barX + (int)Math.floor(barW * heal);
                 int healAlpha = (int)(a * 0.45f);
                 int healColor = (healColorBase & 0x00FFFFFF) | (healAlpha << 24);
-                drawBarSegment(guiGraphics, healStart, barY, healEnd - healStart, barH, healColor, rounded);
+                drawBarRange(guiGraphics, barX, barY, barW, barH, healStart, healEnd, healColor, rounded);
             }
 
             if (infoPrevDamageTailActive && lag > s) {
                 int lagStart = barX + (int)Math.floor(barW * s);
                 int lagEnd = barX + (int)Math.floor(barW * lag);
                 int lagColor = (damageColorBase & 0x00FFFFFF) | (a << 24);
-                drawBarSegment(guiGraphics, lagStart, barY, lagEnd - lagStart, barH, lagColor, rounded);
+                drawBarRange(guiGraphics, barX, barY, barW, barH, lagStart, lagEnd, lagColor, rounded);
             }
         }
 
@@ -1131,21 +1131,21 @@ public class DamageHud {
             int a = (int)(baseAlpha * newMul);
             int fillW = (int)Math.floor(barW * infoSmoothRatio);
             int barColorWithAlpha = (barColor & 0x00FFFFFF) | (a << 24);
-            drawBarFill(guiGraphics, barX, barY, fillW, barH, barColorWithAlpha, rounded);
+            drawBarRange(guiGraphics, barX, barY, barW, barH, barX, barX + fillW, barColorWithAlpha, rounded);
 
             if (infoHealRatio > infoSmoothRatio) {
                 int healStart = barX + (int)Math.floor(barW * infoSmoothRatio);
                 int healEnd = barX + (int)Math.floor(barW * infoHealRatio);
                 int healAlpha = (int)(a * 0.45f);
                 int healColor = (healColorBase & 0x00FFFFFF) | (healAlpha << 24);
-                drawBarSegment(guiGraphics, healStart, barY, healEnd - healStart, barH, healColor, rounded);
+                drawBarRange(guiGraphics, barX, barY, barW, barH, healStart, healEnd, healColor, rounded);
             }
 
             if (infoDamageTailActive && infoLagRatio > infoSmoothRatio) {
                 int lagStart = barX + (int)Math.floor(barW * infoSmoothRatio);
                 int lagEnd = barX + (int)Math.floor(barW * infoLagRatio);
                 int lagColor = (damageColorBase & 0x00FFFFFF) | (a << 24);
-                drawBarSegment(guiGraphics, lagStart, barY, lagEnd - lagStart, barH, lagColor, rounded);
+                drawBarRange(guiGraphics, barX, barY, barW, barH, lagStart, lagEnd, lagColor, rounded);
                 if (Math.abs(infoLagRatio - infoSmoothRatio) < 0.0025f) {
                     infoDamageTailActive = false;
                 }
@@ -1200,28 +1200,38 @@ public class DamageHud {
         }
     }
 
-    private static void drawBarFill(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int color, boolean rounded) {
-        if (rounded && w > 0) {
-            drawRoundedRect(guiGraphics, x, y, w, h, h / 2, color);
-        } else {
-            guiGraphics.fill(x, y, x + w, y + h, color);
-        }
-    }
-
-    private static void drawBarSegment(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, int color, boolean rounded) {
-        if (!rounded || w <= 0 || h < 4) {
-            guiGraphics.fill(x, y, x + w, y + h, color);
+    /**
+     * 在圆角血条里填一段区间 [fromX, toX)。
+     * <p>
+     * 圆角外形属于<b>整条血条</b>,不是属于每一段:所以只有贴到血条最左/最右的段才吃到圆角,
+     * 中间的分段(绿条右侧、红条的左侧与右侧)一律画成直角。逐段各自圆角会在接缝处留下缺口
+     * (绿条右端被削掉的两个像素没人补),而给段单独画直角又会让血条最左端变成方的。
+     */
+    private static void drawBarRange(GuiGraphicsExtractor guiGraphics, int barX, int barY, int barW, int barH,
+                                     int fromX, int toX, int color, boolean rounded) {
+        int x0 = Math.max(fromX, barX);
+        int x1 = Math.min(toX, barX + barW);
+        if (x1 <= x0) return;
+        if (!rounded || barH < 4) {
+            guiGraphics.fill(x0, barY, x1, barY + barH, color);
             return;
         }
-        int r = h / 2;
-        guiGraphics.fill(x, y + r, x + w, y + h - r, color);
-        for (int i = 0; i < r; i++) {
-            int indent = r - i - 1;
-            guiGraphics.fill(x, y + i, x + w - indent, y + i + 1, color);
-        }
-        for (int i = 0; i < r; i++) {
-            int indent = r - i - 1;
-            guiGraphics.fill(x, y + h - i - 1, x + w - indent, y + h - i, color);
+        int r = barH / 2;
+        for (int i = 0; i < barH; i++) {
+            // 与 drawRoundedRect 的圆角算法保持一致,这样各段拼出来的外形正好等于血条背景的圆角外形
+            int inset;
+            if (i < r) {
+                inset = r - i - 1;
+            } else if (i >= barH - r) {
+                inset = r - (barH - 1 - i) - 1;
+            } else {
+                inset = 0;
+            }
+            int rowX0 = Math.max(x0, barX + inset);
+            int rowX1 = Math.min(x1, barX + barW - inset);
+            if (rowX1 > rowX0) {
+                guiGraphics.fill(rowX0, barY + i, rowX1, barY + i + 1, color);
+            }
         }
     }
 
