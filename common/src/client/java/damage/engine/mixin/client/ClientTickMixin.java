@@ -10,6 +10,7 @@ import damage.engine.hud.DamageIndicator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.network.chat.TranslatableComponent;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
@@ -47,7 +48,7 @@ public class ClientTickMixin {
             DamageEngineConfig config = DamageEngineConfig.getInstance();
             if (!config.hasShownWelcomeMessage) {
                 client.player.displayClientMessage(
-                    Component.translatable("text.damage-engine.welcome_message").withStyle(style -> style.withColor(TextColor.fromRgb(0xB1EAC2))),
+                    new TranslatableComponent("text.damage-engine.welcome_message").withStyle(style -> style.withColor(TextColor.fromRgb(0xB1EAC2))),
                     false
                 );
                 config.hasShownWelcomeMessage = true;

@@ -1,13 +1,16 @@
 package damage.engine.client.gui;
 
 import com.mojang.blaze3d.platform.NativeImage;
+import com.mojang.blaze3d.vertex.PoseStack;
+import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.renderer.texture.DynamicTexture;
 import net.minecraft.client.resources.sounds.SimpleSoundInstance;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
+import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.sounds.SoundEvents;
 import net.minecraft.util.Mth;
@@ -52,7 +55,7 @@ public class ColorPickerScreen extends Screen {
     private static final int FIELD_LABEL_W = 22;
 
     public ColorPickerScreen(Screen parent, int initialColor, Consumer<Integer> onChange) {
-        super(Component.translatable("title.damage-engine.color_picker"));
+        super(new TranslatableComponent("title.damage-engine.color_picker"));
         this.parent = parent;
         this.onChange = onChange;
         setColor(initialColor | 0xFF000000);
@@ -102,25 +105,25 @@ public class ColorPickerScreen extends Screen {
     }
 
     private void createFields() {
-        hexField = new EditBox(this.font, 0, 0, FIELD_W, FIELD_H, Component.empty());
+        hexField = new EditBox(this.font, 0, 0, FIELD_W, FIELD_H, TextComponent.EMPTY);
         hexField.setBordered(false);
         hexField.setMaxLength(6);
         hexField.setValue(String.format("%06X", color & 0xFFFFFF));
         hexField.setResponder(this::onHexChanged);
 
-        rField = new EditBox(this.font, 0, 0, FIELD_W, FIELD_H, Component.empty());
+        rField = new EditBox(this.font, 0, 0, FIELD_W, FIELD_H, TextComponent.EMPTY);
         rField.setBordered(false);
         rField.setMaxLength(3);
         rField.setValue(String.valueOf((color >> 16) & 0xFF));
         rField.setResponder(s -> onRgbFieldChanged(rField, s));
 
-        gField = new EditBox(this.font, 0, 0, FIELD_W, FIELD_H, Component.empty());
+        gField = new EditBox(this.font, 0, 0, FIELD_W, FIELD_H, TextComponent.EMPTY);
         gField.setBordered(false);
         gField.setMaxLength(3);
         gField.setValue(String.valueOf((color >> 8) & 0xFF));
         gField.setResponder(s -> onRgbFieldChanged(gField, s));
 
-        bField = new EditBox(this.font, 0, 0, FIELD_W, FIELD_H, Component.empty());
+        bField = new EditBox(this.font, 0, 0, FIELD_W, FIELD_H, TextComponent.EMPTY);
         bField.setBordered(false);
         bField.setMaxLength(3);
         bField.setValue(String.valueOf(color & 0xFF));
@@ -224,7 +227,8 @@ public class ColorPickerScreen extends Screen {
             return true;
         }
         for (EditBox f : new EditBox[]{hexField, rField, gField, bField}) {
-            f.setFocused(f.isMouseOver(mx, my));
+            // 1.18 的 AbstractWidget#setFocused 是 protected,EditBox 暴露了公开的 setFocus(boolean)
+            f.setFocus(f.isMouseOver(mx, my));
         }
         return super.mouseClicked(mx, my, btn);
     }
@@ -289,8 +293,9 @@ public class ColorPickerScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics g, int mouseX, int mouseY, float delta) {
-        this.renderBackground(g);
+    public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+        GuiGraphics g = GuiGraphics.of(pose);
+        this.renderBackground(pose);
 
         g.fill(panelX, panelY, panelX + panelW, panelY + panelH, 0xFF202020);
         g.fill(panelX, panelY, panelX + panelW, panelY + 1, 0xFFA0A0A0);
@@ -318,10 +323,10 @@ public class ColorPickerScreen extends Screen {
             g.fill(cx - 2, cy - 2, cx + 3, cy + 3, 0xFFFFFFFF);
         }
 
-        drawField(g, fieldsX, fieldsY, "Hex", hexField, mouseX, mouseY);
-        drawField(g, fieldsX, fieldsY + rowH, "R", rField, mouseX, mouseY);
-        drawField(g, fieldsX, fieldsY + rowH * 2, "G", gField, mouseX, mouseY);
-        drawField(g, fieldsX, fieldsY + rowH * 3, "B", bField, mouseX, mouseY);
+        drawField(pose, fieldsX, fieldsY, "Hex", hexField, mouseX, mouseY);
+        drawField(pose, fieldsX, fieldsY + rowH, "R", rField, mouseX, mouseY);
+        drawField(pose, fieldsX, fieldsY + rowH * 2, "G", gField, mouseX, mouseY);
+        drawField(pose, fieldsX, fieldsY + rowH * 3, "B", bField, mouseX, mouseY);
         int pvX = fieldsX + FIELD_LABEL_W;
         int pvY = fieldsY + rowH * 4 + 2;
         int pvW = FIELD_W;
@@ -330,11 +335,12 @@ public class ColorPickerScreen extends Screen {
             g.fill(pvX, pvY, pvX + pvW, pvY + pvH, 0xFF000000 | (color & 0xFFFFFF));
         }
 
-        drawButton(g, cancelBtnX, btnY, btnW, btnH, Component.translatable("gui.cancel"), 0xFFFC887E, mouseX, mouseY);
-        drawButton(g, doneBtnX, btnY, btnW, btnH, Component.translatable("gui.done"), 0xFFB7F3C8, mouseX, mouseY);
+        drawButton(pose, cancelBtnX, btnY, btnW, btnH, new TranslatableComponent("gui.cancel"), 0xFFFC887E, mouseX, mouseY);
+        drawButton(pose, doneBtnX, btnY, btnW, btnH, new TranslatableComponent("gui.done"), 0xFFB7F3C8, mouseX, mouseY);
     }
 
-    private void drawField(GuiGraphics g, int x, int y, String label, EditBox field, int mx, int my) {
+    private void drawField(PoseStack pose, int x, int y, String label, EditBox field, int mx, int my) {
+        GuiGraphics g = GuiGraphics.of(pose);
         g.drawString(this.font, label, x, y + 5, 0xFFA0A0A0);
         int bx = x + FIELD_LABEL_W;
         g.fill(bx, y, bx + FIELD_W, y + FIELD_H, 0x20000000);
@@ -344,12 +350,14 @@ public class ColorPickerScreen extends Screen {
         g.fill(bx, y, bx + 1, y + FIELD_H, bc);
         g.fill(bx + FIELD_W - 1, y, bx + FIELD_W, y + FIELD_H, bc);
         field.setX(bx + 3);
-        field.setY(y + 5);
+        // 1.18 的 AbstractWidget 没有 setY(),直接写公开的 y 字段
+        field.y = y + 5;
         field.setWidth(FIELD_W - 6);
-        field.render(g, mx, my, 0f);
+        field.render(pose, mx, my, 0f);
     }
 
-    private void drawButton(GuiGraphics g, int x, int y, int w, int h, Component text, int accent, int mx, int my) {
+    private void drawButton(PoseStack pose, int x, int y, int w, int h, Component text, int accent, int mx, int my) {
+        GuiGraphics g = GuiGraphics.of(pose);
         // 手动边界判定(与 mouseClicked 中的点击判定保持一致),悬停只改边框与底色,文字保持强调色
         boolean hovered = mx >= x && mx <= x + w && my >= y && my <= y + h;
         g.fill(x, y, x + w, y + h, hovered ? 0x40000000 : 0x20000000);
