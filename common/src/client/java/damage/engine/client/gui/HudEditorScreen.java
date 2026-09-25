@@ -3,10 +3,11 @@ package damage.engine.client.gui;
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
 import damage.engine.hud.DamageSessionManager;
-import net.minecraft.client.gui.GuiGraphics;
+import com.mojang.blaze3d.vertex.PoseStack;
+import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.network.chat.TextColor;
 import org.lwjgl.glfw.GLFW;
 import java.util.ArrayDeque;
@@ -40,7 +41,7 @@ public class HudEditorScreen extends Screen {
 
 
     public HudEditorScreen(Screen parent) {
-        super(Component.translatable("title.damage-engine.hud_editor"));
+        super(new TranslatableComponent("title.damage-engine.hud_editor"));
         this.parent = parent;
         this.config = DamageEngineConfig.getInstance();
         this.damageHud = new DamageHud();
@@ -52,7 +53,7 @@ public class HudEditorScreen extends Screen {
     
     public void playClickSound() {
         try {
-             net.minecraft.client.resources.sounds.SimpleSoundInstance sound = net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK.value(), 1.0F);
+             net.minecraft.client.resources.sounds.SimpleSoundInstance sound = net.minecraft.client.resources.sounds.SimpleSoundInstance.forUI(net.minecraft.sounds.SoundEvents.UI_BUTTON_CLICK, 1.0F);
              
              Minecraft.getInstance().getSoundManager().play(sound);
         } catch (Exception e) {
@@ -71,11 +72,11 @@ public class HudEditorScreen extends Screen {
         int btnX = 10;
         int spacing = 5;
         
-        undoBtn = new DamageConfigScreen.StyledButton(btnX, btnY, 40, 20, Component.translatable("hud.editor.undo"), this::undo);
+        undoBtn = new DamageConfigScreen.StyledButton(btnX, btnY, 40, 20, new TranslatableComponent("hud.editor.undo"), this::undo);
         
-        redoBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.redo"), this::redo);
+        redoBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing, btnY, 40, 20, new TranslatableComponent("hud.editor.redo"), this::redo);
             
-        resetBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))), this::handleResetClick);
+        resetBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, new TranslatableComponent("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))), this::handleResetClick);
             
         this.addRenderableWidget(undoBtn);
         this.addRenderableWidget(redoBtn);
@@ -87,13 +88,13 @@ public class HudEditorScreen extends Screen {
     private void handleResetClick() {
         if (resetButtonState == 0) {
             resetButtonState = 1;
-            resetBtn.setMessage(Component.translatable("gui.confirm").append("?").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
+            resetBtn.setMessage(new TranslatableComponent("gui.confirm").append("?").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
             resetButtonActionTime = System.currentTimeMillis();
         } else if (resetButtonState == 1) {
             resetButtonState = 2;
             resetButtonActionTime = System.currentTimeMillis();
             resetAllModules();
-            resetBtn.setMessage(Component.translatable("text.damage-engine.reset_done").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFB5F0C6))));
+            resetBtn.setMessage(new TranslatableComponent("text.damage-engine.reset_done").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFB5F0C6))));
         }
     }
     
@@ -104,12 +105,12 @@ public class HudEditorScreen extends Screen {
         if (resetButtonState == 2) {
             if (System.currentTimeMillis() - resetButtonActionTime > 3000) {
                 resetButtonState = 0;
-                resetBtn.setMessage(Component.translatable("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
+                resetBtn.setMessage(new TranslatableComponent("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
             }
         } else if (resetButtonState == 1) {
              if (System.currentTimeMillis() - resetButtonActionTime > 5000) {
                  resetButtonState = 0;
-                 resetBtn.setMessage(Component.translatable("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
+                 resetBtn.setMessage(new TranslatableComponent("hud.editor.reset").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))));
              }
         }
     }
@@ -177,33 +178,34 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics);
+    public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        this.renderBackground(pose);
         
         for (EditorModule m : modules) {
-            renderModule(guiGraphics, m);
+            renderModule(pose, m);
         }
         
         if (selectedModule != null) {
-            drawSelection(guiGraphics, selectedModule);
+            drawSelection(pose, selectedModule);
         }
         
         for (net.minecraft.client.gui.components.events.GuiEventListener element : this.children()) {
-            if (element instanceof net.minecraft.client.gui.components.Renderable) {
-                ((net.minecraft.client.gui.components.Renderable) element).render(guiGraphics, mouseX, mouseY, delta);
+            if (element instanceof net.minecraft.client.gui.components.Widget widget) {
+                widget.render(pose, mouseX, mouseY, delta);
             }
         }
         
         // 左上角三个按钮(撤回/重做/重置)右侧的操作引导
         // 按钮终点 x=140,y=10..30;引导文字垂直居中对齐到按钮中心
-        guiGraphics.drawString(this.font, Component.translatable("hud.editor.guide"), 148, 16, 0xFFA0A0A0);
+        guiGraphics.drawString(this.font, new TranslatableComponent("hud.editor.guide"), 148, 16, 0xFFA0A0A0);
     }
     
 
 
     
-    private void renderModule(GuiGraphics guiGraphics, EditorModule m) {
-        damageHud.renderModule(guiGraphics, m.config, this.minecraft, 1.0f, () -> {
+    private void renderModule(PoseStack pose, EditorModule m) {
+        damageHud.renderModule(pose, m.config, this.minecraft, 1.0f, () -> {
             switch (m.type) {
                 case TOTAL:
                     int previewLimit = DamageEngineConfig.getInstance().historyLimit;
@@ -215,25 +217,26 @@ public class HudEditorScreen extends Screen {
                         previewTotal += dmg;
                         history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0L, 0));
                     }
-                    damageHud.renderTotalDamage(guiGraphics, previewTotal, 0.7f, true, 1.0f, previewLimit, this.minecraft);
-                    damageHud.renderHistory(guiGraphics, history, true, 1.0f, this.minecraft);
+                    damageHud.renderTotalDamage(pose, previewTotal, 0.7f, true, 1.0f, previewLimit, this.minecraft);
+                    damageHud.renderHistory(pose, history, true, 1.0f, this.minecraft);
                     break;
                 case RATING:
                     damageHud.cyclePreviewGrades();
-                    damageHud.renderRating(guiGraphics, true, 1.0f, this.minecraft);
+                    damageHud.renderRating(pose, true, 1.0f, this.minecraft);
                     break;
                 case INFO:
-                    damageHud.renderInfo(guiGraphics, null, true, 1.0f, this.minecraft);
+                    damageHud.renderInfo(pose, null, true, 1.0f, this.minecraft);
                     break;
             }
         });
     }
     
-    private void drawSelection(GuiGraphics guiGraphics, EditorModule m) {
+    private void drawSelection(PoseStack pose, EditorModule m) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         int[] b = getBounds(m);
         int greenColor = 0xFFB5F0C6;
         
-        drawBorder(guiGraphics, b[0], b[1], b[2], b[3], greenColor);
+        drawBorder(pose, b[0], b[1], b[2], b[3], greenColor);
         
         int handleSize = 5;
         int hx = b[0] + b[2] - handleSize;
@@ -241,7 +244,8 @@ public class HudEditorScreen extends Screen {
         guiGraphics.fill(hx, hy, hx + handleSize, hy + handleSize, greenColor);
     }
     
-    private void drawBorder(GuiGraphics guiGraphics, int x, int y, int width, int height, int color) {
+    private void drawBorder(PoseStack pose, int x, int y, int width, int height, int color) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         guiGraphics.fill(x, y, x + width, y + 1, color);
         guiGraphics.fill(x, y + height - 1, x + width, y + height, color);
         guiGraphics.fill(x, y + 1, x + 1, y + height - 1, color);
@@ -442,7 +446,7 @@ public class HudEditorScreen extends Screen {
         private final DamageEngineConfig config;
 
         protected ConfirmHudSaveScreen(Screen hudEditor, Screen parent, DamageEngineConfig config) {
-            super(Component.translatable("text.damage-engine.unsaved_changes"));
+            super(new TranslatableComponent("text.damage-engine.unsaved_changes"));
             this.hudEditor = hudEditor;
             this.parent = parent;
             this.config = config;
@@ -456,22 +460,23 @@ public class HudEditorScreen extends Screen {
             int cy = this.height / 2;
 
             this.addRenderableWidget(new DamageConfigScreen.StyledButton(cx - btnW - 5, cy + 20, btnW, btnH,
-                Component.translatable("gui.done").withStyle(s -> s.withColor(TextColor.fromRgb(0xFFB5F0C6))),
+                new TranslatableComponent("gui.done").withStyle(s -> s.withColor(TextColor.fromRgb(0xFFB5F0C6))),
                 () -> {
                     config.save();
                     this.minecraft.setScreen(parent);
                 }));
 
             this.addRenderableWidget(new DamageConfigScreen.StyledButton(cx + 5, cy + 20, btnW, btnH,
-                Component.translatable("gui.cancel").withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFC887E))),
+                new TranslatableComponent("gui.cancel").withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFC887E))),
                 () -> this.minecraft.setScreen(parent)));
         }
 
         @Override
-        public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-            this.renderBackground(guiGraphics);
+        public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+            GuiGraphics guiGraphics = GuiGraphics.of(pose);
+            this.renderBackground(pose);
             guiGraphics.drawCenteredString(this.font, this.title, this.width / 2, this.height / 2 - 10, 0xFFFFFFFF);
-            super.render(guiGraphics, mouseX, mouseY, delta);
+            super.render(pose, mouseX, mouseY, delta);
         }
 
         @Override

@@ -1,6 +1,6 @@
 package damage.engine.mixin.client;
 
-import net.minecraft.client.gui.GuiGraphics;
+import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.gui.components.EditBox;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -16,6 +16,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * to their children, so the caret stays frozen. This mixin forces {@code frame}
  * to 0 (visible) or 7 (hidden, 7/6 % 2 == 1) right before rendering, giving a
  * steady ~0.6s blink cycle regardless of tick delivery.</p>
+ *
+ * <p>1.18 里 EditBox 的绘制入口是 {@code renderButton(PoseStack, int, int, float)}
+ * (1.19.4 才改名 renderWidget)。</p>
  */
 @Mixin(EditBox.class)
 public abstract class EditBoxCursorMixin {
@@ -23,8 +26,8 @@ public abstract class EditBoxCursorMixin {
     @Shadow
     private int frame;
 
-    @Inject(method = "renderWidget", at = @At("HEAD"))
-    private void damageEngine$timeDrivenBlink(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+    @Inject(method = "renderButton", at = @At("HEAD"))
+    private void damageEngine$timeDrivenBlink(PoseStack poseStack, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
         this.frame = (System.currentTimeMillis() / 300L) % 2L == 0L ? 0 : 7;
     }
 }
