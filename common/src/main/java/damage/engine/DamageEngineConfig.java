@@ -26,6 +26,8 @@ public class DamageEngineConfig {
     public boolean hideOnF1 = true;
     /** HUD 惯性:off = 关闭, de_only = 只让 DE 自己的 HUD 让位, all = 整层 HUD 一起让位。 */
     public String hudInertiaMode = "off";
+    /** HUD 惯性强度(百分比),100 = 默认幅度。 */
+    public int hudInertiaStrength = 100;
     public boolean numberSeparator = true; // true = "1,000", false = "1000"
     public boolean abbreviateNumbers = false; // true = "1.5K", false = "1,500"
     public boolean showDamageOverflow = false; // true = 显示未被目标血量截断的伤害
@@ -377,6 +379,7 @@ public class DamageEngineConfig {
         this.showDamage = loaded.showDamage;
         this.hideOnF1 = loaded.hideOnF1;
         this.hudInertiaMode = loaded.hudInertiaMode != null ? loaded.hudInertiaMode : "off";
+        this.hudInertiaStrength = loaded.hudInertiaStrength > 0 ? loaded.hudInertiaStrength : 100;
         this.numberSeparator = loaded.numberSeparator;
         this.abbreviateNumbers = loaded.abbreviateNumbers;
         this.showDamageOverflow = loaded.showDamageOverflow;
@@ -503,6 +506,7 @@ public class DamageEngineConfig {
         showDamage = true;
         hideOnF1 = true;
         hudInertiaMode = "off";
+        hudInertiaStrength = 100;
         numberSeparator = true;
         abbreviateNumbers = false;
         showDamageOverflow = false;

@@ -295,14 +295,15 @@ public class DamageHud {
         int x = moduleConfig.x == -1.0f ? client.getWindow().getGuiScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getGuiScaledWidth());
         int y = moduleConfig.y == -1.0f ? client.getWindow().getGuiScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getGuiScaledHeight());
 
-        // 记录模块变换,供需要按屏幕坐标定位的子项(如实体头像渲染)换算使用
-        // 惯性偏移取整后加在缩放外层,各模块缩放不同时位移量仍然一致。
-        // "整层 HUD"模式下由外层统一偏移,这里就不再叠加,免得让两次。
-        int inertiaOffX = applyOwnInertiaOffset() ? Math.round(inertiaX) : 0;
-        int inertiaOffY = applyOwnInertiaOffset() ? Math.round(inertiaY) : 0;
-        this.moduleScreenX = x + inertiaOffX;
-        this.moduleScreenY = y + inertiaOffY;
+        // 屏幕坐标系里的子项(实体头像走 GUI 实体管线,不吃 pose)必须自己带上偏移;
+        // pose 里是否再叠一次看模式——"整层 HUD"模式已由外层统一偏移,这里不再叠加。
+        // 用浮点不用取整,否则位移会被量化成一格一格,看着不平滑。
+        this.moduleScreenX = x + inertiaX;
+        this.moduleScreenY = y + inertiaY;
         this.moduleScreenScale = moduleConfig.scale;
+
+        float inertiaOffX = applyOwnInertiaOffset() ? inertiaX : 0f;
+        float inertiaOffY = applyOwnInertiaOffset() ? inertiaY : 0f;
 
         guiGraphics.pose().pushMatrix();
         guiGraphics.pose().translate(x + inertiaOffX, y + inertiaOffY);
@@ -341,6 +342,11 @@ public class DamageHud {
         return "de_only".equals(DamageEngineConfig.getInstance().hudInertiaMode);
     }
 
+    /** 当前惯性强度倍率:100 = 默认幅度。 */
+    private static float inertiaStrength() {
+        return Mth.clamp(DamageEngineConfig.getInstance().hudInertiaStrength, 0, 200) / 100f;
+    }
+
     /**
      * 每帧更新惯性偏移。朝反方向的位移由本帧视角变化量与位移量直接推动,回正交给弹簧,
      * 所以转动视角或移动时 HUD 会先让开、随后自己平滑归位且不过冲。
@@ -366,14 +372,15 @@ public class DamageHud {
             float yaw = camera.yRot();
             float pitch = camera.xRot();
             Vec3 pos = camera.position();
+            float strength = inertiaStrength();
             if (inertiaPrevInit) {
                 float dYaw = Mth.wrapDegrees(yaw - inertiaPrevYaw);
                 float dPitch = pitch - inertiaPrevPitch;
                 // 一帧转 90 度以上只可能是传送/切维度,不当玩家操作
                 if (Math.abs(dYaw) < 90f && Math.abs(dPitch) < 90f) {
                     // 向右转 yaw 增大、向下看 pitch 增大,HUD 要往屏幕反方向走,所以是减
-                    inertiaX -= dYaw * INERTIA_GAIN;
-                    inertiaY -= dPitch * INERTIA_GAIN;
+                    inertiaX -= dYaw * INERTIA_GAIN * strength;
+                    inertiaY -= dPitch * INERTIA_GAIN * strength;
                 }
                 if (inertiaPrevPos != null) {
                     Vec3 delta = pos.subtract(inertiaPrevPos);
@@ -383,8 +390,8 @@ public class DamageHud {
                         // 往哪边走 HUD 就往屏幕反方向让。视角系 y 向上、GUI 的 y 向下,故 y 取加号。
                         Vector3f v = camera.rotation()
                             .transform(new Vector3f((float) delta.x, (float) delta.y, (float) delta.z));
-                        inertiaX -= v.x * INERTIA_MOVE_GAIN;
-                        inertiaY += v.y * INERTIA_MOVE_GAIN;
+                        inertiaX -= v.x * INERTIA_MOVE_GAIN * strength;
+                        inertiaY += v.y * INERTIA_MOVE_GAIN * strength;
                     }
                 }
             }
@@ -394,11 +401,12 @@ public class DamageHud {
             inertiaPrevInit = true;
         }
 
+        float maxOffset = INERTIA_MAX_OFFSET * inertiaStrength();
         float damp = 2f * (float) Math.sqrt(INERTIA_STIFFNESS);
         inertiaVelX += (-INERTIA_STIFFNESS * inertiaX - damp * inertiaVelX) * dt;
         inertiaVelY += (-INERTIA_STIFFNESS * inertiaY - damp * inertiaVelY) * dt;
-        inertiaX = Mth.clamp(inertiaX + inertiaVelX * dt, -INERTIA_MAX_OFFSET, INERTIA_MAX_OFFSET);
-        inertiaY = Mth.clamp(inertiaY + inertiaVelY * dt, -INERTIA_MAX_OFFSET, INERTIA_MAX_OFFSET);
+        inertiaX = Mth.clamp(inertiaX + inertiaVelX * dt, -maxOffset, maxOffset);
+        inertiaY = Mth.clamp(inertiaY + inertiaVelY * dt, -maxOffset, maxOffset);
 
         if (Math.abs(inertiaX) < 0.02f && Math.abs(inertiaVelX) < 0.02f) {
             inertiaX = 0f;
@@ -417,11 +425,9 @@ public class DamageHud {
     public void beginGlobalShift(GuiGraphicsExtractor guiGraphics) {
         globalShiftActive = false;
         if (!"all".equals(DamageEngineConfig.getInstance().hudInertiaMode)) return;
-        int offX = Math.round(inertiaX);
-        int offY = Math.round(inertiaY);
-        if (offX == 0 && offY == 0) return;
+        if (inertiaX == 0f && inertiaY == 0f) return;
         guiGraphics.pose().pushMatrix();
-        guiGraphics.pose().translate(offX, offY);
+        guiGraphics.pose().translate(inertiaX, inertiaY);
         globalShiftActive = true;
     }
 

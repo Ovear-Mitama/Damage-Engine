@@ -55,10 +55,12 @@
   "hint.damage-engine.abbreviateNumbers": "Writes large numbers with a K/M/B/T suffix: 1500 becomes 1.5K, 2000000 becomes 2M.",
   "hint.damage-engine.showDamageOverflow": "Shows the full incoming damage instead of capping it at the target's remaining health. Vanilla truncates damage to the target's health, so a 1000 damage hit on a 20 HP mob normally reads 20. Enable this to see what the weapon actually dealt, useful for testing damage caps.",
   "hint.damage-engine.hudInertia": "While you turn your view or move (walking, flying, riding), the HUD gives way in the opposite direction, then springs back smoothly — a Battlefield-style sense of resistance.\nOff: disabled. DE HUD only: only this mod's HUD shifts. All HUD: vanilla and other mods' HUD shift as well.",
+  "hint.damage-engine.hudInertiaStrength": "How far the HUD gives way, as a percentage of the default (100%). To disable it entirely, set the mode above to Off.",
 
   "option.damage-engine.showDamage": "HUD Display",
   "option.damage-engine.edit_pos_label": "Adjust HUD",
   "option.damage-engine.hudInertia": "HUD Inertia",
+  "option.damage-engine.hudInertiaStrength": "Inertia Strength",
   "option.damage-engine.numberSeparator": "Number Separator",
   "option.damage-engine.abbreviateNumbers": "Abbreviate Numbers",
   "option.damage-engine.showDamageOverflow": "Show Damage Overflow",

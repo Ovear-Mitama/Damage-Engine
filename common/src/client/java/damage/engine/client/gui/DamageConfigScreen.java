@@ -177,6 +177,8 @@ public class DamageConfigScreen extends Screen {
             new String[]{"off", "de_only", "all"},
             Component.translatable("hint.damage-engine.hudInertia"),
             v -> { config.hudInertiaMode = v; markChanged(); }));
+        addOption(new IntegerSliderEntry("option.damage-engine.hudInertiaStrength", config.hudInertiaStrength,
+            10, 200, v -> { config.hudInertiaStrength = v; markChanged(); }, true, "%"));
         addOption(new SeparatorToggleEntry("option.damage-engine.numberSeparator", config.numberSeparator, v -> { config.numberSeparator = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.abbreviateNumbers", config.abbreviateNumbers,
             v -> { config.abbreviateNumbers = v; markChanged(); },
@@ -954,10 +956,13 @@ public class DamageConfigScreen extends Screen {
         private final StyledSliderWidget slider;
         private final Component label;
         public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange, boolean soundOnRelease) {
+            this(key, cur, min, max, onChange, soundOnRelease, "");
+        }
+        public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange, boolean soundOnRelease, String suffix) {
             this.label = Component.translatable(key);
             float minF = min, maxF = max;
             this.slider = new StyledSliderWidget(0, 0, 100, 20, Component.literal(String.valueOf(cur)), (cur - minF) / (maxF - minF), true, !soundOnRelease, soundOnRelease) {
-                @Override protected void updateMessage() { this.setMessage(Component.literal(String.valueOf((int)Math.round(minF + this.value * (maxF - minF))))); }
+                @Override protected void updateMessage() { this.setMessage(Component.literal(Math.round(minF + this.value * (maxF - minF)) + suffix)); }
                 @Override protected void applyValue() { onChange.accept((int)Math.round(minF + this.value * (maxF - minF))); }
             };
         }

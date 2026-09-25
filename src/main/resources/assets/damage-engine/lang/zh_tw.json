@@ -77,6 +77,8 @@
   "hint.damage-engine.showDamageOverflow": "顯示傷害不受目標剩餘生命限制。原版會把傷害截斷到目標血量（滿血打死 20 血的怪只顯示 20），開啟後顯示武器實際打出的傷害，便於測試傷害上限。",
   "option.damage-engine.hudInertia": "HUD 慣性",
   "hint.damage-engine.hudInertia": "轉動視角或移動（走路、飛行、坐騎）時，HUD 先朝反方向讓一點、再平滑回正，做出類似《戰地》的阻力手感。\n關閉：不生效。僅 DE 介面：只讓本模組的 HUD 讓位。全部介面：原版與其它模組的 HUD 一起讓位。",
+  "option.damage-engine.hudInertiaStrength": "慣性強度",
+  "hint.damage-engine.hudInertiaStrength": "讓位幅度，按預設值的百分比計；100% 為預設。不想讓位時把上面的模式選成「關閉」即可。",
   "option.damage-engine.debugMode": "除錯模式",
   "option.damage-engine.debugShowDamageInfo": "顯示傷害資訊",
   "option.damage-engine.debugShowRating": "顯示當前評分",
