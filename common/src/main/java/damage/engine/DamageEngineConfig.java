@@ -23,10 +23,18 @@ public class DamageEngineConfig {
     // ========== General ==========
     public boolean showDamage = true;
     public boolean hideOnF1 = true;
+    /** HUD 惯性:off = 关闭, de_only = 只让 DE 自己的 HUD 让位, all = 整层 HUD 一起让位。 */
+    public String hudInertiaMode = "de_only";
+    /** HUD 惯性强度(百分比),100 = 默认幅度。 */
+    public int hudInertiaStrength = 100;
     public boolean numberSeparator = true; // true = "1,000", false = "1000"
-    
+    public boolean abbreviateNumbers = false; // true = "1.5K", false = "1,500"
+    public boolean showDamageOverflow = false; // true = 显示未被目标血量截断的伤害
+
     // ========== Damage Display ==========
     public boolean showDamageDisplay = true;
+    /** 总伤害与伤害记录的对齐方式:right = 靠右(数字右边缘对齐), left = 靠左。 */
+    public String alignMode = "right";
     public int decimalPlaces = 1;
     public int normalColor = 0xFFFFFFFF;
     public int critColor = 0xFFD700;
@@ -372,10 +380,15 @@ public class DamageEngineConfig {
         // General
         this.showDamage = loaded.showDamage;
         this.hideOnF1 = loaded.hideOnF1;
+        this.hudInertiaMode = loaded.hudInertiaMode != null ? loaded.hudInertiaMode : "de_only";
+        this.hudInertiaStrength = loaded.hudInertiaStrength;
         this.numberSeparator = loaded.numberSeparator;
+        this.abbreviateNumbers = loaded.abbreviateNumbers;
+        this.showDamageOverflow = loaded.showDamageOverflow;
         
         // Damage Display
         this.showDamageDisplay = loaded.showDamageDisplay;
+        this.alignMode = loaded.alignMode != null ? loaded.alignMode : "right";
         this.decimalPlaces = loaded.decimalPlaces;
         this.normalColor = loaded.normalColor;
         this.critColor = loaded.critColor;
@@ -505,10 +518,15 @@ public class DamageEngineConfig {
         // General
         showDamage = true;
         hideOnF1 = true;
+        hudInertiaMode = "de_only";
+        hudInertiaStrength = 100;
         numberSeparator = true;
+        abbreviateNumbers = false;
+        showDamageOverflow = false;
         
         // Damage Display
         showDamageDisplay = true;
+        alignMode = "right";
         decimalPlaces = 1;
         normalColor = 0xFFFFFFFF;
         critColor = 0xFFD700;

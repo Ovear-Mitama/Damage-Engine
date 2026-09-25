@@ -17,8 +17,8 @@ public class UpdateChecker {
     private static final String MODRINTH_PROJECT_SLUG = "damage-engine";
     private static final String MODRINTH_API_URL = "https://api.modrinth.com/v2/project/" + MODRINTH_PROJECT_SLUG + "/version";
     private static final String CURRENT_VERSION = damage.engine.DamageEngineMeta.VERSION;
-    // Minecraft version this mod is built for
-    private static final String MC_VERSION = "1.20.1";
+    // 按运行时游戏版本查询,避免升版本时漏改导致检查失败
+    private static final String MC_VERSION = damage.engine.DamageEngineMeta.mcVersion();
 
     private static String latestVersion = null;
     private static boolean updateAvailable = false;
