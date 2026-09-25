@@ -8,14 +8,12 @@ import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.geom.PartPose;
 import net.minecraft.client.renderer.entity.EntityRenderDispatcher;
 import net.minecraft.client.renderer.entity.EntityRenderer;
+import net.minecraft.client.renderer.entity.LivingEntityRenderer;
 import net.minecraft.client.renderer.entity.RenderLayerParent;
 import net.minecraft.client.renderer.entity.state.EntityRenderState;
 import net.minecraft.client.renderer.entity.state.LivingEntityRenderState;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.animal.AgeableWaterCreature;
-import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.fish.WaterAnimal;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 import org.slf4j.Logger;
@@ -33,26 +31,25 @@ import java.util.Map;
  * 而是收集渲染状态后由 {@code GuiEntityRenderer} 画到离屏纹理再合成,因此这里不手动摆 PoseStack,
  * 而是取渲染状态 → 改朝向 → 交给 {@link GuiGraphicsExtractor#entity} 渲染。
  * <p>
- * 取景规则(尺寸以"模型静态几何"为准,不可测时才回退到碰撞箱):
+ * 取景规则:
  * <ul>
- *   <li>碰撞箱按 vanilla {@code InventoryScreen} / Damage-Indicators 的做法先归一到 scale=1,
- *       消除幼年、史莱姆体积等自身缩放对取景比例的干扰;</li>
- *   <li>幻翼、鱿鱼这类模型远宽于碰撞箱的生物,只用碰撞箱会导致横向被裁,因此量取模型真实几何;
- *       末影龙这类"碰撞箱远大于可见模型"的则相反,只用碰撞箱会让头像明显偏小;</li>
- *   <li>垂直方向固定按碰撞箱中心居中——模型原点在各模组间并不统一,按模型高度居中有可能把实体顶出框外。</li>
+ *   <li>按"1 格 = 头像槽边长 / 1.8(玩家身高)"的固定比例绘制,实体多大就画多大,
+ *       不再把每个实体缩放去填满头像槽,也不对模型缩放做归一化或上限限制;</li>
+ *   <li>渲染框按实体实际尺寸(碰撞箱与模型几何取大者)放大留余量,只作为画布与裁剪边界,
+ *       目的是让模型有溢出的余地、不被切边,不参与大小计算;</li>
+ *   <li>垂直方向按模型自身的垂直中点居中(模型几何不可测时回退到碰撞箱中心)。</li>
  * </ul>
  */
 public final class EntityIconRenderer {
     private static final Logger LOGGER = LoggerFactory.getLogger("damage-engine");
 
     /**
-     * 实体在渲染框内占据的比例。
+     * 换算基准:多少格高度对应"刚好填满头像槽"。
      * <p>
-     * 渲染框已按 DamageHud 的 {@code ENTITY_ICON_OVERSIZE} 放大(离屏纹理按框尺寸生成,
-     * 框比头像槽大是为了给模型留出溢出的余地、避免被裁边),这里按框的尺寸折算,
-     * 保证实体在头像槽里的实际大小与其他版本一致。
+     * 以玩家身高(1.8 格)为基准,即 1 格 = 头像槽边长 / 1.8 像素。实体按这个比例画出来就是它的
+     * 真实体型——大史莱姆是大的、小史莱姆是小的,不再把每个实体都缩放去"填满头像槽"。
      */
-    private static final float FILL_RATIO = 0.525f;
+    private static final float PLAYER_HEIGHT_BLOCKS = 1.8f;
 
     /** 垂直微调,与 Damage-Indicators 的 offsetY 取值一致(模型不可测时的回退分支使用)。 */
     private static final float CENTER_OFFSET_Y = 0.0625f;
@@ -60,41 +57,17 @@ public final class EntityIconRenderer {
     /** 原版实体渲染把模型沿 Y 下移 1.501 格(脚底对齐模型原点),用它作为垂直居中的基准。 */
     private static final float MODEL_VERTICAL_PIVOT = 1.501f;
 
-    /** 模型几何相对碰撞箱的上限倍数:避免个别模型的异常值把头像压成看不见的一点。 */
-    private static final float MODEL_EXTENT_CAP = 3.0f;
-
     /**
-     * 取景时"模型前后长度"的折减系数。
-     * 头像里前后方向是被透视压缩的,若把体长原样计入取景尺寸,长体型生物(末影龙)会被压得很小;
-     * 折减后允许头尾略微溢出,换来主体(翼展)明显变大。常规生物体长远小于身高,不受影响。
-     */
-    private static final float DEPTH_SHRINK = 0.6f;
-
-    /**
-     * 末影龙这类"翼展/体长远大于身躯"的生物的额外放大系数。
+     * 渲染框相对实体实际尺寸的余量。
      * <p>
-     * 末影龙翼展(约 15.5 格)和体长(约 16 格)远大于身躯(约 2.4 格),按整体几何取景时
-     * 取景尺寸被翼展/体长占满,画出来只剩一条十几像素高的细线,看上去"特别小"。
-     * <p>
-     * 但头像离屏纹理是按渲染框尺寸生成的,放得过大反而会被切边,
-     * 所以这里只补到"翼展刚好填满渲染框"为止:FILL_RATIO × 该系数 ≈ 1。
+     * 渲染框只是交给 GUI 实体管线的画布与裁剪边界,放大它会让模型有溢出的余地、不会被切边,
+     * 但不影响实体本身的像素大小(大小只由 {@code scale} 决定)。
      */
-    private static final float WINGED_EXTRA_SCALE = 1.25f;
-
-    /** 判定"翼展主导"的阈值:横向跨度超过竖向跨度的该倍数时,认为主体会被翼展压小。 */
-    private static final float WING_SPAN_RATIO = 4.0f;
-
-    /**
-     * 动物类(牛/猪/羊/鸡/狼/鱿鱼等)的额外收缩系数。
-     * <p>
-     * 这些生物的模型相对碰撞箱偏"方",按统一取景比例画出来会比同尺寸的怪物更占地方,
-     * 与怪物混在一起时显得过大,故单独把它们的取景尺寸放大一点(等价于整体画小一些)。
-     */
-    private static final float ANIMAL_SHRINK = 1.25f;
+    private static final float PICTURE_BOX_MARGIN = 2.0f;
 
     /**
      * 模型几何缓存(按实体类型)。
-     * 模型几何是静态的,缓存除了省开销,更重要的是避免逐帧读取"当前动画姿态"导致取景比例随行走摆动而抖动。
+     * 模型几何是静态的,缓存除了省开销,更重要的是避免逐帧读取"当前动画姿态"导致居中基准随行走摆动而抖动。
      */
     private static final Map<EntityType<?>, ModelExtents> MODEL_CACHE = new HashMap<>();
 
@@ -105,18 +78,18 @@ public final class EntityIconRenderer {
     }
 
     /**
-     * 将实体渲染到 HUD 的指定方形区域内。必须在渲染状态提取阶段调用。
+     * 将实体按它的真实体型渲染到 HUD 的头像槽里。必须在渲染状态提取阶段调用。
      *
-     * @param x             区域左上角 x(屏幕坐标,不套用当前 pose)
-     * @param y             区域左上角 y(屏幕坐标,不套用当前 pose)
-     * @param size          区域边长(像素)
+     * @param slotX         头像槽左上角 x(屏幕坐标,不套用当前 pose)
+     * @param slotY         头像槽左上角 y(屏幕坐标,不套用当前 pose)
+     * @param slotSize      头像槽边长(像素)
      * @param alpha         整体透明度(0~1;当前版本的 GUI 实体管线不支持整体透明度,仅用作可见性阈值)
      * @param followRotation true = 跟随实际朝向(以玩家视角为基准),false = 按自定义角度旋转
      * @param customAngle    自定义朝向角度(0~360,0 = 正面朝向观察者,顺时针增大;仅 followRotation=false 时生效)
      */
-    public static void render(GuiGraphicsExtractor guiGraphics, LivingEntity entity, int x, int y, int size,
+    public static void render(GuiGraphicsExtractor guiGraphics, LivingEntity entity, int slotX, int slotY, int slotSize,
                               float alpha, boolean followRotation, int customAngle) {
-        if (guiGraphics == null || entity == null || size <= 0 || alpha <= 0.01f) return;
+        if (guiGraphics == null || entity == null || slotSize <= 0 || alpha <= 0.01f) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
 
@@ -124,8 +97,8 @@ public final class EntityIconRenderer {
             EntityRenderDispatcher dispatcher = mc.getEntityRenderDispatcher();
             EntityRenderState state = dispatcher.extractEntity(entity, 1.0f);
 
-            float bbW;
-            float bbH;
+            float bbW = state.boundingBoxWidth;
+            float bbH = state.boundingBoxHeight;
             if (state instanceof LivingEntityRenderState livingState) {
                 // 只改渲染状态里的朝向,不改世界中的实体:
                 // 跟随模式以玩家视角为基准(生物正对你时显示正面,背对时显示背面);
@@ -133,49 +106,35 @@ public final class EntityIconRenderer {
                 // 注:这里用减号——渲染状态的 yaw 与旧版管线(1.20/1.21 直接设 entity yaw)手性相反,
                 // 用减号才能让"角度增大"在两个管线家族里呈现同一方向。
                 livingState.bodyRot = followRotation ? (livingState.bodyRot - mc.player.getYRot()) : (180.0f - customAngle);
-
-                // 与 vanilla InventoryScreen / Damage-Indicators 一致:碰撞箱归一到 scale=1,
-                // 因为渲染管线会再乘一次实体自身缩放,不归一会让同一取景比例下的实际大小随实体缩放变化。
-                float entityScale = livingState.scale > 0.01f ? livingState.scale : 1.0f;
-                bbW = livingState.boundingBoxWidth / entityScale;
-                bbH = livingState.boundingBoxHeight / entityScale;
-                livingState.boundingBoxWidth = bbW;
-                livingState.boundingBoxHeight = bbH;
-                livingState.scale = 1.0f;
-            } else {
-                // 末影龙等使用专用渲染器的实体,渲染状态不是 LivingEntityRenderState,
-                // 既没有 bodyRot 也没有 scale 可调,朝向由飞行轨迹决定,这里只按碰撞箱取景。
-                bbW = state.boundingBoxWidth;
-                bbH = state.boundingBoxHeight;
             }
+            // 注意:既不再把实体缩放归一化,也不再按"填满头像槽"反推缩放。
+            // 体型差异(史莱姆大小、幼年体缩放、模组自定义缩放)交给渲染管线按实体状态自己应用,
+            // 这里只给一个固定的"1 格 = 多少像素",画出来就是它的真实体型。
 
-            // 取景尺寸优先用模型真实几何:碰撞箱有时远大于可见模型
-            // (末影龙碰撞箱 16x8,实际翼展只有几格),只按碰撞箱取景会让这类生物的头像明显偏小。
-            // 模型不可测时才回退到碰撞箱公式;上限仍按碰撞箱收紧,避免异常模型把头像压成一点。
             ModelExtents model = modelExtents(entity, dispatcher);
-            float dim;
-            float translateY;
-            float boost = 1.0f;
-            if (model != null) {
-                // 取景尺寸:横向取"模型宽度"与折减后的"前后长度"的较大者,纵向取模型高度。
-                // 体长单独折减,避免末影龙这类长体型生物被体长撑小(见 DEPTH_SHRINK 说明)。
-                float horizontal = Math.max(model.spanX(), model.spanZ() * DEPTH_SHRINK);
-                dim = Math.max(horizontal, model.spanY());
-                dim = Math.min(dim, Math.max(bbW, bbH) * MODEL_EXTENT_CAP);
-                // 垂直居中按"模型自身的垂直中点"算,而不是碰撞箱中心。
-                // 原版实体渲染会把模型沿 Y 下移 1.501 格(脚底对齐原点),故中点落在框心对应的位移是 1.501 - 中点;
-                // 末影龙这类模型重心与碰撞箱差很多,用碰撞箱中心会把模型整个顶出框外。
-                translateY = MODEL_VERTICAL_PIVOT - model.centerY();
-                // 横向跨度被翼展/体长主导时(末影龙),按整体几何取景只剩一条细线,补到填满渲染框
-                if (horizontal > model.spanY() * WING_SPAN_RATIO) boost = WINGED_EXTRA_SCALE;
-            } else {
-                dim = Math.max(bbW * 1.15f, bbH) * 1.1f;
-                translateY = bbH / 2.0f + CENTER_OFFSET_Y;
-            }
-            if (dim <= 0.05f) dim = 1.0f;
-            // 动物类整体再收一档,避免和怪物放在一起时显得过大
-            if (isAnimal(entity)) dim *= ANIMAL_SHRINK;
-            float scale = size * FILL_RATIO * boost / dim;
+            float pixelsPerBlock = slotSize / PLAYER_HEIGHT_BLOCKS;
+            // 渲染器内部施加的体型缩放(史莱姆/岩浆怪按大小属性放大、模组自定义缩放)。
+            // 它不在渲染状态里,但会连同模型一起缩放下面那个 1.501 的位移,所以居中时必须计入,
+            // 否则个体越大越往上飘。
+            float bodyScale = rendererBodyScale(dispatcher, entity, state);
+
+            // 垂直居中按"模型自身的垂直中点"算,而不是碰撞箱中心。
+            // 原版渲染对模型点的作用顺序是 translate(0,-1.501) → 体型缩放 → 翻转,故模型点 v 最终落在
+            // 外层位移 T + 体型缩放×(v - 1.501);要把它摆到槽心(0),T 就得是这个整体乘以体型缩放。
+            // 模型不可测时回退到碰撞箱中心。
+            float translateY = model != null
+                ? (MODEL_VERTICAL_PIVOT - model.centerY()) * bodyScale
+                : (bbH / 2.0f + CENTER_OFFSET_Y);
+
+            // 渲染框按实体实际尺寸放大:它只是画布与裁剪边界,放大只为留出溢出的余地、不切边,
+            // 实体本身的像素大小只由上面那个固定比例决定。
+            float spanBlocks = model != null
+                ? Math.max(Math.max(model.spanX(), model.spanZ()), model.spanY())
+                : Math.max(bbW, bbH);
+            float boundBlocks = Math.max(spanBlocks, Math.max(bbW, bbH));
+            int boxSize = Math.max(slotSize, (int) Math.ceil(boundBlocks * pixelsPerBlock * PICTURE_BOX_MARGIN));
+            int boxX = slotX + slotSize / 2 - boxSize / 2;
+            int boxY = slotY + slotSize / 2 - boxSize / 2;
 
             Vector3f translate = new Vector3f(0.0f, translateY, 0.0f);
 
@@ -186,7 +145,7 @@ public final class EntityIconRenderer {
 
             if (entity.getId() != lastLogId) {
                 lastLogId = entity.getId();
-                LOGGER.info("[DE] icon: 取景 id={} 类型={} follow={} 归一包围箱={}x{} 模型XYZ={}x{}x{} 中点Y={} dim={} 位移Y={} scale={}",
+                LOGGER.info("[DE] icon: id={} 类型={} follow={} 包围箱={}x{} 模型XYZ={}x{}x{} 中点Y={} 体型缩放={} 每格像素={} 位移Y={} 渲染框={}",
                     entity.getId(), entity.getType().getDescription().getString(), followRotation,
                     String.format("%.2f", bbW),
                     String.format("%.2f", bbH),
@@ -194,22 +153,39 @@ public final class EntityIconRenderer {
                     model != null ? String.format("%.2f", model.spanY()) : "n/a",
                     model != null ? String.format("%.2f", model.spanZ()) : "n/a",
                     model != null ? String.format("%.2f", model.centerY()) : "n/a",
-                    String.format("%.2f", dim),
+                    String.format("%.2f", bodyScale),
+                    String.format("%.2f", pixelsPerBlock),
                     String.format("%.2f", translateY),
-                    String.format("%.2f", scale));
+                    boxSize);
             }
 
-            guiGraphics.entity(state, scale, translate, rotation, cameraAngle, x, y, x + size, y + size);
+            guiGraphics.entity(state, pixelsPerBlock, translate, rotation, cameraAngle,
+                boxX, boxY, boxX + boxSize, boxY + boxSize);
         } catch (Throwable t) {
             LOGGER.warn("[DE] 实体头像渲染失败: {}", t.toString());
         }
     }
 
-    /** 动物类(含鱿鱼/海豚/鱼等水生动物)判定,用于取景时再收一档。 */
-    private static boolean isAnimal(LivingEntity entity) {
-        return entity instanceof Animal
-            || entity instanceof AgeableWaterCreature
-            || entity instanceof WaterAnimal;
+    /**
+     * 读出渲染器内部施加的体型缩放。
+     * <p>
+     * 史莱姆/岩浆怪这类"同一个实体按大小属性放大"的缩放是在 {@code LivingEntityRenderer#scale} 里做的:
+     * 既不在 {@link EntityRenderState} 里,也不改变碰撞箱与模型几何各自的比例。这里给它一个空
+     * {@link PoseStack} 当探针,从返回的矩阵里读出缩放值,用于修正垂直居中。取不到就按 1 处理。
+     */
+    private static float rendererBodyScale(EntityRenderDispatcher dispatcher, LivingEntity entity, EntityRenderState state) {
+        if (!(state instanceof LivingEntityRenderState livingState)) return 1.0f;
+        try {
+            EntityRenderer<?, ?> renderer = dispatcher.getRenderer(entity);
+            if (!(renderer instanceof LivingEntityRenderer)) return 1.0f;
+            PoseStack probe = new PoseStack();
+            ((LivingEntityRenderer) renderer).scale(livingState, probe);
+            Vector3f scale = probe.last().pose().getScale(new Vector3f());
+            float s = Math.abs(scale.y);
+            return s > 0.001f ? s : 1.0f;
+        } catch (Throwable t) {
+            return 1.0f;
+        }
     }
 
     /** 按实体类型取模型几何(带缓存);测量失败返回 null,由调用方回退到碰撞箱。 */
