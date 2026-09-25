@@ -74,6 +74,8 @@ public class DamageHud {
     private float infoAbsorption = 0f;
 
     private static final long HISTORY_ANIM_MS = 150;
+    /** 伤害记录每一行的高度(像素)。 */
+    private static final int HISTORY_SLOT_H = 10;
 
     private float contentRightX = 20f;
     private String previewGrade = "";
@@ -604,11 +606,17 @@ public class DamageHud {
 
         long now = System.currentTimeMillis();
 
-        // Vertical push-down animation: when a newer entry arrives, older entries
-        // slide down one slot over the same duration as the horizontal entrance,
-        // so a new damage record never hard-cuts an entry that is in motion.
+        // 与最新条目同一时间刻到达的算一批:它们作为一整组自上而下滑入,
+        // 整列老条目也一次整体下移对应的格数(而不是每来一条就各自动一下)。
         long newestTs = renderList.isEmpty() ? now : renderList.get(renderList.size() - 1).timestamp();
-        float downProgress = isPreview ? 1.0f : Mth.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
+        int batchCount = 0;
+        for (int i = renderList.size() - 1; i >= 0; i--) {
+            if (renderList.get(i).timestamp() != newestTs) break;
+            batchCount++;
+        }
+        if (batchCount < 1) batchCount = 1;
+        float settleProgress = isPreview ? 1.0f
+            : Mth.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
 
         int baseY = 15;
 
@@ -640,20 +648,12 @@ public class DamageHud {
                 }
             }
 
-            // Per-entry entrance animation: each entry animates from its own
-            // birth time, so new hits never interrupt entries that are already
-            // animating. Entries born in the same instant animate together.
-            float entryAnimProgress = isPreview ? 1.0f
-                : Mth.clamp(timeAlive / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
-            float slideOffsetX = 0f;
-            float slideAlphaMul = 1.0f;
-            if (entryAnimProgress < 1.0f) {
-                // Purely horizontal right-to-left slide + fade-in.
-                slideOffsetX = (1.0f - entryAnimProgress) * 20f;
-                slideAlphaMul = entryAnimProgress;
-            }
+            // 只有这一批新条目做淡入;老条目只是跟着整体下移,不额外改透明度
+            float entryAlphaMul = (!isPreview && entry.timestamp() == newestTs && settleProgress < 1.0f)
+                ? settleProgress
+                : 1.0f;
 
-            finalItemAlpha *= globalAlpha * slideAlphaMul;
+            finalItemAlpha *= globalAlpha * entryAlphaMul;
             if (finalItemAlpha <= 0) continue;
             finalItemAlpha = Mth.clamp(finalItemAlpha, 0.0f, 1.0f);
             int itemAlpha = (int)(255 * finalItemAlpha);
@@ -667,19 +667,15 @@ public class DamageHud {
             String valText = formatDamage(entry.damage(), decimalPlaces);
             int textWidth = font.width(valText);
 
-            float targetY = baseY + renderIndex * 10;
-            // Newest entry sits in its final slot (its entrance is the horizontal
-            // slide above); older entries smoothly push down one slot when a newer
-            // entry arrives, instead of teleporting mid-animation.
-            float yPos;
-            if (renderIndex == 0 || downProgress >= 1.0f) {
-                yPos = targetY;
-            } else {
-                float oldY = targetY - 10;
-                yPos = Mth.lerp(downProgress, oldY, targetY);
-            }
+            float targetY = baseY + renderIndex * HISTORY_SLOT_H;
+            // 自上而下:整列从"上方 batchCount 格"落到目标位。
+            // 于是新的一批是从列表顶边上方落下来的,而老条目正好从它们下移前的原位开始,
+            // 一次整体下移 batchCount 格。
+            float yPos = settleProgress >= 1.0f
+                ? targetY
+                : Mth.lerp(settleProgress, targetY - batchCount * HISTORY_SLOT_H, targetY);
 
-            float xPos = contentRightX - textWidth + slideOffsetX;
+            float xPos = contentRightX - textWidth;
 
             // Draw player avatar for other players' damage entries
             if (!isPreview && recordOtherPlayers && entry.attackerId() > 0 && client.level != null) {
