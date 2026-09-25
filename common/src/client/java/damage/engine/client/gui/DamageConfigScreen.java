@@ -162,12 +162,28 @@ public class DamageConfigScreen extends Screen {
             playClickSound();
             this.minecraft.setScreen(new HudEditorScreen(this));
         }));
+        addOption(new ModeSelectorEntry("option.damage-engine.hudInertia", config.hudInertiaMode,
+            new String[]{"off", "de_only", "all"},
+            Component.translatable("hint.damage-engine.hudInertia"),
+            v -> { config.hudInertiaMode = v; markChanged(); }));
+        addOption(new IntegerSliderEntry("option.damage-engine.hudInertiaStrength", config.hudInertiaStrength,
+            10, 200, v -> { config.hudInertiaStrength = v; markChanged(); }, true, "%"));
         addOption(new SeparatorToggleEntry("option.damage-engine.numberSeparator", config.numberSeparator, v -> { config.numberSeparator = v; markChanged(); }));
+        addOption(new BooleanOptionEntry("option.damage-engine.abbreviateNumbers", config.abbreviateNumbers,
+            v -> { config.abbreviateNumbers = v; markChanged(); },
+            Component.translatable("hint.damage-engine.abbreviateNumbers")));
+        addOption(new BooleanOptionEntry("option.damage-engine.showDamageOverflow", config.showDamageOverflow,
+            v -> { config.showDamageOverflow = v; markChanged(); },
+            Component.translatable("hint.damage-engine.showDamageOverflow")));
         addOption(new BooleanOptionEntry("option.damage-engine.hideOnF1", config.hideOnF1, v -> { config.hideOnF1 = v; markChanged(); }));
     }
 
     private void initDamageInterfaceTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamageDisplay", config.showDamageDisplay, v -> { config.showDamageDisplay = v; markChanged(); }));
+        addOption(new ModeSelectorEntry("option.damage-engine.alignMode", config.alignMode,
+            new String[]{"right", "left"},
+            Component.translatable("hint.damage-engine.alignMode"),
+            v -> { config.alignMode = v; markChanged(); }));
         addOption(new IntegerSliderEntry("option.damage-engine.decimalPlaces", config.decimalPlaces, 0, 10, v -> { config.decimalPlaces = v; markChanged(); }, true));
         addOption(new HexColorEntry("option.damage-engine.normalColor", config.normalColor, v -> { config.normalColor = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.critColor", config.critColor, v -> { config.critColor = v; markChanged(); }));
@@ -707,6 +723,9 @@ public class DamageConfigScreen extends Screen {
         private final Component label;
         private boolean state;
         public BooleanOptionEntry(String key, boolean initial, Consumer<Boolean> onToggle) {
+            this(key, initial, onToggle, null);
+        }
+        public BooleanOptionEntry(String key, boolean initial, Consumer<Boolean> onToggle, Component tooltip) {
             this.state = initial;
             this.label = Component.translatable(key);
             final StyledButton[] ref = new StyledButton[1];
@@ -716,6 +735,9 @@ public class DamageConfigScreen extends Screen {
                 onToggle.accept(state);
             });
             this.button = ref[0];
+            if (tooltip != null) {
+                this.button.setTooltip(Tooltip.create(tooltip));
+            }
         }
         @Override
         public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
@@ -731,10 +753,13 @@ public class DamageConfigScreen extends Screen {
         private final StyledSliderWidget slider;
         private final Component label;
         public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange, boolean soundOnRelease) {
+            this(key, cur, min, max, onChange, soundOnRelease, "");
+        }
+        public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange, boolean soundOnRelease, String suffix) {
             this.label = Component.translatable(key);
             float minF = min, maxF = max;
-            this.slider = new StyledSliderWidget(0, 0, 100, 20, Component.literal(String.valueOf(cur)), (cur - minF) / (maxF - minF), true, !soundOnRelease, soundOnRelease) {
-                @Override protected void updateMessage() { this.setMessage(Component.literal(String.valueOf((int)Math.round(minF + this.value * (maxF - minF))))); }
+            this.slider = new StyledSliderWidget(0, 0, 100, 20, Component.literal(cur + suffix), (cur - minF) / (maxF - minF), true, !soundOnRelease, soundOnRelease) {
+                @Override protected void updateMessage() { this.setMessage(Component.literal(Math.round(minF + this.value * (maxF - minF)) + suffix)); }
                 @Override protected void applyValue() { onChange.accept((int)Math.round(minF + this.value * (maxF - minF))); }
             };
         }
@@ -822,6 +847,26 @@ public class DamageConfigScreen extends Screen {
             });
             this.button = ref[0];
             this.button.setTooltip(Tooltip.create(Component.translatable("hint.damage-engine.indicatorMode")));
+        }
+
+        /** 多选项循环切换(off / de_only / all 之类),带说明提示。 */
+        public ModeSelectorEntry(String key, String initial, String[] values, Component tooltip, Consumer<String> onChange) {
+            this.label = Component.translatable(key);
+            this.mode = initial;
+            final StyledButton[] ref = new StyledButton[1];
+            ref[0] = new StyledButton(0, 0, 100, 20, Component.translatable("option.damage-engine.mode." + mode), () -> {
+                int idx = 0;
+                for (int i = 0; i < values.length; i++) {
+                    if (values[i].equals(mode)) { idx = i; break; }
+                }
+                mode = values[(idx + 1) % values.length];
+                ref[0].setMessage(Component.translatable("option.damage-engine.mode." + mode));
+                onChange.accept(mode);
+            });
+            this.button = ref[0];
+            if (tooltip != null) {
+                this.button.setTooltip(Tooltip.create(tooltip));
+            }
         }
         @Override public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
