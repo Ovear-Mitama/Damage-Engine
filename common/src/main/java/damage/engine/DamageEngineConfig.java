@@ -25,6 +25,8 @@ public class DamageEngineConfig {
     public boolean showDamage = true;
     public boolean hideOnF1 = true;
     public boolean numberSeparator = true; // true = "1,000", false = "1000"
+    public boolean abbreviateNumbers = false; // true = "1.5K", false = "1,500"
+    public boolean showDamageOverflow = false; // true = 显示未被目标血量截断的伤害
     
     // ========== Damage Display ==========
     public boolean showDamageDisplay = true;
@@ -373,6 +375,8 @@ public class DamageEngineConfig {
         this.showDamage = loaded.showDamage;
         this.hideOnF1 = loaded.hideOnF1;
         this.numberSeparator = loaded.numberSeparator;
+        this.abbreviateNumbers = loaded.abbreviateNumbers;
+        this.showDamageOverflow = loaded.showDamageOverflow;
         
         // Damage Display
         this.showDamageDisplay = loaded.showDamageDisplay;
@@ -496,6 +500,8 @@ public class DamageEngineConfig {
         showDamage = true;
         hideOnF1 = true;
         numberSeparator = true;
+        abbreviateNumbers = false;
+        showDamageOverflow = false;
         
         // Damage Display
         showDamageDisplay = true;

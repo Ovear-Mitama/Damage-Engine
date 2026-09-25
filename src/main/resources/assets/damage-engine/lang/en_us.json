@@ -52,10 +52,14 @@
   "hint.damage-engine.globalIndicatorMaxDistance": "In blocks, set 0 for unlimited",
   "option.damage-engine.global_smart_hide": "Perception Filter",
   "hint.damage-engine.global_smart_hide": "Hide damage numbers for entities you can neither see nor hear.",
+  "hint.damage-engine.abbreviateNumbers": "Writes large numbers with a K/M/B/T suffix: 1500 becomes 1.5K, 2000000 becomes 2M.",
+  "hint.damage-engine.showDamageOverflow": "Shows the full incoming damage instead of capping it at the target's remaining health. Vanilla truncates damage to the target's health, so a 1000 damage hit on a 20 HP mob normally reads 20. Enable this to see what the weapon actually dealt, useful for testing damage caps.",
 
   "option.damage-engine.showDamage": "HUD Display",
   "option.damage-engine.edit_pos_label": "Adjust HUD",
   "option.damage-engine.numberSeparator": "Number Separator",
+  "option.damage-engine.abbreviateNumbers": "Abbreviate Numbers",
+  "option.damage-engine.showDamageOverflow": "Show Damage Overflow",
   "option.damage-engine.hideOnF1": "Hide HUD on F1",
 
   "option.damage-engine.showDamageDisplay": "Damage Display",
