@@ -7,9 +7,9 @@
       },
       "version": {
         "range": "[1.0.0,)",
-        "artifactVersion": "1.0.4"
+        "artifactVersion": "1.0.5"
       },
-      "path": "META-INF/jarjar/anima-1.0.4.jar",
+      "path": "META-INF/jarjar/anima-1.0.5.jar",
       "isObfuscated": false
     }
   ]
