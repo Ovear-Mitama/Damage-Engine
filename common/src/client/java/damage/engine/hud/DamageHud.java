@@ -328,6 +328,9 @@ public class DamageHud {
     private boolean inertiaPrevInit = false;
     /** 整层偏移当前是否已经压进 HUD 的矩阵栈 */
     private boolean globalShiftActive = false;
+    /** 已压进矩阵栈的偏移量,用于给整屏特效临时抵消 */
+    private float globalShiftX = 0f;
+    private float globalShiftY = 0f;
 
     /** 只让 DE 自己的 HUD 让位时才在模块变换里叠偏移;"整层 HUD"模式由外层统一偏移。 */
     private static boolean applyOwnInertiaOffset() {
@@ -416,10 +419,14 @@ public class DamageHud {
      */
     public void beginGlobalShift(GuiGraphicsExtractor guiGraphics) {
         globalShiftActive = false;
+        globalShiftX = 0f;
+        globalShiftY = 0f;
         if (!"all".equals(DamageEngineConfig.getInstance().hudInertiaMode)) return;
         if (inertiaX == 0f && inertiaY == 0f) return;
         guiGraphics.pose().pushMatrix();
         guiGraphics.pose().translate(inertiaX, inertiaY);
+        globalShiftX = inertiaX;
+        globalShiftY = inertiaY;
         globalShiftActive = true;
     }
 
@@ -427,7 +434,26 @@ public class DamageHud {
         if (globalShiftActive) {
             guiGraphics.pose().popMatrix();
             globalShiftActive = false;
+            globalShiftX = 0f;
+            globalShiftY = 0f;
         }
+    }
+
+    /**
+     * 临时抵消整层偏移,供整屏特效(暗角、传送门、望远镜)使用。
+     * <p>
+     * 那些是铺满整屏的渐变,属于"屏幕特效"而不是 HUD;整屏渐变被平移几像素时,
+     * 人的感知是"整个屏幕在晃",比 HUD 移动明显得多,所以它们不参与让位。
+     * 必须与 {@link #resumeGlobalShift} 成对调用。
+     */
+    public void suspendGlobalShift(GuiGraphicsExtractor guiGraphics) {
+        if (!globalShiftActive) return;
+        guiGraphics.pose().translate(-globalShiftX, -globalShiftY);
+    }
+
+    public void resumeGlobalShift(GuiGraphicsExtractor guiGraphics) {
+        if (!globalShiftActive) return;
+        guiGraphics.pose().translate(globalShiftX, globalShiftY);
     }
 
     public void renderTotalDamage(GuiGraphicsExtractor guiGraphics, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
