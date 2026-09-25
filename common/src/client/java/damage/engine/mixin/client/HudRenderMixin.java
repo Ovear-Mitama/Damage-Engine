@@ -42,14 +42,7 @@ public class HudRenderMixin {
         }
     }
 
-    // 暗角/传送门/望远镜/结霜这些铺满整屏的渐变属于屏幕特效而非 HUD,在 1.20+ 里要吃
-    // GuiGraphics,整层偏移会把它们也带着平移到"整个屏幕在晃",所以参考分支单独注入
-    // suspendGlobalShift/resumeGlobalShift 抵消掉。
-    //
-    // 1.18.2 不需要也不可行:javap 显示这些方法在 1.18.2 是 renderVignette(Entity)、
-    // renderPortalOverlay(float)、renderSpyglassOverlay(float)、
-    // renderTextureOverlay(ResourceLocation, float) —— 它们<b>都不接收 PoseStack</b>,
-    // 而且直接用 BufferBuilder.vertex(屏幕坐标) 画,完全不读 pose/Gui 矩阵栈
-    // (GameRenderer 传给 Gui#render 的是一个 new PoseStack(),顶点在 GuiComponent.fill 里
-    // 就把 pose 烘焙进坐标了)。因此整层偏移天然影响不到它们,无需挂起。
+    // 暗角/传送门/望远镜/结霜以及进世界时那层变暗过渡都属于"屏幕特效"而不是 HUD:它们不接收
+    // PoseStack、用单位矩阵画顶点,会跟着模型视图矩阵一起平移,整屏跟着晃比 HUD 让位明显得多。
+    // 这些由 ScreenEffectShiftMixin 在渲染前后调用 suspendGlobalShift/resumeGlobalShift 抵消掉。
 }

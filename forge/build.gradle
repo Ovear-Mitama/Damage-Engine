@@ -19,6 +19,10 @@ base {
 // 产物命名:damage-engine-<版本号>-<加载器>-<MC版本号>.jar
 tasks.named('jar') {
     archiveFileName = "damage-engine-${mod_version}-Forge-${minecraft_version}.jar"
+    // Mixin 在引导阶段读取(MANIFEST 由 Mixin 的 ModLauncher 服务扫描)
+    manifest {
+        attributes 'MixinConfigs': 'damage-engine.client.mixins.json'
+    }
 }
 
 java.toolchain.languageVersion = JavaLanguageVersion.of(17)
@@ -96,6 +100,56 @@ repositories {
             includeGroup "maven.modrinth"
         }
     }
+    maven {
+        name = "Sponge"
+        url = "https://repo.spongepowered.org/repository/maven-public/"
+        content {
+            includeGroup "org.spongepowered"
+        }
+    }
+}
+
+// mixin:以前在 mod 构造器里 Mixins.addConfiguration(...) 太晚——那时 Minecraft/ToastComponent
+// 已经加载,整份 config 被判 "target was loaded too early" 作废(Forge 上 4 个客户端 mixin
+// 全部没生效)。改成把 config 写进 MANIFEST 的 MixinConfigs,让 Mixin 在引导阶段加载;
+// 同时用 Mixin 注解处理器生成 mojmap → SRG 的 refmap(ForgeGradle 自身不生成 refmap,
+// 没有它 mojmap 方法名在 SRG 运行时找不到,HUD/物品那些 @Inject 就无效)。
+dependencies {
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+}
+
+// Mixin 注解处理器需要一个 tsrg 映射(official → SRG)。FG 的 createMcpToSrg 输出是
+// tsrg2(带 "tsrg2 left right" 头与参数行),而 Mixin AP 的解析器只认 v1,所以这里去掉
+// 头行与 \t\t 参数/static 行,转成 v1 再用。缺了它 refmap 会是空的、@Inject 全部失效。
+tasks.register('generateMixinMappings') {
+    dependsOn 'createMcpToSrg'
+    def inFile = layout.buildDirectory.file('createMcpToSrg/output.tsrg').get().asFile
+    def outFile = layout.buildDirectory.file('mixinMappings/mappings.tsrg').get().asFile
+    inputs.file(inFile)
+    outputs.file(outFile)
+    doLast {
+        outFile.parentFile.mkdirs()
+        def sb = new StringBuilder()
+        inFile.readLines('UTF-8').eachWithIndex { line, idx ->
+            def trimmed = line.trim()
+            if (idx == 0 || trimmed.isEmpty() || line.startsWith('\t\t')) return
+            sb.append(line).append('\n')
+        }
+        outFile.setText(sb.toString(), 'UTF-8')
+    }
+}
+
+tasks.named('compileJava', JavaCompile).configure {
+    dependsOn 'generateMixinMappings'
+    options.compilerArgs += [
+        "-AoutRefMapFile=${layout.buildDirectory.dir('classes/java/main').get().asFile}/damage-engine.refmap.json",
+        // Mixin AP 认识的环境名是 searge(=Forge 运行时的 SRG 成员名),写 srg 会报
+        // "Specified default obfuscation environment \"srg\" was not defined"
+        "-AdefaultObfuscationEnv=searge",
+        "-AmappingTypes=tsrg",
+        // FG3 风格的服务读的是 reobfTsrgFile(不是 mappingsFile,写错会被当成未识别选项,映射为空)
+        "-AreobfTsrgFile=${layout.buildDirectory.file('mixinMappings/mappings.tsrg').get().asFile}"
+    ]
 }
 
 dependencies {

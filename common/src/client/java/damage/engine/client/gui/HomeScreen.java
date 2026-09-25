@@ -1,8 +1,6 @@
 package damage.engine.client.gui;
 
 import com.mojang.blaze3d.vertex.PoseStack;
-import damage.engine.DamageEngineConfig;
-import damage.engine.client.UpdateChecker;
 import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -10,21 +8,17 @@ import net.minecraft.network.chat.TranslatableComponent;
 
 public class HomeScreen extends Screen {
     private final Screen parent;
-    private final DamageEngineConfig config;
 
     private DamageConfigScreen.StyledButton btn1, btn2;
 
     public HomeScreen(Screen parent) {
         super(new TranslatableComponent("title.damage-engine.home"));
         this.parent = parent;
-        this.config = DamageEngineConfig.getInstance();
     }
 
     @Override
     protected void init() {
         this.clearWidgets();
-
-        UpdateChecker.checkAsync();
 
         int buttonWidth = 100;
         int buttonHeight = 22;
@@ -71,25 +65,6 @@ public class HomeScreen extends Screen {
         guiGraphics.drawString(this.font, devText, titleLeftX, titleY + (int)(this.font.lineHeight * titleScale) + 6, 0xFFB5F0C6);
 
         super.render(pose, mouseX, mouseY, delta);
-
-        if (config.checkUpdate) {
-            String updateText;
-            int updateColor;
-            if (UpdateChecker.hasChecked()) {
-                if (UpdateChecker.isUpdateAvailable()) {
-                    updateText = new TranslatableComponent("text.damage-engine.update_available", UpdateChecker.getLatestVersion(), UpdateChecker.getCurrentVersion()).getString();
-                    updateColor = 0xFFB5F0C6;
-                } else {
-                    updateText = new TranslatableComponent("text.damage-engine.update_latest", UpdateChecker.getCurrentVersion()).getString();
-                    updateColor = 0xFFB5F0C6;
-                }
-            } else {
-                updateText = new TranslatableComponent("text.damage-engine.update_checking").getString();
-                updateColor = 0xFFA0A0A0;
-            }
-            int textWidth = this.font.width(updateText);
-            guiGraphics.drawString(this.font, updateText, (this.width - textWidth) / 2, this.height - 30, updateColor);
-        }
     }
 
     @Override

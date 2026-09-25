@@ -1,6 +1,5 @@
 package damage.engine;
 
-import com.mojang.logging.LogUtils;
 import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.NetworkHandler;
 import damage.engine.util.DamageTrackerHelper;
@@ -11,6 +10,7 @@ import net.minecraftforge.fml.DistExecutor;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -19,7 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
 	public static final String MOD_VERSION = "1.4.7.3";
-	public static final Logger LOGGER = LogUtils.getLogger();
+	// 用 slf4j 的 LoggerFactory 而不是 com.mojang.logging.LogUtils:后者是 1.18.2 才进
+	// MC 库清单的(1.18/1.18.1 的实例里没有 com.mojang:logging),模块加载时会
+	// NoClassDefFoundError。slf4j-api 在 1.18.0~1.18.2 都在。
+	public static final Logger LOGGER = LoggerFactory.getLogger("damageengine");
 
 	// NOTE: keyed by entity id, NOT LivingEntity - referencing LivingEntity in a
 	// static field's generic signature can trigger its class load before the
@@ -33,15 +36,10 @@ public class DamageEngine {
 	public DamageEngine() {
 		LOGGER.info("Initializing Damage Engine (Forge 1.20.1)...");
 
-		// Register the client mixin config from code (Vanilla Forge 1.20.1 does not
-		// support mods.toml [[mixins]]). This config ONLY contains EditBoxCursorMixin
-		// whose target (EditBox) loads late at GUI-open time - NOT the entity mixins
-		// (LivingEntity etc.) that are already loaded during mod construction and
-		// crashed with "MixinTargetAlreadyLoadedException: loaded too early".
-		DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
-			() -> () -> {
-				org.spongepowered.asm.mixin.Mixins.addConfiguration("damage-engine.client.mixins.json");
-			});
+		// 客户端 mixin(damage-engine.client.mixins.json)现在由 MixinGradle 写进 MANIFEST 的
+		// MixinConfigs,由 Mixin 在引导阶段加载。以前在这里 Mixins.addConfiguration(...) 太晚:
+		// 那时 Minecraft / ToastComponent 已经加载,整份 config 被判 "loaded too early" 作废,
+		// 4 个客户端 mixin 一个都没生效。
 
 		DamageEngineConfig.getInstance().load();
 

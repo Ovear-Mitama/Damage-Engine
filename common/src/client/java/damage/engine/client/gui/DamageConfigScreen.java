@@ -408,7 +408,6 @@ public class DamageConfigScreen extends Screen {
 
     private void initOtherTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.shareDamage", config.shareDamage, v -> { config.shareDamage = v; markChanged(); }));
-        addOption(new BooleanOptionEntry("option.damage-engine.checkUpdate", config.checkUpdate, v -> { config.checkUpdate = v; markChanged(); }));
         addOption(new ExpandableHeaderEntry("option.damage-engine.debugMode", "debugMode", v -> refreshOptions()));
         if (isExpanded("debugMode")) {
             addOption(new BooleanOptionEntry("option.damage-engine.debugShowDamageInfo", config.debugShowDamageInfo, v -> { config.debugShowDamageInfo = v; markChanged(); }));
@@ -616,9 +615,15 @@ public class DamageConfigScreen extends Screen {
     @Override
     public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
         GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        // 1.18 没有 z 层级(谁后画谁在上),悬停提示统一延到本方法最后再画
+        this.deferredTooltip = null;
         // Keep the active edit box focused so its cursor stays visible while typing.
-        // (Caret blink itself is driven by EditBoxCursorMixin using wall-clock time.)
-        if (activeWidget instanceof EditBox box) box.setFocus(true);
+        // 光标闪烁靠 EditBox.tick() 递增 frame,而列表里的行不会把 tick 转发给孩子,
+        // 所以这里顺手补一次 tick,否则光标是静止的。
+        if (activeWidget instanceof EditBox box) {
+            box.setFocus(true);
+            box.tick();
+        }
         this.renderBackground(pose);
         
         // Render tabs
@@ -685,7 +690,35 @@ public class DamageConfigScreen extends Screen {
                 w.render(pose, mouseX, mouseY, delta);
             }
         }
-        // 1.18 没有 AbstractWidget 的悬停提示系统,提示由各控件在自身绘制时画出
+        // 1.18 没有 AbstractWidget 的悬停提示系统,提示由各控件在自身绘制时登记到这里,
+        // 最后统一画,避免被之后绘制的列表行/底部按钮盖住。
+        if (deferredTooltip != null) {
+            guiGraphics.renderTooltip(this.font, deferredTooltip.toCharSequence(this.minecraft), deferredTooltipX, deferredTooltipY);
+            deferredTooltip = null;
+        }
+    }
+
+    private Tooltip deferredTooltip;
+    private int deferredTooltipX;
+    private int deferredTooltipY;
+
+    void deferTooltip(Tooltip tooltip, int x, int y) {
+        this.deferredTooltip = tooltip;
+        this.deferredTooltipX = x;
+        this.deferredTooltipY = y;
+    }
+
+    /**
+     * 悬停提示的统一入口:在配置界面里延后到 render 末尾绘制;这些控件也被别的界面复用,
+     * 那些界面直接就地绘制。
+     */
+    static void damageEngine$showTooltip(GuiGraphics guiGraphics, Tooltip tooltip, int mouseX, int mouseY) {
+        if (Minecraft.getInstance().screen instanceof DamageConfigScreen screen) {
+            screen.deferTooltip(tooltip, mouseX, mouseY);
+        } else {
+            guiGraphics.renderTooltip(Minecraft.getInstance().font,
+                tooltip.toCharSequence(Minecraft.getInstance()), mouseX, mouseY);
+        }
     }
 
     @Override
@@ -741,7 +774,7 @@ public class DamageConfigScreen extends Screen {
             g.drawCenteredString(Minecraft.getInstance().font, getMessage(), x + w / 2, y + (h - 8) / 2, 0xFFFFFFFF);
             // 1.18 没有 AbstractWidget 的悬停提示系统,悬停时自行绘制
             if (damageEngine$tooltip != null && isHovered) {
-                g.renderTooltip(Minecraft.getInstance().font, damageEngine$tooltip.toCharSequence(Minecraft.getInstance()), mx, my);
+                damageEngine$showTooltip(g, damageEngine$tooltip, mx, my);
             }
         }
         @Override
@@ -785,7 +818,7 @@ public class DamageConfigScreen extends Screen {
             g.drawCenteredString(Minecraft.getInstance().font, getMessage(), this.x + getWidth() / 2, this.y + (getHeight() - 8) / 2, c);
             // 1.18 没有 AbstractWidget 的悬停提示系统,悬停时自行绘制
             if (damageEngine$tooltip != null && isHovered) {
-                g.renderTooltip(Minecraft.getInstance().font, damageEngine$tooltip.toCharSequence(Minecraft.getInstance()), mx, my);
+                damageEngine$showTooltip(g, damageEngine$tooltip, mx, my);
             }
         }
         @Override
@@ -1035,7 +1068,7 @@ public class DamageConfigScreen extends Screen {
             g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
             field.render(pose, mx, my, dt);
             if (fieldTooltip != null && field.isMouseOver(mx, my)) {
-                g.renderTooltip(Minecraft.getInstance().font, fieldTooltip.toCharSequence(Minecraft.getInstance()), mx, my);
+                damageEngine$showTooltip(g, fieldTooltip, mx, my);
             }
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(field); }
@@ -1509,10 +1542,10 @@ public class DamageConfigScreen extends Screen {
             drawBox(pose, dbx, by, dbw, bh, distField, mx, my);
             nameField.render(pose, mx, my, dt); distField.render(pose, mx, my, dt); delBtn.render(pose, mx, my, dt);
             if (nameTooltip != null && nameField.isMouseOver(mx, my)) {
-                g.renderTooltip(Minecraft.getInstance().font, nameTooltip.toCharSequence(Minecraft.getInstance()), mx, my);
+                damageEngine$showTooltip(g, nameTooltip, mx, my);
             }
             if (distTooltip != null && distField.isMouseOver(mx, my)) {
-                g.renderTooltip(Minecraft.getInstance().font, distTooltip.toCharSequence(Minecraft.getInstance()), mx, my);
+                damageEngine$showTooltip(g, distTooltip, mx, my);
             }
         }
         private void drawBox(PoseStack pose, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
@@ -1741,9 +1774,9 @@ public class DamageConfigScreen extends Screen {
                 g.fill(x, y, x + w, y + 1, bc); g.fill(x, y + h - 1, x + w, y + h, bc);
                 g.fill(x, y, x + 1, y + h, bc); g.fill(x + w - 1, y, x + w, y + h, bc);
                 g.drawCenteredString(Minecraft.getInstance().font, getMessage(), x + w / 2, y + (h - 8) / 2, 0xFFFFFFFF);
-                // 1.18 没有 AbstractWidget 的悬停提示系统,悬停时自行绘制
+                // 1.18 没有 AbstractWidget 的悬停提示系统,悬停时登记到界面,末尾统一绘制
                 if (damageEngine$tooltip != null && isHovered) {
-                    g.renderTooltip(Minecraft.getInstance().font, damageEngine$tooltip.toCharSequence(Minecraft.getInstance()), mx, my);
+                    damageEngine$showTooltip(g, damageEngine$tooltip, mx, my);
                 }
             }
             @Override public void updateNarration(NarrationElementOutput b) { this.defaultButtonNarrationText(b); }

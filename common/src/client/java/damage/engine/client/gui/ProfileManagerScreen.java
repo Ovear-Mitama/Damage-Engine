@@ -102,13 +102,19 @@ public class ProfileManagerScreen extends Screen {
         guiGraphics.drawCenteredString(this.font, titleText, this.width / 2, 15, 0xFFFFFFFF);
 
         // Render widgets + tooltips manually (avoid super.render() blur)
+        // 1.18 没有 z 层级(谁后画谁在上),提示必须等所有控件画完再画,
+        // 否则会被列表里后面的按钮盖住。
+        Tooltip hoveredTooltip = null;
         for (var child : this.children()) {
             if (child instanceof AbstractWidget w) {
                 w.render(pose, mouseX, mouseY, delta);
                 if (w.isMouseOver(mouseX, mouseY) && w instanceof TooltipHolder holder && holder.getTooltip() != null) {
-                    guiGraphics.renderTooltip(this.font, holder.getTooltip().toCharSequence(this.minecraft), mouseX, mouseY);
+                    hoveredTooltip = holder.getTooltip();
                 }
             }
+        }
+        if (hoveredTooltip != null) {
+            guiGraphics.renderTooltip(this.font, hoveredTooltip.toCharSequence(this.minecraft), mouseX, mouseY);
         }
     }
 

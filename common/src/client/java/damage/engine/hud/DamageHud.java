@@ -5,6 +5,7 @@ import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
+import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import damage.engine.compat.GuiGraphics;
 import damage.engine.compat.PlayerFaceRenderer;
@@ -360,9 +361,11 @@ public class DamageHud {
     private Vec3 inertiaPrevPos = null;
     private long inertiaLastMs = 0L;
     private boolean inertiaPrevInit = false;
-    /** 整层偏移当前是否已经压进 HUD 的矩阵栈 */
+    /** 整层偏移当前是否已经压进 HUD 的模型视图矩阵 */
     private boolean globalShiftActive = false;
-    /** 已压进矩阵栈的偏移量,用于给整屏特效临时抵消 */
+    /** 是否被整屏特效临时弹出了(见 suspendGlobalShift) */
+    private boolean globalShiftSuspended = false;
+    /** 已压进矩阵的偏移量,恢复时按原值压回去 */
     private float globalShiftX = 0f;
     private float globalShiftY = 0f;
     /** 模块在屏幕坐标系里的落点(含惯性偏移),供不吃 pose 的子项使用。 */
@@ -453,50 +456,62 @@ public class DamageHud {
     }
 
     /**
-     * "整层 HUD"模式下,把偏移压到整个 HUD 的矩阵栈上,让原版和其它模组的 HUD 一起让位。
+     * "整层 HUD"模式下,把偏移压到整个 HUD 的模型视图矩阵上,让原版和其它模组的 HUD 一起让位。
      * 偏移为 0 时不压栈,常态下没有任何额外开销。需与 {@link #endGlobalShift} 成对调用。
+     * <p>
+     * 为什么不是压 PoseStack:1.18 的 GUI 顶点最后都会再乘一次 ModelView 矩阵
+     * (fill/Font 把 PoseStack 烘焙进坐标,物品图标则直接读模型视图栈),而 HUD 期间模型视图
+     * 矩阵是单位阵——所以平移模型视图矩阵能让整层一致地让位。物品图标只认模型视图栈,
+     * 压 PoseStack 对它完全没影响(这正是之前"物品栏纹理不动"的原因),而给 ItemRenderer
+     * 挂 mixin 又要额外维护 refmap,不如统一走这一条路。
      */
     public void beginGlobalShift(PoseStack pose) {
-        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         globalShiftActive = false;
+        globalShiftSuspended = false;
         globalShiftX = 0f;
         globalShiftY = 0f;
         if (!"all".equals(DamageEngineConfig.getInstance().hudInertiaMode)) return;
         if (inertiaX == 0f && inertiaY == 0f) return;
-        guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(inertiaX, inertiaY, 0);
+        RenderSystem.getModelViewStack().pushPose();
+        RenderSystem.getModelViewStack().translate(inertiaX, inertiaY, 0);
+        RenderSystem.applyModelViewMatrix();
         globalShiftX = inertiaX;
         globalShiftY = inertiaY;
         globalShiftActive = true;
     }
 
     public void endGlobalShift(PoseStack pose) {
-        GuiGraphics guiGraphics = GuiGraphics.of(pose);
-        if (globalShiftActive) {
-            guiGraphics.pose().popPose();
-            globalShiftActive = false;
-            globalShiftX = 0f;
-            globalShiftY = 0f;
+        if (!globalShiftActive) return;
+        if (!globalShiftSuspended) {
+            RenderSystem.getModelViewStack().popPose();
+            RenderSystem.applyModelViewMatrix();
         }
+        globalShiftActive = false;
+        globalShiftSuspended = false;
+        globalShiftX = 0f;
+        globalShiftY = 0f;
     }
 
     /**
-     * 临时抵消整层偏移,供整屏特效(暗角、传送门、望远镜)使用。
+     * 临时抵消整层偏移,供整屏特效(暗角、传送门、望远镜、结霜,以及进世界时那层变暗过渡)使用。
      * <p>
-     * 那些是铺满整屏的渐变,属于"屏幕特效"而不是 HUD;整屏渐变被平移几像素时,
-     * 人的感知是"整个屏幕在晃",比 HUD 移动明显得多,所以它们不参与让位。
-     * 必须与 {@link #resumeGlobalShift} 成对调用。
+     * 这些是铺满整屏的渐变/纹理,属于"屏幕特效"而不是 HUD:它们不接收 PoseStack,用单位矩阵
+     * 画顶点,所以会跟着模型视图矩阵一起平移——整屏内容平移几像素时,人的感知是"整个屏幕在晃",
+     * 比 HUD 让位明显得多。必须与 {@link #resumeGlobalShift} 成对调用。
      */
-    public void suspendGlobalShift(PoseStack pose) {
-        GuiGraphics guiGraphics = GuiGraphics.of(pose);
-        if (!globalShiftActive) return;
-        guiGraphics.pose().translate(-globalShiftX, -globalShiftY, 0);
+    public void suspendGlobalShift() {
+        if (!globalShiftActive || globalShiftSuspended) return;
+        RenderSystem.getModelViewStack().popPose();
+        RenderSystem.applyModelViewMatrix();
+        globalShiftSuspended = true;
     }
 
-    public void resumeGlobalShift(PoseStack pose) {
-        GuiGraphics guiGraphics = GuiGraphics.of(pose);
-        if (!globalShiftActive) return;
-        guiGraphics.pose().translate(globalShiftX, globalShiftY, 0);
+    public void resumeGlobalShift() {
+        if (!globalShiftActive || !globalShiftSuspended) return;
+        RenderSystem.getModelViewStack().pushPose();
+        RenderSystem.getModelViewStack().translate(globalShiftX, globalShiftY, 0);
+        RenderSystem.applyModelViewMatrix();
+        globalShiftSuspended = false;
     }
 
     /** 总伤害与伤害记录的对齐:默认靠右(数字右边缘对齐),靠左时改为左边缘对齐。 */
