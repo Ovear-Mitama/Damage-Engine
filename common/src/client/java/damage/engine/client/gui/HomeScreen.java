@@ -30,8 +30,11 @@ public class HomeScreen extends Screen {
     private String updateFoundVersion = "";
     private boolean updateChecked = false;
 
-    private static final String UPDATE_URL =
-        "https://api.modrinth.com/v2/project/damage-engine/version?game_versions=%5B%221.21.11%22%5D&loaders=%5B%22" + DamageEngineMeta.PLATFORM + "%22%5D";
+    /** 按当前运行的 MC 版本与加载器拼查询串，避免升版本时漏改导致检查失败。 */
+    private static String updateUrl() {
+        return "https://api.modrinth.com/v2/project/damage-engine/version?game_versions=%5B%22"
+            + DamageEngineMeta.mcVersion() + "%22%5D&loaders=%5B%22" + DamageEngineMeta.PLATFORM + "%22%5D";
+    }
     private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
         .connectTimeout(Duration.ofSeconds(5))
         .build();
@@ -89,7 +92,7 @@ public class HomeScreen extends Screen {
         Thread thread = new Thread(() -> {
             String latest = null;
             try {
-                HttpRequest request = HttpRequest.newBuilder(URI.create(UPDATE_URL))
+                HttpRequest request = HttpRequest.newBuilder(URI.create(updateUrl()))
                     .timeout(Duration.ofSeconds(10))
                     .header("User-Agent", "damage-engine/" + DamageEngineMeta.VERSION)
                     .GET()

@@ -287,8 +287,10 @@ public class HudEditorScreen extends Screen {
                 ox = -w/2; oy = -h/2 - (int)(2 * s);
                 break;
             case INFO:
-                w = (int)(106 * s); h = (int)(34 * s);
-                ox = (int)(-65 * s); oy = (int)(-17 * s);
+                // 与 DamageHud.renderInfo 的预览布局一致:头像槽 27 + 左内边距 2 + 血条 80 + 右内边距 2,
+                // 面板局部从 -71 起、宽 113;上下各 15。外面那圈 2px 边距由 getBounds 统一补。
+                w = (int)(113 * s); h = (int)(30 * s);
+                ox = (int)(-71 * s); oy = (int)(-15 * s);
                 break;
         }
         return new int[]{cx + ox - 2, cy + oy - 2, w + 4, h + 4};
