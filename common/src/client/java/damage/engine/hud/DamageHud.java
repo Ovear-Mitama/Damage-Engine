@@ -2,6 +2,7 @@ package damage.engine.hud;
 
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
+import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import com.mojang.blaze3d.vertex.PoseStack;
@@ -15,12 +16,16 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
+import net.minecraft.world.phys.Vec3;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
 
 public class DamageHud {
+    /** HUD 渲染共用实例:惯性/整层偏移等状态需要跨 mixin 共享 */
+    public static final DamageHud INSTANCE = new DamageHud();
+
     private float smoothProgress = 0f;
     private boolean isRefilling = false;
     private int lastComboCount = 0;
@@ -62,6 +67,8 @@ public class DamageHud {
 
 
     private static final long HISTORY_ANIM_MS = 188;
+    /** 伤害记录每一条占用的行高。 */
+    private static final int HISTORY_SLOT_H = 10;
     private float contentRightX = 20f;
     private String previewGrade = "";
     private int previewGradeColor = 0xFFFFFFFF;
@@ -315,13 +322,186 @@ public class DamageHud {
         int x = moduleConfig.x == -1.0f ? client.getWindow().getGuiScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getGuiScaledWidth());
         int y = moduleConfig.y == -1.0f ? client.getWindow().getGuiScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getGuiScaledHeight());
 
+        // 屏幕坐标系里的子项必须自己带上偏移;pose 里是否再叠一次看模式——"整层 HUD"
+        // 模式已由外层统一偏移,这里不再叠加。用浮点不用取整,否则位移会被量化成一格一格。
+        this.moduleScreenX = x + inertiaX;
+        this.moduleScreenY = y + inertiaY;
+        this.moduleScreenScale = moduleConfig.scale;
+
+        float inertiaOffX = applyOwnInertiaOffset() ? inertiaX : 0f;
+        float inertiaOffY = applyOwnInertiaOffset() ? inertiaY : 0f;
+
         guiGraphics.pose().pushPose();
-        guiGraphics.pose().translate(x, y, 0);
+        guiGraphics.pose().translate(x + inertiaOffX, y + inertiaOffY, 0);
         guiGraphics.pose().scale(moduleConfig.scale, moduleConfig.scale, 1.0f);
 
         renderAction.run();
 
         guiGraphics.pose().popPose();
+    }
+
+    // ---- HUD 惯性:视角转动/移动时整层 HUD 先朝反方向让一点,再靠临界阻尼弹簧平滑回正 ----
+
+    /** 视角每转 1 度,HUD 反向让出多少像素。 */
+    private static final float INERTIA_GAIN = 0.22f;
+    /** 每移动 1 格,HUD 反向让出多少像素。 */
+    private static final float INERTIA_MOVE_GAIN = 4.0f;
+    /** 弹簧刚度,越大回正越快。 */
+    private static final float INERTIA_STIFFNESS = 220f;
+    /** 最大让位距离(像素)。 */
+    private static final float INERTIA_MAX_OFFSET = 6f;
+
+    private float inertiaX = 0f;
+    private float inertiaY = 0f;
+    private float inertiaVelX = 0f;
+    private float inertiaVelY = 0f;
+    private float inertiaPrevYaw = 0f;
+    private float inertiaPrevPitch = 0f;
+    private Vec3 inertiaPrevPos = null;
+    private long inertiaLastMs = 0L;
+    private boolean inertiaPrevInit = false;
+    /** 整层偏移当前是否已经压进 HUD 的矩阵栈 */
+    private boolean globalShiftActive = false;
+    /** 已压进矩阵栈的偏移量,用于给整屏特效临时抵消 */
+    private float globalShiftX = 0f;
+    private float globalShiftY = 0f;
+    /** 模块在屏幕坐标系里的落点(含惯性偏移),供不吃 pose 的子项使用。 */
+    private float moduleScreenX = 0f;
+    private float moduleScreenY = 0f;
+    private float moduleScreenScale = 1f;
+
+    /** 只让 DE 自己的 HUD 让位时才在模块变换里叠偏移;"整层 HUD"模式由外层统一偏移。 */
+    private static boolean applyOwnInertiaOffset() {
+        return "de_only".equals(DamageEngineConfig.getInstance().hudInertiaMode);
+    }
+
+    /** 当前惯性强度倍率:100 = 默认幅度。 */
+    private static float inertiaStrength() {
+        return Mth.clamp(DamageEngineConfig.getInstance().hudInertiaStrength, 0, 200) / 100f;
+    }
+
+    /**
+     * 每帧更新惯性偏移。朝反方向的位移由本帧视角变化量与位移量直接推动,回正交给弹簧,
+     * 所以转动视角或移动时 HUD 会先让开、随后自己平滑归位且不过冲。
+     */
+    public void updateHudInertia() {
+        Minecraft client = Minecraft.getInstance();
+        long now = System.currentTimeMillis();
+        float rawDt = inertiaLastMs == 0L ? 0.016f : (now - inertiaLastMs) / 1000.0f;
+        inertiaLastMs = now;
+        // 上一帧隔太久说明 HUD 这段时间没渲染(F1 隐藏/切界面),当作重新开始,免得一开就甩一下
+        if (rawDt > 0.25f) {
+            inertiaPrevInit = false;
+        }
+        float dt = Mth.clamp(rawDt, 1f / 240f, 0.1f);
+
+        Camera camera = client.level == null ? null : client.gameRenderer.getMainCamera();
+        if (camera == null || "off".equals(DamageEngineConfig.getInstance().hudInertiaMode)) {
+            // 关掉或还没进世界:本帧不再推动,只让弹簧把残余偏移收回去
+            inertiaPrevInit = false;
+        } else {
+            // 取相机朝向/位置而不是 player.getYRot():后者一个 tick 才更新一次,
+            // 按帧读会变成"一跳一跳",看起来卡顿,单帧 delta 也大得离谱。
+            float yaw = camera.getYRot();
+            float pitch = camera.getXRot();
+            Vec3 pos = camera.getPosition();
+            float strength = inertiaStrength();
+            if (inertiaPrevInit) {
+                float dYaw = Mth.wrapDegrees(yaw - inertiaPrevYaw);
+                float dPitch = pitch - inertiaPrevPitch;
+                // 一帧转 90 度以上只可能是传送/切维度,不当玩家操作
+                if (Math.abs(dYaw) < 90f && Math.abs(dPitch) < 90f) {
+                    // 向右转 yaw 增大、向下看 pitch 增大,HUD 要往屏幕反方向走,所以是减
+                    inertiaX -= dYaw * INERTIA_GAIN * strength;
+                    inertiaY -= dPitch * INERTIA_GAIN * strength;
+                }
+                if (inertiaPrevPos != null) {
+                    Vec3 delta = pos.subtract(inertiaPrevPos);
+                    // 一帧走 4 格以上(含飞行/坐骑)只可能是传送
+                    if (delta.lengthSqr() < 16.0) {
+                        // 把世界位移转到视角坐标系:此时 x 是左右、y 是上下,
+                        // 往哪边走 HUD 就往屏幕反方向让。视角系 y 向上、GUI 的 y 向下,故 y 取加号。
+                        // 1.18 没有 JOML,用 com.mojang.math.Vector3f,transform 是原地变换不返回新对象。
+                        com.mojang.math.Vector3f v = new com.mojang.math.Vector3f((float) delta.x, (float) delta.y, (float) delta.z);
+                        v.transform(camera.rotation());
+                        inertiaX -= v.x() * INERTIA_MOVE_GAIN * strength;
+                        inertiaY += v.y() * INERTIA_MOVE_GAIN * strength;
+                    }
+                }
+            }
+            inertiaPrevYaw = yaw;
+            inertiaPrevPitch = pitch;
+            inertiaPrevPos = pos;
+            inertiaPrevInit = true;
+        }
+
+        float maxOffset = INERTIA_MAX_OFFSET * inertiaStrength();
+        float damp = 2f * (float) Math.sqrt(INERTIA_STIFFNESS);
+        inertiaVelX += (-INERTIA_STIFFNESS * inertiaX - damp * inertiaVelX) * dt;
+        inertiaVelY += (-INERTIA_STIFFNESS * inertiaY - damp * inertiaVelY) * dt;
+        inertiaX = Mth.clamp(inertiaX + inertiaVelX * dt, -maxOffset, maxOffset);
+        inertiaY = Mth.clamp(inertiaY + inertiaVelY * dt, -maxOffset, maxOffset);
+
+        if (Math.abs(inertiaX) < 0.02f && Math.abs(inertiaVelX) < 0.02f) {
+            inertiaX = 0f;
+            inertiaVelX = 0f;
+        }
+        if (Math.abs(inertiaY) < 0.02f && Math.abs(inertiaVelY) < 0.02f) {
+            inertiaY = 0f;
+            inertiaVelY = 0f;
+        }
+    }
+
+    /**
+     * "整层 HUD"模式下,把偏移压到整个 HUD 的矩阵栈上,让原版和其它模组的 HUD 一起让位。
+     * 偏移为 0 时不压栈,常态下没有任何额外开销。需与 {@link #endGlobalShift} 成对调用。
+     */
+    public void beginGlobalShift(PoseStack pose) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        globalShiftActive = false;
+        globalShiftX = 0f;
+        globalShiftY = 0f;
+        if (!"all".equals(DamageEngineConfig.getInstance().hudInertiaMode)) return;
+        if (inertiaX == 0f && inertiaY == 0f) return;
+        guiGraphics.pose().pushPose();
+        guiGraphics.pose().translate(inertiaX, inertiaY, 0);
+        globalShiftX = inertiaX;
+        globalShiftY = inertiaY;
+        globalShiftActive = true;
+    }
+
+    public void endGlobalShift(PoseStack pose) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        if (globalShiftActive) {
+            guiGraphics.pose().popPose();
+            globalShiftActive = false;
+            globalShiftX = 0f;
+            globalShiftY = 0f;
+        }
+    }
+
+    /**
+     * 临时抵消整层偏移,供整屏特效(暗角、传送门、望远镜)使用。
+     * <p>
+     * 那些是铺满整屏的渐变,属于"屏幕特效"而不是 HUD;整屏渐变被平移几像素时,
+     * 人的感知是"整个屏幕在晃",比 HUD 移动明显得多,所以它们不参与让位。
+     * 必须与 {@link #resumeGlobalShift} 成对调用。
+     */
+    public void suspendGlobalShift(PoseStack pose) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        if (!globalShiftActive) return;
+        guiGraphics.pose().translate(-globalShiftX, -globalShiftY, 0);
+    }
+
+    public void resumeGlobalShift(PoseStack pose) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        if (!globalShiftActive) return;
+        guiGraphics.pose().translate(globalShiftX, globalShiftY, 0);
+    }
+
+    /** 总伤害与伤害记录的对齐:默认靠右(数字右边缘对齐),靠左时改为左边缘对齐。 */
+    private static boolean isAlignLeft() {
+        return "left".equals(DamageEngineConfig.getInstance().alignMode);
     }
 
     public void renderTotalDamage(PoseStack pose, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
@@ -449,7 +629,7 @@ public class DamageHud {
         guiGraphics.pose().scale(damageScale, damageScale, 1.0f);
         int textWidth = font.width(totalText);
         float rightEdgeInScale = contentHalfWidth / damageScale;
-        float textX = rightEdgeInScale - textWidth;
+        float textX = isAlignLeft() ? -rightEdgeInScale : (rightEdgeInScale - textWidth);
         guiGraphics.drawString(font, totalText, (int)textX, 0, colorWithAlpha);
         guiGraphics.pose().popPose();
     }
@@ -466,11 +646,17 @@ public class DamageHud {
 
         long now = System.currentTimeMillis();
 
-        // Vertical push-down: when a newer entry arrives, older entries slide down
-        // one slot over the same duration as the horizontal entrance, so a new
-        // damage record never hard-cuts an entry that is in motion.
+        // 与最新条目同一时间刻到达的算一批:它们作为一整组自上而下滑入,
+        // 整列老条目也一次整体下移对应的格数(而不是每来一条就各自动一下)。
         long newestTs = renderList.isEmpty() ? now : renderList.get(renderList.size() - 1).timestamp();
-        float downProgress = isPreview ? 1.0f : Mth.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
+        int batchCount = 0;
+        for (int i = renderList.size() - 1; i >= 0; i--) {
+            if (renderList.get(i).timestamp() != newestTs) break;
+            batchCount++;
+        }
+        if (batchCount < 1) batchCount = 1;
+        float settleProgress = isPreview ? 1.0f
+            : Mth.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
 
         int baseY = 15;
 
@@ -500,20 +686,16 @@ public class DamageHud {
                 }
             }
 
-            // Per-entry entrance animation: each entry animates from its own birth
-            // time, so new hits never interrupt entries that are already animating.
-            // Entries born in the same instant animate together.
-            float entryAnimProgress = isPreview ? 1.0f
-                : Mth.clamp(timeAlive / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
-            float slideOffsetX = 0f;
-            float slideAlphaMul = 1.0f;
-            if (entryAnimProgress < 1.0f) {
-                // Purely horizontal right-to-left slide + fade-in.
-                slideOffsetX = (1.0f - entryAnimProgress) * 20f;
-                slideAlphaMul = entryAnimProgress;
+            // 只有还在自己入场窗口内的条目做淡入。
+            // 按条目自己的年龄算而不是按整批的进度算,否则一条已经在淡入的条目
+            // 会因为随后又来了一条而把进度重置,表现为"闪一下又消失"。
+            float entryAlphaMul = 1.0f;
+            if (!isPreview) {
+                float ownProgress = Mth.clamp((now - entry.timestamp()) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
+                if (ownProgress < 1.0f) entryAlphaMul = ownProgress;
             }
 
-            finalItemAlpha *= globalAlpha * slideAlphaMul;
+            finalItemAlpha *= globalAlpha * entryAlphaMul;
             if (finalItemAlpha <= 0) continue;
             finalItemAlpha = Mth.clamp(finalItemAlpha, 0.0f, 1.0f);
             int itemAlpha = (int)(255 * finalItemAlpha);
@@ -527,19 +709,19 @@ public class DamageHud {
             String valText = formatDamage(entry.damage(), decimalPlaces);
             int textWidth = font.width(valText);
 
-            float targetY = baseY + renderIndex * 10;
-            // Newest entry sits in its final slot (its entrance is the horizontal
-            // slide above); older entries smoothly push down one slot when a newer
-            // entry arrives, instead of teleporting mid-animation.
-            float yPos;
-            if (renderIndex == 0 || downProgress >= 1.0f) {
-                yPos = targetY;
-            } else {
-                float oldY = targetY - 10;
-                yPos = Mth.lerp(downProgress, oldY, targetY);
-            }
+            float targetY = baseY + renderIndex * HISTORY_SLOT_H;
+            // 自上而下:整列从"上方 batchCount 格"落到目标位。
+            // 于是新的一批是从列表顶边上方落下来的,而老条目正好从它们下移前的原位开始,
+            // 一次整体下移 batchCount 格。
+            float yPos = settleProgress >= 1.0f
+                ? targetY
+                : Mth.lerp(settleProgress, targetY - batchCount * HISTORY_SLOT_H, targetY);
 
-            float xPos = contentRightX - textWidth + slideOffsetX;
+            // 靠右:每行的右边缘对齐;靠左:左边缘对齐
+            boolean alignLeft = isAlignLeft();
+            float xPos = alignLeft ? -contentRightX : (contentRightX - textWidth);
+            // 头像始终挂在数字外侧(靠右时在左、靠左时在右),别压到数字上
+            int avatarX = alignLeft ? (int)(xPos + textWidth + 2) : (int)(xPos - 11);
 
             // Draw the OTHER player's avatar next to their damage entry (own entries get no avatar)
             if (!isPreview && recordOtherPlayers && entry.attackerId() > 0 && client.level != null) {
@@ -549,7 +731,7 @@ public class DamageHud {
                     if (skin != null) {
                         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
                         // drawString's y is the text top; align the avatar's top with it
-                        PlayerFaceRenderer.draw(pose, skin, (int)(xPos - 11), (int)yPos, 8);
+                        PlayerFaceRenderer.draw(pose, skin, avatarX, (int)yPos, 8);
                         com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
                     }
                 }
@@ -558,7 +740,8 @@ public class DamageHud {
             // Draw player avatar for preview mode
             if (avatarGap > 0 && previewSkin != null) {
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, finalItemAlpha);
-                PlayerFaceRenderer.draw(pose, previewSkin, (int)(xPos - avatarGap), (int)yPos, 8);
+                int previewAvatarX = alignLeft ? (int)(xPos + textWidth + 2) : (int)(xPos - avatarGap);
+                PlayerFaceRenderer.draw(pose, previewSkin, previewAvatarX, (int)yPos, 8);
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
             }
 
@@ -991,21 +1174,21 @@ public class DamageHud {
 
             int fillW = (int)Math.floor(barW * s);
             int barColorWithAlpha = (barColor & 0x00FFFFFF) | (a << 24);
-            drawBarFill(pose, barX, barY, fillW, barH, barColorWithAlpha, rounded);
+            drawBarRange(pose, barX, barY, barW, barH, barX, barX + fillW, barColorWithAlpha, rounded);
 
             if (heal > s) {
                 int healStart = barX + (int)Math.floor(barW * s);
                 int healEnd = barX + (int)Math.floor(barW * heal);
                 int healAlpha = (int)(a * 0.45f);
                 int healColor = (healColorBase & 0x00FFFFFF) | (healAlpha << 24);
-                drawBarSegment(pose, healStart, barY, healEnd - healStart, barH, healColor, rounded);
+                drawBarRange(pose, barX, barY, barW, barH, healStart, healEnd, healColor, rounded);
             }
 
             if (infoPrevDamageTailActive && lag > s) {
                 int lagStart = barX + (int)Math.floor(barW * s);
                 int lagEnd = barX + (int)Math.floor(barW * lag);
                 int lagColor = (damageColorBase & 0x00FFFFFF) | (a << 24);
-                drawBarSegment(pose, lagStart, barY, lagEnd - lagStart, barH, lagColor, rounded);
+                drawBarRange(pose, barX, barY, barW, barH, lagStart, lagEnd, lagColor, rounded);
             }
         }
 
@@ -1014,21 +1197,21 @@ public class DamageHud {
             int a = (int)(baseAlpha * newMul);
             int fillW = (int)Math.floor(barW * infoSmoothRatio);
             int barColorWithAlpha = (barColor & 0x00FFFFFF) | (a << 24);
-            drawBarFill(pose, barX, barY, fillW, barH, barColorWithAlpha, rounded);
+            drawBarRange(pose, barX, barY, barW, barH, barX, barX + fillW, barColorWithAlpha, rounded);
 
             if (infoHealRatio > infoSmoothRatio) {
                 int healStart = barX + (int)Math.floor(barW * infoSmoothRatio);
                 int healEnd = barX + (int)Math.floor(barW * infoHealRatio);
                 int healAlpha = (int)(a * 0.45f);
                 int healColor = (healColorBase & 0x00FFFFFF) | (healAlpha << 24);
-                drawBarSegment(pose, healStart, barY, healEnd - healStart, barH, healColor, rounded);
+                drawBarRange(pose, barX, barY, barW, barH, healStart, healEnd, healColor, rounded);
             }
 
             if (infoDamageTailActive && infoLagRatio > infoSmoothRatio) {
                 int lagStart = barX + (int)Math.floor(barW * infoSmoothRatio);
                 int lagEnd = barX + (int)Math.floor(barW * infoLagRatio);
                 int lagColor = (damageColorBase & 0x00FFFFFF) | (a << 24);
-                drawBarSegment(pose, lagStart, barY, lagEnd - lagStart, barH, lagColor, rounded);
+                drawBarRange(pose, barX, barY, barW, barH, lagStart, lagEnd, lagColor, rounded);
                 if (Math.abs(infoLagRatio - infoSmoothRatio) < 0.0025f) {
                     infoDamageTailActive = false;
                 }
@@ -1085,30 +1268,39 @@ public class DamageHud {
         }
     }
 
-    private static void drawBarFill(PoseStack pose, int x, int y, int w, int h, int color, boolean rounded) {
+    /**
+     * 在圆角血条里填一段区间 [fromX, toX)。
+     * <p>
+     * 圆角外形属于<b>整条血条</b>,不是属于每一段:所以只有贴到血条最左/最右的段才吃到圆角,
+     * 中间的分段(绿条右侧、红条的左侧与右侧)一律画成直角。逐段各自圆角会在接缝处留下缺口
+     * (绿条右端被削掉的两个像素没人补),而给段单独画直角又会让血条最左端变成方的。
+     */
+    private static void drawBarRange(PoseStack pose, int barX, int barY, int barW, int barH,
+                                     int fromX, int toX, int color, boolean rounded) {
         GuiGraphics guiGraphics = GuiGraphics.of(pose);
-        if (rounded && w > 0) {
-            drawRoundedRect(pose, x, y, w, h, h / 2, color);
-        } else {
-            guiGraphics.fill(x, y, x + w, y + h, color);
-        }
-    }
-
-    private static void drawBarSegment(PoseStack pose, int x, int y, int w, int h, int color, boolean rounded) {
-        GuiGraphics guiGraphics = GuiGraphics.of(pose);
-        if (!rounded || w <= 0 || h < 4) {
-            guiGraphics.fill(x, y, x + w, y + h, color);
+        int x0 = Math.max(fromX, barX);
+        int x1 = Math.min(toX, barX + barW);
+        if (x1 <= x0) return;
+        if (!rounded || barH < 4) {
+            guiGraphics.fill(x0, barY, x1, barY + barH, color);
             return;
         }
-        int r = h / 2;
-        guiGraphics.fill(x, y + r, x + w, y + h - r, color);
-        for (int i = 0; i < r; i++) {
-            int indent = r - i - 1;
-            guiGraphics.fill(x, y + i, x + w - indent, y + i + 1, color);
-        }
-        for (int i = 0; i < r; i++) {
-            int indent = r - i - 1;
-            guiGraphics.fill(x, y + h - i - 1, x + w - indent, y + h - i, color);
+        int r = barH / 2;
+        for (int i = 0; i < barH; i++) {
+            // 与 drawRoundedRect 的圆角算法保持一致,这样各段拼出来的外形正好等于血条背景的圆角外形
+            int inset;
+            if (i < r) {
+                inset = r - i - 1;
+            } else if (i >= barH - r) {
+                inset = r - (barH - 1 - i) - 1;
+            } else {
+                inset = 0;
+            }
+            int rowX0 = Math.max(x0, barX + inset);
+            int rowX1 = Math.min(x1, barX + barW - inset);
+            if (rowX1 > rowX0) {
+                guiGraphics.fill(rowX0, barY + i, rowX1, barY + i + 1, color);
+            }
         }
     }
 }

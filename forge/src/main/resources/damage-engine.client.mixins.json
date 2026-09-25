@@ -5,7 +5,8 @@
 	"compatibilityLevel": "JAVA_17",
 	"client": [
 		"EditBoxCursorMixin",
-		"MultiPlayerGameModeMixin"
+		"MultiPlayerGameModeMixin",
+		"ToastShiftMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0
