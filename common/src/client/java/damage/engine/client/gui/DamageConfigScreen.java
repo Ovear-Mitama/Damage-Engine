@@ -159,12 +159,28 @@ public class DamageConfigScreen extends Screen {
             playClickSound();
             this.minecraft.setScreen(new HudEditorScreen(this));
         }));
+        addOption(new ModeSelectorEntry("option.damage-engine.hudInertia", config.hudInertiaMode,
+            new String[]{"off", "de_only", "all"},
+            new TranslatableComponent("hint.damage-engine.hudInertia"),
+            v -> { config.hudInertiaMode = v; markChanged(); }));
+        addOption(new IntegerSliderEntry("option.damage-engine.hudInertiaStrength", config.hudInertiaStrength,
+            10, 200, v -> { config.hudInertiaStrength = v; markChanged(); }, true, "%"));
         addOption(new SeparatorToggleEntry("option.damage-engine.numberSeparator", config.numberSeparator, v -> { config.numberSeparator = v; markChanged(); }));
+        addOption(new BooleanOptionEntry("option.damage-engine.abbreviateNumbers", config.abbreviateNumbers,
+            v -> { config.abbreviateNumbers = v; markChanged(); },
+            new TranslatableComponent("hint.damage-engine.abbreviateNumbers")));
+        addOption(new BooleanOptionEntry("option.damage-engine.showDamageOverflow", config.showDamageOverflow,
+            v -> { config.showDamageOverflow = v; markChanged(); },
+            new TranslatableComponent("hint.damage-engine.showDamageOverflow")));
         addOption(new BooleanOptionEntry("option.damage-engine.hideOnF1", config.hideOnF1, v -> { config.hideOnF1 = v; markChanged(); }));
     }
 
     private void initDamageInterfaceTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamageDisplay", config.showDamageDisplay, v -> { config.showDamageDisplay = v; markChanged(); }));
+        addOption(new ModeSelectorEntry("option.damage-engine.alignMode", config.alignMode,
+            new String[]{"right", "left"},
+            new TranslatableComponent("hint.damage-engine.alignMode"),
+            v -> { config.alignMode = v; markChanged(); }));
         addOption(new IntegerSliderEntry("option.damage-engine.decimalPlaces", config.decimalPlaces, 0, 10, v -> { config.decimalPlaces = v; markChanged(); }, true));
         addOption(new HexColorEntry("option.damage-engine.normalColor", config.normalColor, v -> { config.normalColor = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.critColor", config.critColor, v -> { config.critColor = v; markChanged(); }));
@@ -966,10 +982,13 @@ public class DamageConfigScreen extends Screen {
         private final StyledSliderWidget slider;
         private final Component label;
         public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange, boolean soundOnRelease) {
+            this(key, cur, min, max, onChange, soundOnRelease, "");
+        }
+        public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange, boolean soundOnRelease, String suffix) {
             this.label = new TranslatableComponent(key);
             float minF = min, maxF = max;
-            this.slider = new StyledSliderWidget(0, 0, 100, 20, new TextComponent(String.valueOf(cur)), (cur - minF) / (maxF - minF), true, !soundOnRelease, soundOnRelease) {
-                @Override protected void updateMessage() { this.setMessage(new TextComponent(String.valueOf((int)Math.round(minF + this.value * (maxF - minF))))); }
+            this.slider = new StyledSliderWidget(0, 0, 100, 20, new TextComponent(cur + suffix), (cur - minF) / (maxF - minF), true, !soundOnRelease, soundOnRelease) {
+                @Override protected void updateMessage() { this.setMessage(new TextComponent(Math.round(minF + this.value * (maxF - minF)) + suffix)); }
                 @Override protected void applyValue() { onChange.accept((int)Math.round(minF + this.value * (maxF - minF))); }
             };
         }
