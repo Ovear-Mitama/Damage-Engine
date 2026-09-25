@@ -79,7 +79,12 @@ dependencies {
 
     // ModMenu (optional, for config screen integration)
     modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
-    modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+    // ModMenu 3.2.1 的 POM 把 fabric-loader 0.13.3 声明成 runtime 依赖(老版 JiJ 的发布方式),
+    // 会和 gradle.properties 里的 loader_version 一起被 Loom 放进运行时类路径,
+    // 启动时直接报 "duplicate fabric loader classes found on classpath"。排除掉这个嵌套 loader。
+    modLocalRuntime("com.terraformersmc:modmenu:${project.modmenu_version}") {
+        exclude group: 'net.fabricmc', module: 'fabric-loader'
+    }
 
     // TaCZ: Refabricated - 1.18.2 还没有对应的构建,先停用依赖并把兼容代码排除出编译。
     // 兼容代码本身与最新 1.20.1 分支保持一致,等有 1.18.2 版 TaCZ 时再打开即可。
