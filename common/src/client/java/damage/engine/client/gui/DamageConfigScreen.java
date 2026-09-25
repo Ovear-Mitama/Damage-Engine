@@ -150,6 +150,12 @@ public class DamageConfigScreen extends Screen {
             this.minecraft.setScreen(new HudEditorScreen(this));
         }));
         addOption(new SeparatorToggleEntry("option.damage-engine.numberSeparator", config.numberSeparator, v -> { config.numberSeparator = v; markChanged(); }));
+        addOption(new BooleanOptionEntry("option.damage-engine.abbreviateNumbers", config.abbreviateNumbers,
+            v -> { config.abbreviateNumbers = v; markChanged(); },
+            Component.translatable("hint.damage-engine.abbreviateNumbers")));
+        addOption(new BooleanOptionEntry("option.damage-engine.showDamageOverflow", config.showDamageOverflow,
+            v -> { config.showDamageOverflow = v; markChanged(); },
+            Component.translatable("hint.damage-engine.showDamageOverflow")));
         addOption(new BooleanOptionEntry("option.damage-engine.hideOnF1", config.hideOnF1, v -> { config.hideOnF1 = v; markChanged(); }));
     }
 

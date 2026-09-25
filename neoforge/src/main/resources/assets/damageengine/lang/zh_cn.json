@@ -54,10 +54,14 @@
   "hint.damage-engine.globalIndicatorMaxDistance": "单位为格，填0则为无限制",
   "option.damage-engine.global_smart_hide": "感知过滤",
   "hint.damage-engine.global_smart_hide": "隐藏看不见和听不见的生物受到的伤害跳字。",
+  "hint.damage-engine.abbreviateNumbers": "大数字改用 K/M/B/T 缩写：1500 显示为 1.5K，2000000 显示为 2M。",
+  "hint.damage-engine.showDamageOverflow": "显示伤害不受目标剩余生命限制。原版会把伤害截断到目标血量（满血打死 20 血的怪只显示 20），开启后显示武器实际打出的伤害，便于测试伤害上限。",
 
   "option.damage-engine.showDamage": "HUD显示",
   "option.damage-engine.edit_pos_label": "调整HUD",
   "option.damage-engine.numberSeparator": "数字分隔",
+  "option.damage-engine.abbreviateNumbers": "数字缩写",
+  "option.damage-engine.showDamageOverflow": "伤害溢出显示",
   "option.damage-engine.hideOnF1": "F1状态下隐藏HUD",
 
   "option.damage-engine.showDamageDisplay": "伤害显示",

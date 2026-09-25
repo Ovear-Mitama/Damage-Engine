@@ -191,6 +191,12 @@ public class DamageTrackerHelper {
             actualDamage = snap.sourceAmount;
         }
 
+        // 原版会把伤害截断到目标剩余生命,所以满血打死一只 20 血的怪永远只显示 20。
+        // 开启"伤害溢出显示"后改用 hurt() 收到的入伤,便于测试武器伤害上限。
+        if (actualDamage > 0f && DamageEngineConfig.getInstance().showDamageOverflow) {
+            actualDamage = Math.max(snap.sourceAmount, actualDamage);
+        }
+
         // Crit is determined server-side (melee crit). TaCZ headshots are consumed
         // in flushPendingDamage() - the Fabric event hook marks them right before
         // hurt() (EntityHurtByGunEvent.PRE), and we consume at the tick-end flush.
