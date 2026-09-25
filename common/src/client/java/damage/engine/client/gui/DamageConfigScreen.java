@@ -191,6 +191,10 @@ public class DamageConfigScreen extends Screen {
 
     private void initDamageInterfaceTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamageDisplay", config.showDamageDisplay, v -> { config.showDamageDisplay = v; markChanged(); }));
+        addOption(new ModeSelectorEntry("option.damage-engine.alignMode", config.alignMode,
+            new String[]{"right", "left"},
+            Component.translatable("hint.damage-engine.alignMode"),
+            v -> { config.alignMode = v; markChanged(); }));
         addOption(new IntegerSliderEntry("option.damage-engine.decimalPlaces", config.decimalPlaces, 0, 10, v -> { config.decimalPlaces = v; markChanged(); }, true));
         addOption(new HexColorEntry("option.damage-engine.normalColor", config.normalColor, v -> { config.normalColor = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.critColor", config.critColor, v -> { config.critColor = v; markChanged(); }));

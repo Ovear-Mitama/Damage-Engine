@@ -3,6 +3,8 @@
   
   "option.damage-engine.showDamage": "顯示HUD",
   "option.damage-engine.showDamageDisplay": "開啟傷害顯示",
+  "option.damage-engine.alignMode": "對齊方式",
+  "hint.damage-engine.alignMode": "總傷害與傷害記錄的對齊方向：靠右時各行按右邊緣對齊，靠左時按左邊緣對齊。",
   "hint.damage-engine.showDamageDisplay": "在介面上顯示總傷害等資訊",
   "option.damage-engine.showProgressBar": "顯示進度條",
   "option.damage-engine.showCombo": "顯示連擊",
@@ -122,6 +124,8 @@
   "hint.damage-engine.entity_registry_name": "輸入實體註冊名稱，輸入 All 為全部非玩家實體",
   "option.damage-engine.mode.block": "屏蔽",
   "option.damage-engine.mode.show": "顯示",
+  "option.damage-engine.mode.right": "靠右",
+  "option.damage-engine.mode.left": "靠左",
   "option.damage-engine.mode.off": "關閉",
   "option.damage-engine.mode.de_only": "僅 DE 介面",
   "option.damage-engine.mode.all": "全部介面",

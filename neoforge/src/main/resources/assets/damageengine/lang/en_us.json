@@ -68,6 +68,8 @@
   "option.damage-engine.hideOnF1": "Hide HUD on F1",
 
   "option.damage-engine.showDamageDisplay": "Damage Display",
+  "option.damage-engine.alignMode": "Alignment",
+  "hint.damage-engine.alignMode": "Which edge the total damage and the damage history line up on: Right aligns them by their right edge, Left by their left edge.",
   "option.damage-engine.decimalPlaces": "Damage Decimal Places",
   "option.damage-engine.normalColor": "Normal Damage Color",
   "option.damage-engine.critColor": "Crit Damage Color",
@@ -160,6 +162,8 @@
   "hint.damage-engine.entity_registry_name": "Enter an entity registry name; enter All for all non-player entities",
   "option.damage-engine.mode.block": "Block",
   "option.damage-engine.mode.show": "Show",
+  "option.damage-engine.mode.right": "Right",
+  "option.damage-engine.mode.left": "Left",
   "option.damage-engine.mode.off": "Off",
   "option.damage-engine.mode.de_only": "DE HUD only",
   "option.damage-engine.mode.all": "All HUD",

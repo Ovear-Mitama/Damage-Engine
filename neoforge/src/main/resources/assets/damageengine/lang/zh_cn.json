@@ -68,6 +68,8 @@
   "option.damage-engine.hideOnF1": "F1状态下隐藏HUD",
 
   "option.damage-engine.showDamageDisplay": "伤害显示",
+  "option.damage-engine.alignMode": "对齐方式",
+  "hint.damage-engine.alignMode": "总伤害与伤害记录的对齐方向：靠右时各行按右边缘对齐，靠左时按左边缘对齐。",
   "option.damage-engine.decimalPlaces": "伤害小数点位数",
   "option.damage-engine.normalColor": "普通伤害颜色",
   "option.damage-engine.critColor": "暴击伤害颜色",
@@ -160,6 +162,8 @@
   "hint.damage-engine.entity_registry_name": "输入实体注册名称，输入 All 为全部非玩家实体",
   "option.damage-engine.mode.block": "屏蔽",
   "option.damage-engine.mode.show": "显示",
+  "option.damage-engine.mode.right": "靠右",
+  "option.damage-engine.mode.left": "靠左",
   "option.damage-engine.mode.off": "关闭",
   "option.damage-engine.mode.de_only": "仅 DE 界面",
   "option.damage-engine.mode.all": "全部界面",

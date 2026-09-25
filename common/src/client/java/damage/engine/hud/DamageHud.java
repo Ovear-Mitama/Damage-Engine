@@ -466,6 +466,11 @@ public class DamageHud {
         guiGraphics.pose().translate(globalShiftX, globalShiftY);
     }
 
+    /** 总伤害与伤害记录的对齐:默认靠右(数字右边缘对齐),靠左时改为左边缘对齐。 */
+    private static boolean isAlignLeft() {
+        return "left".equals(DamageEngineConfig.getInstance().alignMode);
+    }
+
     public void renderTotalDamage(GuiGraphicsExtractor guiGraphics, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
         Font font = client.font;
         int baseAlpha = (int)(255 * globalAlpha);
@@ -590,7 +595,7 @@ public class DamageHud {
         guiGraphics.pose().scale(damageScale, damageScale);
         int textWidth = font.width(totalText);
         float rightEdgeInScale = contentHalfWidth / damageScale;
-        float textX = rightEdgeInScale - textWidth;
+        float textX = isAlignLeft() ? -rightEdgeInScale : (rightEdgeInScale - textWidth);
         guiGraphics.text(font, totalText, (int)textX, 0, colorWithAlpha);
         guiGraphics.pose().popMatrix();
     }
@@ -648,10 +653,14 @@ public class DamageHud {
                 }
             }
 
-            // 只有这一批新条目做淡入;老条目只是跟着整体下移,不额外改透明度
-            float entryAlphaMul = (!isPreview && entry.timestamp() == newestTs && settleProgress < 1.0f)
-                ? settleProgress
-                : 1.0f;
+            // 只有还在自己入场窗口内的条目做淡入。
+            // 按条目自己的年龄算而不是按整批的进度算,否则一条已经在淡入的条目
+            // 会因为随后又来了一条而把进度重置,表现为"闪一下又消失"。
+            float entryAlphaMul = 1.0f;
+            if (!isPreview) {
+                float ownProgress = Mth.clamp((now - entry.timestamp()) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
+                if (ownProgress < 1.0f) entryAlphaMul = ownProgress;
+            }
 
             finalItemAlpha *= globalAlpha * entryAlphaMul;
             if (finalItemAlpha <= 0) continue;
@@ -675,7 +684,11 @@ public class DamageHud {
                 ? targetY
                 : Mth.lerp(settleProgress, targetY - batchCount * HISTORY_SLOT_H, targetY);
 
-            float xPos = contentRightX - textWidth;
+            // 靠右:每行的右边缘对齐;靠左:左边缘对齐
+            boolean alignLeft = isAlignLeft();
+            float xPos = alignLeft ? -contentRightX : (contentRightX - textWidth);
+            // 头像始终挂在数字外侧(靠右时在左、靠左时在右),别压到数字上
+            int avatarX = alignLeft ? (int)(xPos + textWidth + 2) : (int)(xPos - 11);
 
             // Draw player avatar for other players' damage entries
             if (!isPreview && recordOtherPlayers && entry.attackerId() > 0 && client.level != null) {
@@ -684,7 +697,7 @@ public class DamageHud {
                     Identifier skinTex = attackerPlayer.getSkin().body().texturePath();
                     if (skinTex != null) {
                         int faceColor = ((int)(255 * finalItemAlpha) << 24) | 0xFFFFFF;
-                        drawPlayerFace(guiGraphics, skinTex, (int)(xPos - 11), (int)yPos, 8, true, faceColor);
+                        drawPlayerFace(guiGraphics, skinTex, avatarX, (int)yPos, 8, true, faceColor);
                     }
                 }
             }
@@ -692,7 +705,8 @@ public class DamageHud {
             // Draw player avatar for preview mode
             if (avatarGap > 0 && previewSkin != null) {
                 int faceColor = ((int)(255 * finalItemAlpha) << 24) | 0xFFFFFF;
-                drawPlayerFace(guiGraphics, previewSkin, (int)(xPos - avatarGap), (int)yPos, 8, true, faceColor);
+                int previewAvatarX = alignLeft ? (int)(xPos + textWidth + 2) : (int)(xPos - avatarGap);
+                drawPlayerFace(guiGraphics, previewSkin, previewAvatarX, (int)yPos, 8, true, faceColor);
             }
 
             guiGraphics.text(font, valText, (int)xPos, (int)yPos, itemColorWithAlpha);

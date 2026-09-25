@@ -34,6 +34,8 @@ public class DamageEngineConfig {
     
     // ========== Damage Display ==========
     public boolean showDamageDisplay = true;
+    /** 总伤害与伤害记录的对齐方式:right = 靠右(数字右边缘对齐), left = 靠左。 */
+    public String alignMode = "right";
     public int decimalPlaces = 1;
     public int normalColor = 0xFFFFFFFF;
     public int critColor = 0xFFD700;
@@ -386,6 +388,7 @@ public class DamageEngineConfig {
         
         // Damage Display
         this.showDamageDisplay = loaded.showDamageDisplay;
+        this.alignMode = loaded.alignMode != null ? loaded.alignMode : "right";
         this.decimalPlaces = loaded.decimalPlaces;
         this.normalColor = loaded.normalColor;
         this.critColor = loaded.critColor;
@@ -513,6 +516,7 @@ public class DamageEngineConfig {
         
         // Damage Display
         showDamageDisplay = true;
+        alignMode = "right";
         decimalPlaces = 1;
         normalColor = 0xFFFFFFFF;
         critColor = 0xFFD700;
