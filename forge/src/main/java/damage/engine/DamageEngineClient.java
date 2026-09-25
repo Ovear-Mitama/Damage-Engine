@@ -7,8 +7,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
-import net.minecraftforge.client.ConfigScreenHandler;
-import net.minecraftforge.client.event.RegisterKeyMappingsEvent;
+import net.minecraftforge.client.ConfigGuiHandler;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.ModContainer;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
@@ -65,16 +64,23 @@ public class DamageEngineClient {
         ClientKeybindings.toggleHudKeyBinding = toggleHudKeyBinding;
         ClientKeybindings.clearDamageKeyBinding = clearDamageKeyBinding;
 
-        // Register keybindings via Forge event
-        modEventBus.addListener(this::registerKeys);
-
-        // Register config screen via ModContainer
+        // Register keybindings + config screen via ModContainer
         modEventBus.addListener((FMLClientSetupEvent event) -> {
+            // 1.18.2 用 ClientRegistry 注册按键(1.19+ 才有 RegisterKeyMappingsEvent)。
+            // 它内部会写 Minecraft#options.keyMappings,放到 enqueueWork 里在主线程执行。
+            event.enqueueWork(() -> {
+                net.minecraftforge.client.ClientRegistry.registerKeyBinding(configKeyBinding);
+                net.minecraftforge.client.ClientRegistry.registerKeyBinding(toggleHudKeyBinding);
+                net.minecraftforge.client.ClientRegistry.registerKeyBinding(clearDamageKeyBinding);
+            });
+
             ModContainer container = net.minecraftforge.fml.ModList.get()
                 .getModContainerById("damageengine").orElseThrow();
+            // 1.18.2 的配置界面扩展点叫 ConfigGuiHandler.ConfigGuiFactory
+            // (1.19 才改名为 ConfigScreenHandler.ConfigScreenFactory)
             container.registerExtensionPoint(
-                ConfigScreenHandler.ConfigScreenFactory.class,
-                () -> new ConfigScreenHandler.ConfigScreenFactory((mc, screen) -> new HomeScreen(screen))
+                ConfigGuiHandler.ConfigGuiFactory.class,
+                () -> new ConfigGuiHandler.ConfigGuiFactory((mc, screen) -> new HomeScreen(screen))
             );
         });
 
@@ -84,12 +90,14 @@ public class DamageEngineClient {
         // used to live in HudRenderMixin / ClientTickMixin / ForgeWorldRenderMixin
         // is wired up with events instead.
 
-        // HUD render (replaces HudRenderMixin). RenderGuiEvent.Post fires at the
-        // very end of Gui.render, where the vanilla GUI blend state is active -
-        // RenderGuiOverlayEvent ran too early and its GuiGraphics ignored the
-        // alpha channel entirely (info panel rendered as an opaque black box).
+        // HUD render (replaces HudRenderMixin). 1.18.2 没有 RenderGuiEvent(1.19+ 才有),
+        // 用 RenderGameOverlayEvent.Post(ElementType.ALL) - 它由 ForgeIngameGui.render
+        // 在整个 HUD 渲染的最后一步触发,此时原版 GUI 的混合状态是生效的;
+        // 而 RenderGameOverlayEvent.Pre 触发太早,alpha 通道会被忽略
+        // (信息面板会渲染成不透明的黑块)。Post 会按 ElementType 多次触发,只取 ALL。
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
-            (net.minecraftforge.client.event.RenderGuiEvent.Post ev) -> {
+            (net.minecraftforge.client.event.RenderGameOverlayEvent.Post ev) -> {
+                if (ev.getType() != net.minecraftforge.client.event.RenderGameOverlayEvent.ElementType.ALL) return;
                 Minecraft mc = Minecraft.getInstance();
                 if (mc.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
                 if (mc.screen instanceof damage.engine.client.gui.HudEditorScreen) return;
@@ -98,8 +106,8 @@ public class DamageEngineClient {
                 com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
                 com.mojang.blaze3d.systems.RenderSystem.disableDepthTest();
                 com.mojang.blaze3d.systems.RenderSystem.setShaderColor(1.0f, 1.0f, 1.0f, 1.0f);
-                damageHud.onHudRender(ev.getGuiGraphics(), ev.getPartialTick());
-                damage.engine.hud.DamageIndicator.render(ev.getGuiGraphics(), ev.getPartialTick());
+                damageHud.onHudRender(ev.getMatrixStack(), ev.getPartialTicks());
+                damage.engine.hud.DamageIndicator.render(ev.getMatrixStack(), ev.getPartialTicks());
             });
 
         // Matrix capture (replaces ForgeWorldRenderMixin)
@@ -109,18 +117,20 @@ public class DamageEngineClient {
                     // Use the event's PoseStack (same source as Fabric's
                     // BEFORE_ENTITIES matrixStack) instead of RenderSystem's
                     // modelview, which is not the pure camera view at this point.
+                    // 1.18.2 的矩阵类型是 com.mojang.math.Matrix4f(1.19.3 才换成 org.joml)
                     damage.engine.hud.DamageIndicator.captureMatrices(
-                        new org.joml.Matrix4f(ev.getProjectionMatrix()),
-                        new org.joml.Matrix4f(ev.getPoseStack().last().pose()));
+                        new com.mojang.math.Matrix4f(ev.getProjectionMatrix()),
+                        new com.mojang.math.Matrix4f(ev.getPoseStack().last().pose()));
                 }
             });
 
         // Client-only mode health monitor (replaces LivingEntityClientMixin, which
-        // Forge 1.20.1 cannot apply - LivingEntity loads too early). LivingTickEvent
-        // fires on the client render thread whenever a client-side entity ticks.
+        // Forge 1.20.1 cannot apply - LivingEntity loads too early). 1.18.2 里叫
+        // LivingEvent.LivingUpdateEvent(LivingTickEvent 是 1.19+ 才改的名),它在客户端
+        // 由客户端实体 tick 时触发。
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
-            (net.minecraftforge.event.entity.living.LivingEvent.LivingTickEvent ev) -> {
-                damage.engine.client.ClientHealthMonitor.onTick(ev.getEntity());
+            (net.minecraftforge.event.entity.living.LivingEvent.LivingUpdateEvent ev) -> {
+                damage.engine.client.ClientHealthMonitor.onTick(ev.getEntityLiving());
             });
 
         // Client tick (replaces ClientTickMixin): server-mod check + keybinds + cleanup
@@ -172,12 +182,6 @@ public class DamageEngineClient {
                     damage.engine.client.ClientHealthMonitor.cleanup();
                 }
             });
-    }
-
-    private void registerKeys(RegisterKeyMappingsEvent event) {
-        event.register(configKeyBinding);
-        event.register(toggleHudKeyBinding);
-        event.register(clearDamageKeyBinding);
     }
 
     public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
