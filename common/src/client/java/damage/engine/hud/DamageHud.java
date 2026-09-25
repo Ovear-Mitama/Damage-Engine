@@ -333,6 +333,23 @@ public class DamageHud {
     private float moduleScreenY = 0f;
     private float moduleScreenScale = 1f;
 
+    /**
+     * "整层 HUD"模式下当前应有的让位量。刻意不受"是否已经压进矩阵栈"影响:Xaero 小地图这类
+     * 在 Gui.render 的 HEAD 就自绘的模组,可能比 DE 的压栈更早执行,那时 globalShiftX/Y 还是 0。
+     */
+    public float getInertiaShiftX() {
+        return "all".equals(DamageEngineConfig.getInstance().hudInertiaMode) ? inertiaX : 0f;
+    }
+
+    public float getInertiaShiftY() {
+        return "all".equals(DamageEngineConfig.getInstance().hudInertiaMode) ? inertiaY : 0f;
+    }
+
+    /** 整层偏移是否已由 DE 压进矩阵栈,供自绘模组避免重复叠加。 */
+    public boolean isGlobalShiftPushed() {
+        return globalShiftActive;
+    }
+
     /** 只让 DE 自己的 HUD 让位时才在模块变换里叠偏移;"整层 HUD"模式由外层统一偏移。 */
     private static boolean applyOwnInertiaOffset() {
         return "de_only".equals(DamageEngineConfig.getInstance().hudInertiaMode);
