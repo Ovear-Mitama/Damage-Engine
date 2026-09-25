@@ -5,6 +5,7 @@
 	"client": [
 		"LivingEntityClientMixin",
 		"HudRenderMixin",
+		"ToastShiftMixin",
 		"ClientTickMixin",
 		"KeyBindingMixin",
 		"PlayerAttackMixin",
