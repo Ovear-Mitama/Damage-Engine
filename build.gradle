@@ -55,8 +55,10 @@ sourceSets {
     main {
         java {
             srcDir 'common/src/main/java'
-            // 1.18.2 暂无对应 TaCZ,兼容代码先不参与编译(源码保留)
-            exclude 'damage/engine/compat/tacz/**'
+            // Fabric 端没有 1.18.2 版的 TaCZ("TaCZ: Refabricated" 只有 1.20.1+),
+            // 所以只排除这一个直接依赖 TaCZ Fabric 事件类的文件;反射版的 TaczCompat /
+            // TaczServerHeadshotTracker 不需要 TaCZ 也能编译,照常参与编译。
+            exclude 'damage/engine/compat/tacz/TaczFabricCompat.java'
         }
     }
     client {

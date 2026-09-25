@@ -1,7 +1,6 @@
 package damage.engine;
 
-// TODO(1.18.2): TaCZ 兼容代码暂不参与编译(等有 1.18.2 版 TaCZ 构建后恢复)
-// import damage.engine.compat.tacz.TaczCompat;
+import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.DamagePayload;
 import damage.engine.network.HandshakePayload;
 import damage.engine.util.DamageTrackerHelper;
@@ -54,13 +53,13 @@ public class DamageEngine implements ModInitializer {
 
 		// Mod compat: allow external mods (e.g. TACZ) to resolve the attacker from
 		// the direct damage source (bullet). Reflection-based, safe when TACZ is absent.
-		// TODO(1.18.2): 1.18.2 还没有对应的 TaCZ 构建,兼容代码已从编译中排除;等有对应
-		// 构建后取消下面的注释即可恢复(源码在 common/.../compat/tacz,与 1.20.1 分支一致)。
-		// DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
-		// 	TaczCompat.tryGetTaczShooter(directSource));
+		DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
+			TaczCompat.tryGetTaczShooter(directSource));
 
-		// TaCZ: Refabricated compatibility (headshot -> crit). Only when TaCZ is installed.
-		// TODO(1.18.2): 同上,等有 1.18.2 版 TaCZ 后恢复。
+		// TaCZ: Refabricated compatibility (headshot -> crit).
+		// 1.18.2 没有 Fabric 版 TaCZ("TaCZ: Refabricated" 只到 1.20.1+),所以这里不注册;
+		// 子弹/射手识别走上面的反射解析器,依然生效。等有 1.18.2 Fabric 版 TaCZ 时,
+		// 取消 build.gradle 里 TaczFabricCompat 的 exclude 并恢复下面的代码即可。
 		// if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("tacz")) {
 		// 	try {
 		// 		damage.engine.compat.tacz.TaczFabricCompat.init();
