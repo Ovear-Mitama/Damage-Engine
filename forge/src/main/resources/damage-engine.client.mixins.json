@@ -3,10 +3,11 @@
 	"minVersion": "0.8.5",
 	"package": "damage.engine.mixin.client",
 	"compatibilityLevel": "JAVA_17",
+	"refmap": "damage-engine.refmap.json",
 	"client": [
-		"EditBoxCursorMixin",
 		"MultiPlayerGameModeMixin",
-		"ToastShiftMixin"
+		"ToastShiftMixin",
+		"ScreenEffectShiftMixin"
 	],
 	"injectors": {
 		"defaultRequire": 0

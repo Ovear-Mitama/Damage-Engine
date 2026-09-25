@@ -30,8 +30,16 @@ public final class Tooltip {
         return this.message;
     }
 
-    /** 转成可交给 {@code Screen#renderTooltip} 的多行文本(按换行/宽度拆分,保留样式)。 */
+    /**
+     * 转成可交给 {@code Screen#renderTooltip} 的多行文本(按换行/宽度拆分,保留样式)。
+     * <p>
+     * 1.19.4+ 的原版 Tooltip 会按屏幕宽度折行,1.18 这边没有,若只按 {@code \n} 断行,
+     * 长提示(如伤害溢出、HUD 惯性)会一路铺到屏幕外。这里按半屏宽(至少 200px)折行,
+     * 与原版观感一致。
+     */
     public List<FormattedCharSequence> toCharSequence(Minecraft minecraft) {
-        return ComponentRenderUtils.wrapComponents(this.message, 10000, minecraft.font);
+        int screenWidth = minecraft.getWindow().getGuiScaledWidth();
+        int wrapWidth = Math.max(screenWidth / 2, 200);
+        return ComponentRenderUtils.wrapComponents(this.message, wrapWidth, minecraft.font);
     }
 }

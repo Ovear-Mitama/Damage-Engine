@@ -3,7 +3,6 @@ package damage.engine;
 import damage.engine.client.gui.HomeScreen;
 import damage.engine.network.NetworkHandler;
 import com.mojang.blaze3d.platform.InputConstants;
-import com.mojang.logging.LogUtils;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.phys.Vec3;
@@ -14,6 +13,7 @@ import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
 import net.minecraftforge.fml.event.lifecycle.FMLClientSetupEvent;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class DamageEngineClient {
     public static KeyMapping configKeyBinding;
@@ -29,7 +29,8 @@ public class DamageEngineClient {
     /** Platform-specific handshake sender, called by ClientTickMixin. */
     public static Runnable handshakeSender = null;
     
-    public static final Logger LOGGER = LogUtils.getLogger();
+    // 同 DamageEngine:LogUtils 只在 1.18.2+ 的 MC 库里,1.18/1.18.1 上会 NoClassDefFoundError
+    public static final Logger LOGGER = LoggerFactory.getLogger("damageengine");
 
     public DamageEngineClient() {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
@@ -132,18 +133,7 @@ public class DamageEngineClient {
             });
 
         // Matrix capture (replaces ForgeWorldRenderMixin)
-        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
-            (net.minecraftforge.client.event.RenderLevelStageEvent ev) -> {
-                if (ev.getStage() == net.minecraftforge.client.event.RenderLevelStageEvent.Stage.AFTER_TRIPWIRE_BLOCKS) {
-                    // Use the event's PoseStack (same source as Fabric's
-                    // BEFORE_ENTITIES matrixStack) instead of RenderSystem's
-                    // modelview, which is not the pure camera view at this point.
-                    // 1.18.2 的矩阵类型是 com.mojang.math.Matrix4f(1.19.3 才换成 org.joml)
-                    damage.engine.hud.DamageIndicator.captureMatrices(
-                        new com.mojang.math.Matrix4f(ev.getProjectionMatrix()),
-                        new com.mojang.math.Matrix4f(ev.getPoseStack().last().pose()));
-                }
-            });
+        registerLevelMatrixCapture();
 
         // Client-only mode health monitor (replaces LivingEntityClientMixin, which
         // Forge 1.20.1 cannot apply - LivingEntity loads too early). 1.18.2 里叫
@@ -207,5 +197,72 @@ public class DamageEngineClient {
 
     public static Vec3 blendIndicatorPos(double baseX, double baseY, double baseZ, int entityId) {
         return damage.engine.client.IndicatorPos.blend(baseX, baseY, baseZ, entityId);
+    }
+
+    /**
+     * 世界渲染末尾的矩阵抓取(替代 ForgeWorldRenderMixin)。事件名跨 Forge 版本不同:
+     * <ul>
+     *   <li>Forge 40+(1.18.2):用 {@code RenderLevelStageEvent} 的 AFTER_TRIPWIRE_BLOCKS 阶段
+     *       ({@code RenderLevelLastEvent} 类还在,但 Forge 40 已不再触发它)</li>
+     *   <li>Forge 38/39(1.18/1.18.1):只有 {@code RenderLevelLastEvent}
+     *       ({@code RenderLevelStageEvent} 尚不存在)</li>
+     * </ul>
+     * 两个事件类在对方版本里都不存在,若直接写在本方法体里,缺类的一端加载本类时就会
+     * NoClassDefFoundError,所以各自放进独立的嵌套类,先 Class.forName 探测再加载。
+     */
+    private static void registerLevelMatrixCapture() {
+        if (tryRegisterLevelCapture("net.minecraftforge.client.event.RenderLevelStageEvent",
+                "damage.engine.DamageEngineClient$LevelStageMatrixCapture")) {
+            return;
+        }
+        tryRegisterLevelCapture(null, "damage.engine.DamageEngineClient$LevelLastMatrixCapture");
+    }
+
+    private static boolean tryRegisterLevelCapture(String probeClass, String captureClass) {
+        try {
+            if (probeClass != null) Class.forName(probeClass);
+            Class.forName(captureClass).getMethod("register").invoke(null);
+            return true;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /**
+     * 用事件里的 PoseStack(与 Fabric 的 BEFORE_ENTITIES matrixStack 同源),而不是
+     * RenderSystem 的 modelview(此时它不是纯相机视图)。1.18.x 的矩阵类型是
+     * com.mojang.math.Matrix4f(1.19.3 才换成 org.joml)。
+     */
+    private static void captureLevelMatrices(com.mojang.math.Matrix4f projection, com.mojang.math.Matrix4f view) {
+        damage.engine.hud.DamageIndicator.captureMatrices(
+            new com.mojang.math.Matrix4f(projection),
+            new com.mojang.math.Matrix4f(view));
+    }
+
+    /**
+     * Forge 40+(1.18.2):按渲染阶段触发。
+     * <p>
+     * register() 必须是 public:这两个类是被反射调用的(见
+     * {@link #tryRegisterLevelCapture}),而 {@code Class#getMethod} 只返回 public 方法,
+     * 写成包内可见会抛 NoSuchMethodException 并被吞掉,结果是矩阵抓取静默失效(跳字不显示)。
+     */
+    public static final class LevelStageMatrixCapture {
+        public static void register() {
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.client.event.RenderLevelStageEvent ev) -> {
+                    if (ev.getStage() == net.minecraftforge.client.event.RenderLevelStageEvent.Stage.AFTER_TRIPWIRE_BLOCKS) {
+                        captureLevelMatrices(ev.getProjectionMatrix(), ev.getPoseStack().last().pose());
+                    }
+                });
+        }
+    }
+
+    /** Forge 38/39(1.18/1.18.1):世界渲染末尾一次性触发。同上,register() 需为 public。 */
+    public static final class LevelLastMatrixCapture {
+        public static void register() {
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+                (net.minecraftforge.client.event.RenderLevelLastEvent ev) ->
+                    captureLevelMatrices(ev.getProjectionMatrix(), ev.getPoseStack().last().pose()));
+        }
     }
 }
