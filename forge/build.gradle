@@ -2,7 +2,7 @@ plugins {
     id 'eclipse'
     id 'idea'
     id 'maven-publish'
-    id 'net.minecraftforge.gradle' version '[6.0,6.2)'
+    id 'net.minecraftforge.gradle' version '[5.1,5.2)'
 }
 
 tasks.named('wrapper', Wrapper).configure {
@@ -29,12 +29,14 @@ sourceSets {
         java {
             srcDir '../common/src/main/java'
             srcDir '../common/src/client/java'
+            // 1.18.2 暂无对应 TaCZ,兼容代码先不参与编译(源码保留)
+            exclude 'damage/engine/compat/tacz/**'
         }
     }
 }
 
 minecraft {
-    mappings channel: 'official', version: '1.20.1'
+    mappings channel: 'official', version: '1.18.2'
 
     accessTransformer = file('src/main/resources/META-INF/accesstransformer.cfg')
 
@@ -93,11 +95,8 @@ repositories {
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    compileOnly fg.deobf("curse.maven:timeless-and-classics-zero-1028108:${tacz_file_id}")
-    // Run TaCZ from the classpath in dev (deobfuscated, matches the dev mojmap
-    // environment) instead of the raw mods/ jar - the raw release jar's mixins
-    // use SRG names and fail to apply in the forge dev (mapped_official) runtime.
-    // TaCZ not loaded at runtime in dev (compileOnly only).
+    // TaCZ: 1.18.2 还没有对应构建,先停用依赖并把兼容代码排除出编译(源码保留,与最新 1.20.1 分支一致)
+    // compileOnly fg.deobf("curse.maven:timeless-and-classics-zero-1028108:${tacz_file_id}")
 }
 
 tasks.withType(ProcessResources).configureEach {
