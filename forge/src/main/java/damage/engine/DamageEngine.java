@@ -1,7 +1,8 @@
 package damage.engine;
 
 import com.mojang.logging.LogUtils;
-import damage.engine.compat.tacz.TaczCompat;
+// TODO(1.18.2): TaCZ 兼容代码暂不参与编译(等有 1.18.2 版 TaCZ 构建后恢复)
+// import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.NetworkHandler;
 import damage.engine.util.DamageTrackerHelper;
 import net.minecraftforge.common.MinecraftForge;
@@ -53,18 +54,21 @@ public class DamageEngine {
 			() -> () -> new DamageEngineClient());
 
 		// Register TACZ compat attacker resolver
-		DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
-			TaczCompat.tryGetTaczShooter(directSource));
-		LOGGER.info("TACZ compatibility handler registered.");
+		// TODO(1.18.2): 1.18.2 还没有对应的 TaCZ 构建,兼容代码已从编译中排除;等有对应
+		// 构建后取消下面的注释即可恢复(源码在 common/.../compat/tacz,与 1.20.1 分支一致)。
+		// DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
+		// 	TaczCompat.tryGetTaczShooter(directSource));
+		// LOGGER.info("TACZ compatibility handler registered.");
 
 		// Forge-side TaCZ headshot hook: only when TaCZ is loaded.
-		try {
-			Class.forName("com.tacz.guns.api.event.common.EntityHurtByGunEvent$Pre");
-			damage.engine.compat.tacz.TaczForgeCompat.register(MinecraftForge.EVENT_BUS);
-			LOGGER.info("TaCZ headshot event hook registered.");
-		} catch (Throwable t) {
-			// TaCZ not loaded - headshot hook stays inactive.
-		}
+		// TODO(1.18.2): 同上,等有 1.18.2 版 TaCZ 后恢复。
+		// try {
+		// 	Class.forName("com.tacz.guns.api.event.common.EntityHurtByGunEvent$Pre");
+		// 	damage.engine.compat.tacz.TaczForgeCompat.register(MinecraftForge.EVENT_BUS);
+		// 	LOGGER.info("TaCZ headshot event hook registered.");
+		// } catch (Throwable t) {
+		// 	// TaCZ not loaded - headshot hook stays inactive.
+		// }
 
 		// Epic Fight compat: Epic Fight's LivingHurtEvent handler runs at the default
 		// (NORMAL) priority and recalculates the damage amount (armor penetration,
@@ -76,7 +80,7 @@ public class DamageEngine {
 			Class.forName("yesman.epicfight.main.EpicFightMod");
 			MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
 				(LivingHurtEvent event) -> {
-				int id = event.getEntity().getId();
+				int id = event.getEntityLiving().getId();
 				DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.get(id);
 				if (snap != null) {
 					PRE_DAMAGE_SNAPS.put(id, snap.withSourceAmount(event.getAmount()));
@@ -107,11 +111,11 @@ public class DamageEngine {
 		// damage MDC actually dealt.
 		MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.HIGHEST,
 			(LivingHurtEvent event) -> {
-			if (event.getEntity().level() instanceof net.minecraft.server.level.ServerLevel sl) {
-				int id = event.getEntity().getId();
+			if (event.getEntityLiving().getLevel() instanceof net.minecraft.server.level.ServerLevel sl) {
+				int id = event.getEntityLiving().getId();
 				PRE_DAMAGE_LEVELS.put(id, sl);
 				PRE_DAMAGE_SNAPS.putIfAbsent(id,
-					DamageTrackerHelper.capturePreDamage(event.getEntity(), event.getSource(), event.getAmount()));
+					DamageTrackerHelper.capturePreDamage(event.getEntityLiving(), event.getSource(), event.getAmount()));
 			}
 		});
 

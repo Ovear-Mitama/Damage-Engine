@@ -9,7 +9,7 @@ import damage.engine.hud.RatingManager;
 import damage.engine.util.DamageTrackerHelper;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
@@ -112,14 +112,14 @@ public class NetworkHandler {
                 if (config.debugShowDamageInfo) {
                     if (payload.debugInfo() != null && !payload.debugInfo().isEmpty()) {
                         mc.player.displayClientMessage(
-                            Component.literal("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
-                                .append(Component.literal(payload.debugInfo()).withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFFFF)))),
+                            new TextComponent("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
+                                .append(new TextComponent(payload.debugInfo()).withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFFFF)))),
                             false
                         );
                     }
                     mc.player.displayClientMessage(
-                        Component.literal("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
-                            .append(Component.literal("Dmg: " + String.format("%.1f", payload.amount())
+                        new TextComponent("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
+                            .append(new TextComponent("Dmg: " + String.format("%.1f", payload.amount())
                             + (payload.isCrit() ? " Crit" : "") + " | Entity: " + payload.entityId()
                             + " | Projectile: " + (payload.isProjectile() ? "Yes" : "No")).withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFFFF)))),
                         false
@@ -192,8 +192,8 @@ public class NetworkHandler {
                     RatingManager rm = RatingManager.getInstance();
                     if (rm.isVisible()) {
                         mc.player.displayClientMessage(
-                            Component.literal("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
-                                .append(Component.literal("Rating: " + rm.getGrade() + " | Score: " + String.format("%.1f", rm.getScore())).withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFFFF)))),
+                            new TextComponent("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
+                                .append(new TextComponent("Rating: " + rm.getGrade() + " | Score: " + String.format("%.1f", rm.getScore())).withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFFFF)))),
                             true
                         );
                     }
