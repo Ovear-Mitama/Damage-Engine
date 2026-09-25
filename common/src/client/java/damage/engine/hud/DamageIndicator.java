@@ -2,16 +2,18 @@ package damage.engine.hud;
 
 import damage.engine.DamageEngineConfig;
 import com.mojang.blaze3d.systems.RenderSystem;
+import com.mojang.blaze3d.vertex.PoseStack;
+import com.mojang.math.Matrix4f;
+import com.mojang.math.Vector3f;
+import com.mojang.math.Vector4f;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.Camera;
-import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
-import org.joml.Matrix4f;
-import org.joml.Vector4f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -111,7 +113,8 @@ public class DamageIndicator {
         }
     }
 
-    public static void render(GuiGraphics guiGraphics, float tickDelta) {
+    public static void render(PoseStack pose, float tickDelta) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
         Minecraft client = Minecraft.getInstance();
         if (client.level == null || client.player == null) return;
         if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
@@ -146,15 +149,16 @@ public class DamageIndicator {
             boolean useCaptured = capturedProjection != null && capturedViewMatrix != null;
             Matrix4f viewProjMatrix;
             if (useCaptured) {
-                viewProjMatrix = new Matrix4f(capturedProjection).mul(capturedViewMatrix);
+                viewProjMatrix = new Matrix4f(capturedProjection);
+                viewProjMatrix.multiply(capturedViewMatrix);
             } else {
-                Matrix4f viewMatrix = new Matrix4f()
-                    .rotate(camera.rotation())
-                    .translate((float) -camPos.x, (float) -camPos.y, (float) -camPos.z);
+                Matrix4f viewMatrix = new Matrix4f(camera.rotation());
+                viewMatrix.translate(new Vector3f((float) -camPos.x, (float) -camPos.y, (float) -camPos.z));
                 Matrix4f projectionMatrix = capturedProjection != null
                     ? new Matrix4f(capturedProjection)
-                    : new Matrix4f().perspective((float) Math.toRadians(client.options.fov().get()), aspect, 0.05f, 1000.0f);
-                viewProjMatrix = new Matrix4f(projectionMatrix).mul(viewMatrix);
+                    : Matrix4f.perspective(Math.toRadians(client.options.fov), aspect, 0.05f, 1000.0f);
+                viewProjMatrix = new Matrix4f(projectionMatrix);
+                viewProjMatrix.multiply(viewMatrix);
             }
 
             long now = System.currentTimeMillis();
@@ -180,13 +184,13 @@ public class DamageIndicator {
                 if (useCaptured) {
                     // camera-relative: shift by -camera pos first
                     worldPos = new Vector4f((float) (wx - camPos.x), (float) (wy - camPos.y), (float) (wz - camPos.z), 1.0f);
-                    worldPos.mul(viewProjMatrix);
+                    worldPos.transform(viewProjMatrix);
                 } else {
                     worldPos = new Vector4f((float) wx, (float) wy, (float) wz, 1.0f);
-                    worldPos.mul(viewProjMatrix);
+                    worldPos.transform(viewProjMatrix);
                     // MC 1.20.1 pitch fix for the self-built fallback (logs proved X
                     // was correct but Y was inverted). Not needed for captured matrices.
-                    worldPos.y = -worldPos.y;
+                    worldPos.set(worldPos.x(), -worldPos.y(), worldPos.z(), worldPos.w());
                 }
                 // Skip only if the anchor is behind the camera
                 if (worldPos.w() <= 0.001f) continue;
@@ -306,7 +310,7 @@ public class DamageIndicator {
 
                 if (config.indicatorBold) {
                     // Use Minecraft's built-in bold formatting
-                    var boldText = Component.literal(ri.text).withStyle(ChatFormatting.BOLD).getVisualOrderText();
+                    var boldText = new TextComponent(ri.text).withStyle(ChatFormatting.BOLD).getVisualOrderText();
                     int textWidth = font.width(boldText);
                     guiGraphics.drawString(font, boldText, -textWidth / 2, textY, ri.color);
                 } else {

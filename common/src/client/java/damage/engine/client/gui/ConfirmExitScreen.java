@@ -1,11 +1,14 @@
 package damage.engine.client.gui;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import damage.engine.DamageEngineConfig;
+import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.components.Widget;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
+import net.minecraft.network.chat.TranslatableComponent;
 
 /**
  * Custom-styled confirmation dialog for unsaved changes.
@@ -17,7 +20,7 @@ public class ConfirmExitScreen extends Screen {
     private final Minecraft mcl;
 
     public ConfirmExitScreen(Screen settingsScreen, Screen parent, DamageEngineConfig config) {
-        super(Component.translatable("text.damage-engine.unsaved_changes_title"));
+        super(new TranslatableComponent("text.damage-engine.unsaved_changes_title"));
         this.settingsScreen = settingsScreen;
         this.parent = parent;
         this.config = config;
@@ -32,12 +35,12 @@ public class ConfirmExitScreen extends Screen {
 
         // Cancel button (left) - returns to settings
         this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX - 105, buttonY, 100, 20,
-            Component.translatable("gui.cancel").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))),
+            new TranslatableComponent("gui.cancel").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))),
             () -> mcl.setScreen(settingsScreen)));
 
         // Confirm button (right) - discards changes and exits
         this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX + 5, buttonY, 100, 20,
-            Component.translatable("gui.confirm").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFB7F3C8))),
+            new TranslatableComponent("gui.confirm").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFB7F3C8))),
             () -> {
                 config.load();
                 mcl.setScreen(parent);
@@ -45,17 +48,18 @@ public class ConfirmExitScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics);
+    public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        this.renderBackground(pose);
 
         // Warning message
-        String msg = Component.translatable("text.damage-engine.unsaved_changes").getString();
+        String msg = new TranslatableComponent("text.damage-engine.unsaved_changes").getString();
         guiGraphics.drawCenteredString(this.font, msg, this.width / 2, this.height / 2 - 25, 0xFFFFFFFF);
 
         // Render widgets manually (avoid super.render() blur)
         for (var child : this.children()) {
-            if (child instanceof net.minecraft.client.gui.components.Renderable r) {
-                r.render(guiGraphics, mouseX, mouseY, delta);
+            if (child instanceof Widget r) {
+                r.render(pose, mouseX, mouseY, delta);
             }
         }
     }

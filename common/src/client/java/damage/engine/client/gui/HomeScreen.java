@@ -1,10 +1,12 @@
 package damage.engine.client.gui;
 
+import com.mojang.blaze3d.vertex.PoseStack;
 import damage.engine.DamageEngineConfig;
 import damage.engine.client.UpdateChecker;
-import net.minecraft.client.gui.GuiGraphics;
+import damage.engine.compat.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TranslatableComponent;
 
 public class HomeScreen extends Screen {
     private final Screen parent;
@@ -13,7 +15,7 @@ public class HomeScreen extends Screen {
     private DamageConfigScreen.StyledButton btn1, btn2;
 
     public HomeScreen(Screen parent) {
-        super(Component.translatable("title.damage-engine.home"));
+        super(new TranslatableComponent("title.damage-engine.home"));
         this.parent = parent;
         this.config = DamageEngineConfig.getInstance();
     }
@@ -33,11 +35,11 @@ public class HomeScreen extends Screen {
         int buttonY = this.height / 2 + 30;
 
         btn1 = new DamageConfigScreen.StyledButton(leftX, buttonY, buttonWidth, buttonHeight,
-            Component.translatable("button.damage-engine.settings"),
+            new TranslatableComponent("button.damage-engine.settings"),
             () -> this.minecraft.setScreen(new DamageConfigScreen(this)));
 
         btn2 = new DamageConfigScreen.StyledButton(leftX + buttonWidth + buttonSpacing, buttonY, buttonWidth, buttonHeight,
-            Component.translatable("button.damage-engine.config_management"),
+            new TranslatableComponent("button.damage-engine.config_management"),
             () -> this.minecraft.setScreen(new ProfileManagerScreen(this)));
 
         this.addRenderableWidget(btn1);
@@ -45,8 +47,9 @@ public class HomeScreen extends Screen {
     }
 
     @Override
-    public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
-        this.renderBackground(guiGraphics);
+    public void render(PoseStack pose, int mouseX, int mouseY, float delta) {
+        GuiGraphics guiGraphics = GuiGraphics.of(pose);
+        this.renderBackground(pose);
 
         int titleY = this.height / 4;
 
@@ -58,30 +61,30 @@ public class HomeScreen extends Screen {
         guiGraphics.pose().pushPose();
         float titleScale = 2.0f;
         guiGraphics.pose().scale(titleScale, titleScale, 1.0f);
-        String titleText = Component.translatable("title.damage-engine.home").getString();
+        String titleText = new TranslatableComponent("title.damage-engine.home").getString();
         int scaledX = (int)(titleLeftX / titleScale);
         int scaledY = (int)(titleY / titleScale);
         guiGraphics.drawString(this.font, titleText, scaledX, scaledY, 0xFFFFFFFF);
         guiGraphics.pose().popPose();
 
-        String devText = Component.translatable("text.damage-engine.developed_by").getString();
+        String devText = new TranslatableComponent("text.damage-engine.developed_by").getString();
         guiGraphics.drawString(this.font, devText, titleLeftX, titleY + (int)(this.font.lineHeight * titleScale) + 6, 0xFFB5F0C6);
 
-        super.render(guiGraphics, mouseX, mouseY, delta);
+        super.render(pose, mouseX, mouseY, delta);
 
         if (config.checkUpdate) {
             String updateText;
             int updateColor;
             if (UpdateChecker.hasChecked()) {
                 if (UpdateChecker.isUpdateAvailable()) {
-                    updateText = Component.translatable("text.damage-engine.update_available", UpdateChecker.getLatestVersion(), UpdateChecker.getCurrentVersion()).getString();
+                    updateText = new TranslatableComponent("text.damage-engine.update_available", UpdateChecker.getLatestVersion(), UpdateChecker.getCurrentVersion()).getString();
                     updateColor = 0xFFB5F0C6;
                 } else {
-                    updateText = Component.translatable("text.damage-engine.update_latest", UpdateChecker.getCurrentVersion()).getString();
+                    updateText = new TranslatableComponent("text.damage-engine.update_latest", UpdateChecker.getCurrentVersion()).getString();
                     updateColor = 0xFFB5F0C6;
                 }
             } else {
-                updateText = Component.translatable("text.damage-engine.update_checking").getString();
+                updateText = new TranslatableComponent("text.damage-engine.update_checking").getString();
                 updateColor = 0xFFA0A0A0;
             }
             int textWidth = this.font.width(updateText);
