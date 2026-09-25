@@ -25,7 +25,7 @@ public class DamageEngineConfig {
     public boolean showDamage = true;
     public boolean hideOnF1 = true;
     /** HUD 惯性:off = 关闭, de_only = 只让 DE 自己的 HUD 让位, all = 整层 HUD 一起让位。 */
-    public String hudInertiaMode = "off";
+    public String hudInertiaMode = "de_only";
     /** HUD 惯性强度(百分比),100 = 默认幅度。 */
     public int hudInertiaStrength = 100;
     public boolean numberSeparator = true; // true = "1,000", false = "1000"
@@ -378,7 +378,7 @@ public class DamageEngineConfig {
         // General
         this.showDamage = loaded.showDamage;
         this.hideOnF1 = loaded.hideOnF1;
-        this.hudInertiaMode = loaded.hudInertiaMode != null ? loaded.hudInertiaMode : "off";
+        this.hudInertiaMode = loaded.hudInertiaMode != null ? loaded.hudInertiaMode : "de_only";
         this.hudInertiaStrength = loaded.hudInertiaStrength > 0 ? loaded.hudInertiaStrength : 100;
         this.numberSeparator = loaded.numberSeparator;
         this.abbreviateNumbers = loaded.abbreviateNumbers;
@@ -505,7 +505,7 @@ public class DamageEngineConfig {
         // General
         showDamage = true;
         hideOnF1 = true;
-        hudInertiaMode = "off";
+        hudInertiaMode = "de_only";
         hudInertiaStrength = 100;
         numberSeparator = true;
         abbreviateNumbers = false;

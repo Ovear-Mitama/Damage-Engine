@@ -961,7 +961,7 @@ public class DamageConfigScreen extends Screen {
         public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange, boolean soundOnRelease, String suffix) {
             this.label = Component.translatable(key);
             float minF = min, maxF = max;
-            this.slider = new StyledSliderWidget(0, 0, 100, 20, Component.literal(String.valueOf(cur)), (cur - minF) / (maxF - minF), true, !soundOnRelease, soundOnRelease) {
+            this.slider = new StyledSliderWidget(0, 0, 100, 20, Component.literal(cur + suffix), (cur - minF) / (maxF - minF), true, !soundOnRelease, soundOnRelease) {
                 @Override protected void updateMessage() { this.setMessage(Component.literal(Math.round(minF + this.value * (maxF - minF)) + suffix)); }
                 @Override protected void applyValue() { onChange.accept((int)Math.round(minF + this.value * (maxF - minF))); }
             };

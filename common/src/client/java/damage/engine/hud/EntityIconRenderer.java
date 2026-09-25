@@ -114,15 +114,16 @@ public final class EntityIconRenderer {
             ModelExtents model = modelExtents(entity, dispatcher);
             float pixelsPerBlock = slotSize / PLAYER_HEIGHT_BLOCKS;
             // 渲染器内部施加的体型缩放(史莱姆/岩浆怪按大小属性放大、模组自定义缩放)。
-            // 它不在渲染状态里,而且只作用在模型本体上、不作用于下面那个固定的 1.501 位移,
-            // 所以算居中时必须让模型中点乘上它,否则个体越大越往上飘。
+            // 它不在渲染状态里,但会连同模型一起缩放下面那个 1.501 的位移,所以居中时必须计入,
+            // 否则个体越大越往上飘。
             float bodyScale = rendererBodyScale(dispatcher, entity, state);
 
             // 垂直居中按"模型自身的垂直中点"算,而不是碰撞箱中心。
-            // 原版实体渲染会把模型沿 Y 下移 1.501 格(脚底对齐原点),故中点落在槽心对应的位移是 1.501 - 中点×体型缩放;
+            // 原版渲染对模型点的作用顺序是 translate(0,-1.501) → 体型缩放 → 翻转,故模型点 v 最终落在
+            // 外层位移 T + 体型缩放×(v - 1.501);要把它摆到槽心(0),T 就得是这个整体乘以体型缩放。
             // 模型不可测时回退到碰撞箱中心。
             float translateY = model != null
-                ? (MODEL_VERTICAL_PIVOT - model.centerY() * bodyScale)
+                ? (MODEL_VERTICAL_PIVOT - model.centerY()) * bodyScale
                 : (bbH / 2.0f + CENTER_OFFSET_Y);
 
             // 渲染框按实体实际尺寸放大:它只是画布与裁剪边界,放大只为留出溢出的余地、不切边,

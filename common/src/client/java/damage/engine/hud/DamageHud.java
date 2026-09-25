@@ -22,6 +22,14 @@ import java.util.List;
 
 
 public class DamageHud {
+    /**
+     * 主 HUD 的渲染状态持有者。
+     * <p>
+     * 惯性偏移存在实例里,而 HUD 本体和成就弹窗等分属不同的渲染阶段(不同的 mixin),
+     * 必须共用同一个实例才能拿到同一份偏移。编辑器和配置界面的预览各自 new 实例,与它无关。
+     */
+    public static final DamageHud INSTANCE = new DamageHud();
+
     private float smoothProgress = 0f;
     private boolean isRefilling = false;
     private int lastComboCount = 0;
