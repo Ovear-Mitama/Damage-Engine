@@ -173,6 +173,9 @@ public class DamageConfigScreen extends Screen {
             playClickSound();
             this.minecraft.setScreen(new HudEditorScreen(this));
         }));
+        addOption(new BooleanOptionEntry("option.damage-engine.hudInertia", config.hudInertia,
+            v -> { config.hudInertia = v; markChanged(); },
+            Component.translatable("hint.damage-engine.hudInertia")));
         addOption(new SeparatorToggleEntry("option.damage-engine.numberSeparator", config.numberSeparator, v -> { config.numberSeparator = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.abbreviateNumbers", config.abbreviateNumbers,
             v -> { config.abbreviateNumbers = v; markChanged(); },

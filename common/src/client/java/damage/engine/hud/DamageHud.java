@@ -88,6 +88,7 @@ public class DamageHud {
     public void onHudRender(GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker) {
         try {
             Minecraft client = Minecraft.getInstance();
+            updateHudInertia(client);
             if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
             if (client.screen instanceof damage.engine.client.gui.HudEditorScreen) return;
 
@@ -293,17 +294,95 @@ public class DamageHud {
         int y = moduleConfig.y == -1.0f ? client.getWindow().getGuiScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getGuiScaledHeight());
 
         // 记录模块变换,供需要按屏幕坐标定位的子项(如实体头像渲染)换算使用
-        this.moduleScreenX = x;
-        this.moduleScreenY = y;
+        // 惯性偏移取整后加在缩放外层,各模块缩放不同时位移量仍然一致
+        int inertiaOffX = Math.round(inertiaX);
+        int inertiaOffY = Math.round(inertiaY);
+        this.moduleScreenX = x + inertiaOffX;
+        this.moduleScreenY = y + inertiaOffY;
         this.moduleScreenScale = moduleConfig.scale;
 
         guiGraphics.pose().pushMatrix();
-        guiGraphics.pose().translate(x, y);
+        guiGraphics.pose().translate(x + inertiaOffX, y + inertiaOffY);
         guiGraphics.pose().scale(moduleConfig.scale, moduleConfig.scale);
 
         renderAction.run();
 
         guiGraphics.pose().popMatrix();
+    }
+
+    // ---- HUD 惯性:转动视角时整层 HUD 先朝反方向让一点,再靠临界阻尼弹簧平滑回正 ----
+
+    /** 视角每转 1 度,HUD 反向让出多少像素。 */
+    private static final float INERTIA_GAIN = 0.6f;
+    /** 弹簧刚度,越大回正越快。 */
+    private static final float INERTIA_STIFFNESS = 220f;
+    /** 最大让位距离(像素)。 */
+    private static final float INERTIA_MAX_OFFSET = 12f;
+
+    private float inertiaX = 0f;
+    private float inertiaY = 0f;
+    private float inertiaVelX = 0f;
+    private float inertiaVelY = 0f;
+    private float inertiaPrevYaw = 0f;
+    private float inertiaPrevPitch = 0f;
+    private long inertiaLastMs = 0L;
+    private boolean inertiaPrevInit = false;
+
+    /**
+     * 每帧更新惯性偏移。朝反方向的位移由本帧视角变化量直接推动,回正交给弹簧,
+     * 所以快速甩视角时 HUD 会先让开、随后自己平滑归位且不过冲。
+     */
+    private void updateHudInertia(Minecraft client) {
+        long now = System.currentTimeMillis();
+        float rawDt = inertiaLastMs == 0L ? 0.016f : (now - inertiaLastMs) / 1000.0f;
+        inertiaLastMs = now;
+        // 上一帧隔太久说明 HUD 这段时间没渲染(F1 隐藏/切界面),当作重新开始,免得一开就甩一下
+        if (rawDt > 0.25f) {
+            inertiaPrevInit = false;
+        }
+        float dt = Mth.clamp(rawDt, 1f / 240f, 0.1f);
+
+        float dYaw = 0f;
+        float dPitch = 0f;
+        if (client.player == null || !DamageEngineConfig.getInstance().hudInertia) {
+            // 关掉或还没进世界:本帧不再推动,只让弹簧把残余偏移收回去
+            inertiaPrevInit = false;
+        } else if (inertiaPrevInit) {
+            float yaw = client.player.getYRot();
+            float pitch = client.player.getXRot();
+            dYaw = Mth.wrapDegrees(yaw - inertiaPrevYaw);
+            dPitch = pitch - inertiaPrevPitch;
+            inertiaPrevYaw = yaw;
+            inertiaPrevPitch = pitch;
+            // 单帧转过 30 度以上多半不是玩家在操作(刚进世界/视角被程序设定),这一帧不算
+            if (Math.abs(dYaw) > 30f || Math.abs(dPitch) > 30f) {
+                dYaw = 0f;
+                dPitch = 0f;
+            }
+        } else {
+            inertiaPrevYaw = client.player.getYRot();
+            inertiaPrevPitch = client.player.getXRot();
+            inertiaPrevInit = true;
+        }
+
+        // 向右转 yaw 增大、向下看 pitch 增大,HUD 要往屏幕反方向走,所以是减
+        inertiaX -= dYaw * INERTIA_GAIN;
+        inertiaY -= dPitch * INERTIA_GAIN;
+
+        float damp = 2f * (float) Math.sqrt(INERTIA_STIFFNESS);
+        inertiaVelX += (-INERTIA_STIFFNESS * inertiaX - damp * inertiaVelX) * dt;
+        inertiaVelY += (-INERTIA_STIFFNESS * inertiaY - damp * inertiaVelY) * dt;
+        inertiaX = Mth.clamp(inertiaX + inertiaVelX * dt, -INERTIA_MAX_OFFSET, INERTIA_MAX_OFFSET);
+        inertiaY = Mth.clamp(inertiaY + inertiaVelY * dt, -INERTIA_MAX_OFFSET, INERTIA_MAX_OFFSET);
+
+        if (Math.abs(inertiaX) < 0.02f && Math.abs(inertiaVelX) < 0.02f) {
+            inertiaX = 0f;
+            inertiaVelX = 0f;
+        }
+        if (Math.abs(inertiaY) < 0.02f && Math.abs(inertiaVelY) < 0.02f) {
+            inertiaY = 0f;
+            inertiaVelY = 0f;
+        }
     }
 
     public void renderTotalDamage(GuiGraphicsExtractor guiGraphics, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
