@@ -249,6 +249,15 @@ public class ColorPickerScreen extends Screen {
     }
 
     @Override
+    public void tick() {
+        super.tick();
+        // 光标闪烁靠 EditBox.tick() 递增 frame,自定义界面不会自动转发给孩子
+        for (EditBox f : new EditBox[]{hexField, rField, gField, bField}) {
+            if (f != null) f.tick();
+        }
+    }
+
+    @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
         for (EditBox f : new EditBox[]{hexField, rField, gField, bField}) {
             if (f.isFocused() && f.keyPressed(keyCode, scanCode, modifiers)) return true;

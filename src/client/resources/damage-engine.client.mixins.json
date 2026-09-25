@@ -6,6 +6,7 @@
 		"LivingEntityClientMixin",
 		"HudRenderMixin",
 		"ToastShiftMixin",
+		"ScreenEffectShiftMixin",
 		"ClientConnectionMixin",
 		"ClientTickMixin",
 		"KeyBindingMixin",
@@ -13,8 +14,7 @@
 		"KeyBindingCategoryMixin",
 		"PlayerAttackMixin",
 		"ProjectileHitMixin",
-		"MultiPlayerGameModeMixin",
-		"EditBoxCursorMixin"
+		"MultiPlayerGameModeMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1
