@@ -17,8 +17,9 @@ base {
 }
 
 // 产物命名:damage-engine-<版本号>-<加载器>-<MC版本号>.jar
+// 本分支编译基线是 1.18.2,但产物声明支持 1.18/1.18.1/1.18.2,尾巴固定写 1.18 避免误导
 tasks.named('jar') {
-    archiveFileName = "damage-engine-${mod_version}-Forge-${minecraft_version}.jar"
+    archiveFileName = "damage-engine-${mod_version}-Forge-1.18.jar"
     // Mixin 在引导阶段读取(MANIFEST 由 Mixin 的 ModLauncher 服务扫描)
     manifest {
         attributes 'MixinConfigs': 'damage-engine.client.mixins.json'

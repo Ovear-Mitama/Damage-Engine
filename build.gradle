@@ -10,10 +10,10 @@ base {
 	archivesName = project.archives_base_name
 }
 
-// 产物命名:damage-engine-<版本号>-<加载器>-<MC版本号>.jar
-// Fabric 与 Quilt 共用同一份产物,故统一标为 Fabric
+// 产物命名:anima 同款规则 <名字>-<版本>-Fabric-<MC>.jar
+// 本分支编译基线是 1.18.2,但产物声明支持 1.18/1.18.1/1.18.2,尾巴固定写 1.18 避免误导
 tasks.named('remapJar') {
-	archiveFileName = "${project.archives_base_name}-${project.mod_version}-Fabric-${project.minecraft_version}.jar"
+	archiveFileName = "${project.archives_base_name}-${project.mod_version}-Fabric-1.18.jar"
 }
 
 repositories {
