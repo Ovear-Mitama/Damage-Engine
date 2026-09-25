@@ -1,6 +1,7 @@
 package damage.engine.util;
 
 import damage.engine.DamageEngineConfig;
+import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.DamagePayload;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.Entity;
@@ -74,7 +75,7 @@ public class DamageTrackerHelper {
         // TaCZ headshot: the conditional mixin marks the victim when TaCZ
         // constructs ServerMessageGunHurt (right after hurt(), before the tick-end
         // flush). Consume the mark here so the crit flag rides this exact payload.
-        if (false) { // TODO(1.18.2): TaCZ 兼容暂不参与编译,等有 1.18.2 版 TaCZ 后恢复
+        if (damage.engine.compat.tacz.TaczServerHeadshotTracker.consumeHeadshot(pendingTarget)) {
             pendingCrit = true;
         }
         DamagePayload payload = new DamagePayload(pendingTarget, pendingDamage, pendingCrit,
@@ -163,7 +164,7 @@ public class DamageTrackerHelper {
         // so guns always use the same handling as bows even if a TACZ version
         // deviates from the standard Projectile hierarchy.
         boolean projectileLike = (directSource instanceof Projectile && !(directSource instanceof ThrownPotion))
-            ; // TODO(1.18.2): 原为 `|| TaczCompat.isTaczBullet(directSource)`,待 TaCZ 1.18.2 构建可用后恢复
+            || TaczCompat.isTaczBullet(directSource);
 
         if (projectileLike) {
             isProjectile = true;
