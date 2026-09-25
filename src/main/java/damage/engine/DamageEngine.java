@@ -1,6 +1,7 @@
 package damage.engine;
 
-import damage.engine.compat.tacz.TaczCompat;
+// TODO(1.18.2): TaCZ 兼容代码暂不参与编译(等有 1.18.2 版 TaCZ 构建后恢复)
+// import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.DamagePayload;
 import damage.engine.network.HandshakePayload;
 import damage.engine.util.DamageTrackerHelper;
@@ -53,17 +54,20 @@ public class DamageEngine implements ModInitializer {
 
 		// Mod compat: allow external mods (e.g. TACZ) to resolve the attacker from
 		// the direct damage source (bullet). Reflection-based, safe when TACZ is absent.
-		DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
-			TaczCompat.tryGetTaczShooter(directSource));
+		// TODO(1.18.2): 1.18.2 还没有对应的 TaCZ 构建,兼容代码已从编译中排除;等有对应
+		// 构建后取消下面的注释即可恢复(源码在 common/.../compat/tacz,与 1.20.1 分支一致)。
+		// DamageTrackerHelper.setAttackerResolver((victim, directSource, source) ->
+		// 	TaczCompat.tryGetTaczShooter(directSource));
 
 		// TaCZ: Refabricated compatibility (headshot -> crit). Only when TaCZ is installed.
-		if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("tacz")) {
-			try {
-				damage.engine.compat.tacz.TaczFabricCompat.init();
-			} catch (Throwable t) {
-				LOGGER.warn("Failed to enable TaCZ compatibility: {}", t.toString());
-			}
-		}
+		// TODO(1.18.2): 同上,等有 1.18.2 版 TaCZ 后恢复。
+		// if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("tacz")) {
+		// 	try {
+		// 		damage.engine.compat.tacz.TaczFabricCompat.init();
+		// 	} catch (Throwable t) {
+		// 		LOGGER.warn("Failed to enable TaCZ compatibility: {}", t.toString());
+		// 	}
+		// }
 
 		// Flush any pending (merged) damage payload at the end of each server tick.
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(

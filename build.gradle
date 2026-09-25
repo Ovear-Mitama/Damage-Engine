@@ -55,6 +55,8 @@ sourceSets {
     main {
         java {
             srcDir 'common/src/main/java'
+            // 1.18.2 暂无对应 TaCZ,兼容代码先不参与编译(源码保留)
+            exclude 'damage/engine/compat/tacz/**'
         }
     }
     client {
@@ -77,12 +79,9 @@ dependencies {
     modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
     modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
 
-    // TaCZ: Refabricated - Fabric port of Timeless and Classics Zero (compileOnly, optional at runtime)
-    // Synced with Forge-side TACZ 1.1.8-hotfix. Compile-only: TACZ is NOT loaded in
-    // the dev runtime (jar-in-jar deps are not unpacked on the dev classpath and the
-    // dependency chain is heavy). Headshot->crit compatibility activates only when the
-    // player has TaCZ installed in their own game.
-    modCompileOnly "curse.maven:tacz-refabricated-1334246:${project.tacz_refabricated_file_id}"
+    // TaCZ: Refabricated - 1.18.2 还没有对应的构建,先停用依赖并把兼容代码排除出编译。
+    // 兼容代码本身与最新 1.20.1 分支保持一致,等有 1.18.2 版 TaCZ 时再打开即可。
+    // modCompileOnly "curse.maven:tacz-refabricated-1334246:${project.tacz_refabricated_file_id}"
 }
 
 processResources {
