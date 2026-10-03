@@ -1,0 +1,14 @@
+pluginManagement {
+	repositories {
+		maven {
+			name = 'Fabric'
+			url = 'https://maven.fabricmc.net/'
+		}
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+if (JavaVersion.current() < JavaVersion.VERSION_25) {
+	throw new GradleException("Damage-Engine 26.1.2 requires Java 25+. Current JVM: ${JavaVersion.current()}. Configure JAVA_HOME to a JDK 25 and re-run ./gradlew.")
+}
