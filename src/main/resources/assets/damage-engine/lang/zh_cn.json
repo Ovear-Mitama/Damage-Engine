@@ -89,6 +89,10 @@
   "option.damage-engine.damageIndicatorNormalColor": "普通伤害颜色",
   "option.damage-engine.damageIndicatorCritColor": "暴击伤害颜色",
   "option.damage-engine.damageIndicatorKillColor": "Kill! 颜色",
+  "option.damage-engine.indicator_merge": "合并跳字",
+  "hint.damage-engine.indicator_merge": "把同一目标短时间内受到的伤害合并成一个数字。\n若开启此功能，建议开启「追踪实体」。",
+  "option.damage-engine.indicator_track_entity": "追踪实体",
+  "hint.damage-engine.indicator_track_entity": "开启后，伤害跳字会跟随受害实体移动；实体消失后停在原地。",
 
   "option.damage-engine.showInfo": "实体信息",
   "option.damage-engine.infoTrackTime": "实体信息显示时间（秒）",
