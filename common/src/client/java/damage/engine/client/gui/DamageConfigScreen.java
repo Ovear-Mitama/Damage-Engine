@@ -1580,8 +1580,8 @@ public class DamageConfigScreen extends Screen {
             int rx = x + ew, by = y + 2;
             if (config.ratingUseImages) {
                 boolean hasImg = grade.imagePath != null && !grade.imagePath.isEmpty();
-                selectImageBtn.setX(rx - 110); selectImageBtn.setY(by); selectImageBtn.setWidth(100); selectImageBtn.visible = true;
-                resetImageBtn.visible = hasImg;
+                selectImageBtn.setX(rx - 110); selectImageBtn.setY(by); selectImageBtn.setWidth(100); selectImageBtn.setVisible(true);
+                resetImageBtn.setVisible(hasImg);
                 if (hasImg) { resetImageBtn.setX(rx - 110 - 25); resetImageBtn.setY(by); resetImageBtn.setWidth(20); }
                 String pt = hasImg ? grade.imagePath : "Not set";
                 if (pt.contains("/")) pt = pt.substring(pt.lastIndexOf("/") + 1);
@@ -1593,12 +1593,12 @@ public class DamageConfigScreen extends Screen {
                 g.text(Minecraft.getInstance().font, Component.literal(pt), px, y + 8, 0xFFFFFFFF);
                 resetImageBtn.extractRenderState(g, mx, my, dt); selectImageBtn.extractRenderState(g, mx, my, dt);
             } else {
-                selectImageBtn.visible = false;
+                selectImageBtn.setVisible(false);
                 int sx = x + ew - 110, ps = 17, px = sx + 80, py = by + 1;
                 swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
                 boolean overSwatch = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
                 if (overSwatch) g.requestCursor(DamageConfigScreen.CURSOR_HAND);
-                colField.setX(sx + 4); colField.setY(by + 6); colField.setWidth(75 - 8); colField.setHeight(12); colField.visible = true;
+                colField.setX(sx + 4); colField.setY(by + 6); colField.setWidth(75 - 8); colField.setHeight(12); colField.setVisible(true);
                 g.text(Minecraft.getInstance().font, Component.literal(grade.text), x, y + 8, 0xFFFFFFFF);
                 drawBox(g, sx, by, 75, 20, colField, mx, my);
                 colField.extractRenderState(g, mx, my, dt);
@@ -1629,11 +1629,11 @@ public class DamageConfigScreen extends Screen {
             g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
         }
         public List<? extends GuiEventListener> children() {
-            if (config.ratingUseImages) { List<GuiEventListener> l = new ArrayList<>(); l.add(selectImageBtn); if (resetImageBtn.visible) l.add(resetImageBtn); return l; }
+            if (config.ratingUseImages) { List<GuiEventListener> l = new ArrayList<>(); l.add(selectImageBtn); if (resetImageBtn.isVisible()) l.add(resetImageBtn); return l; }
             else return Collections.singletonList(colField);
         }
         public List<? extends NarratableEntry> narratables() {
-            if (config.ratingUseImages) { List<NarratableEntry> l = new ArrayList<>(); l.add(selectImageBtn); if (resetImageBtn.visible) l.add(resetImageBtn); return l; }
+            if (config.ratingUseImages) { List<NarratableEntry> l = new ArrayList<>(); l.add(selectImageBtn); if (resetImageBtn.isVisible()) l.add(resetImageBtn); return l; }
             else return Collections.singletonList(colField);
         }
     }
