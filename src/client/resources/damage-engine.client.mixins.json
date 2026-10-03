@@ -1,0 +1,22 @@
+{
+	"required": true,
+	"package": "damage.engine.mixin.client",
+	"compatibilityLevel": "JAVA_17",
+	"client": [
+		"LivingEntityClientMixin",
+		"HudRenderMixin",
+		"ToastShiftMixin",
+		"ClientConnectionMixin",
+		"ClientTickMixin",
+		"KeyBindingMixin",
+		"KeyBindingAccessor",
+		"KeyBindingCategoryMixin",
+		"PlayerAttackMixin",
+		"ProjectileHitMixin",
+		"MultiPlayerGameModeMixin",
+		"EditBoxCursorMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	}
+}

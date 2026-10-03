@@ -1,0 +1,140 @@
+plugins {
+	id 'fabric-loom' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+// 产物命名:damage-engine-<版本号>-<加载器>-<MC版本号>.jar
+// Fabric 与 Quilt 共用同一份产物,故统一标为 Fabric
+tasks.named('remapJar') {
+	archiveFileName = "${project.archives_base_name}-${project.mod_version}-Fabric-${project.minecraft_version}.jar"
+}
+
+repositories {
+    mavenLocal()
+    maven { url "https://maven.terraformersmc.com/releases/" }
+    maven { url "https://maven.fabricmc.net/" }
+    maven { url "https://mirrors.cloud.tencent.com/nexus/repository/maven-public/" }
+    maven { url "https://maven.aliyun.com/repository/public" }
+    maven {
+        name = "Curse Maven"
+        url = "https://www.cursemaven.com"
+        content {
+            includeGroup "curse.maven"
+        }
+    }
+    maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content {
+            includeGroup "maven.modrinth"
+        }
+    }
+}
+
+loom {
+    splitEnvironmentSourceSets()
+    accessWidenerPath = file("src/main/resources/damage-engine.accesswidener")
+
+    mods {
+        "damage-engine" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+}
+
+// Include common shared sources
+sourceSets {
+    main {
+        java {
+            srcDir 'common/src/main/java'
+        }
+    }
+    client {
+        java {
+            srcDir 'common/src/client/java'
+        }
+    }
+}
+
+dependencies {
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Fabric API (required for networking)
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    // ModMenu (optional, for config screen integration)
+    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+    modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+    // TaCZ: Refabricated - Fabric port of Timeless and Classics Zero (compileOnly, optional at runtime)
+    // Synced with Forge-side TACZ 1.1.8-hotfix. Compile-only: TACZ is NOT loaded in
+    // the dev runtime (jar-in-jar deps are not unpacked on the dev classpath and the
+    // dependency chain is heavy). Headshot->crit compatibility activates only when the
+    // player has TaCZ installed in their own game.
+    modCompileOnly "curse.maven:tacz-refabricated-1334246:${project.tacz_refabricated_file_id}"
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": inputs.properties.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 17
+}
+
+// MC 1.20.1 / LWJGL 3.3.1 must run on Java 17 (JDK 21 crashes runClient with "Unsupported JNI version")
+tasks.named('runClient', JavaExec) {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+java {
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_17
+	targetCompatibility = JavaVersion.VERSION_17
+	
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(17)
+	}
+}
+
+jar {
+	inputs.property "archivesName", project.base.archivesName
+
+	from(sourceSets.client.output)
+
+	from("LICENSE") {
+		rename { "${it}_${inputs.properties.archivesName}"}
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			artifactId = project.archives_base_name
+			from components.java
+		}
+	}
+
+	repositories {
+		// Add repositories to publish to here.
+	}
+}
