@@ -54,6 +54,10 @@ public class DamageEngineConfig {
     
     // ========== Damage Indicator ==========
     public boolean showDamageIndicator = true;
+    // 合并跳字:同一目标短时间内连续命中并成一个数字(默认关)
+    public boolean indicatorMerge = false;
+    // 追踪实体:跳字跟随受害实体移动(默认关)
+    public boolean indicatorTrackEntity = false;
     public int indicatorDecimalPlaces = 1;
     public String indicatorMode = "enhanced"; // "enhanced" or "cloud"
     public float indicatorScale = 0.8f;
@@ -408,6 +412,8 @@ public class DamageEngineConfig {
         
         // Damage Indicator
         this.showDamageIndicator = loaded.showDamageIndicator;
+        this.indicatorMerge = loaded.indicatorMerge;
+        this.indicatorTrackEntity = loaded.indicatorTrackEntity;
         this.indicatorDecimalPlaces = loaded.indicatorDecimalPlaces;
         this.indicatorMode = loaded.indicatorMode != null ? loaded.indicatorMode : "enhanced";
         this.indicatorScale = loaded.indicatorScale > 0 ? loaded.indicatorScale : 1.5f;
@@ -546,6 +552,8 @@ public class DamageEngineConfig {
         
         // Damage Indicator
         showDamageIndicator = true;
+        indicatorMerge = false;
+        indicatorTrackEntity = false;
         indicatorDecimalPlaces = 1;
         indicatorMode = "enhanced";
         indicatorScale = 0.8f;

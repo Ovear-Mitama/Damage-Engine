@@ -70,12 +70,12 @@ public class ClientHealthTracker {
                     );
 
                     if (config.showDamageIndicator && damageAmount > 0) {
-                        DamageIndicator.addIndicator(entity.getId(), pos.x, pos.y, pos.z,
+                        DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                             damageAmount, false, false);
                     }
 
                     if (config.showKillIndicator && killed) {
-                        DamageIndicator.addIndicator(entity.getId(), pos.x, pos.y, pos.z,
+                        DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                             damageAmount, false, true);
                     }
                 }
@@ -108,12 +108,12 @@ public class ClientHealthTracker {
             double maxDist = config.globalIndicatorMaxDistance;
             if (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist) {
                 if (config.showDamageIndicator && damageAmount > 0) {
-                    DamageIndicator.addIndicator(entity.getId(), pos.x, pos.y, pos.z,
+                    DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                         damageAmount, false, false);
                 }
 
                 if (config.showKillIndicator && killed) {
-                    DamageIndicator.addIndicator(entity.getId(), pos.x, pos.y, pos.z,
+                    DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                         damageAmount, false, true);
                 }
             }

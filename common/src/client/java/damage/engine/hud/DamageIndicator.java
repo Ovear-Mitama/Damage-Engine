@@ -9,6 +9,7 @@ import net.minecraft.client.Camera;
 import net.minecraft.network.chat.Component;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Mth;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
 import org.joml.Vector4f;
@@ -26,6 +27,16 @@ public class DamageIndicator {
     private static final float HOLD_DURATION = 2.0f;      // hold at small size
     private static final float FADE_OUT_DURATION = 2.0f;  // fade out
     private static final float TOTAL_DURATION = SHRINK_DURATION + HOLD_DURATION + FADE_OUT_DURATION; // ~4.3s
+
+    /** 淡出起点(秒):入场(收缩)与保持结束、开始淡出的默认时刻。 */
+    private static final float FADE_START = SHRINK_DURATION + HOLD_DURATION;
+    /** 淡出起点(毫秒),合并跳字时用它重置「到出场」的倒计时。 */
+    private static final float FADE_START_MS = FADE_START * 1000f;
+    /** 合并跳字时的一次性跳动:1.18 → 1.0、360ms、缓出 easeOutQuad。 */
+    private static final float MERGE_POP_MS = 360f;
+    /** 无实体信息时,合并判定的出生点距离上限(格)与其平方。 */
+    private static final double MERGE_DIST = 0.35;
+    private static final double MERGE_DIST_SQ = MERGE_DIST * MERGE_DIST;
 
     private static final float START_SCALE = 2.0f;
     private static final float END_SCALE = 1.0f;
@@ -46,15 +57,27 @@ public class DamageIndicator {
     }
 
     public static class Indicator {
-        /** Victim entity to anchor the float to; -1 = fixed world position. */
-        final int entityId;
-        /** Fallback world position (server snapshot), used while the entity is gone. */
-        final double x, y, z;
-        final float damage;
-        final boolean isCrit;
+        /** 受害实体 id(-1 = 无/不可知;追踪实体与合并跳字依赖它)。 */
+        final int victimId;
+        /** 缓存的受害实体引用(渲染时刷新,实体移除后为 null)。 */
+        Entity victimRef;
+        /** 世界坐标:命中点(追踪实体时每帧按实体插值位置重算)。 */
+        double x, y, z;
+        float damage;
+        boolean isCrit;
         final boolean isKill;
         final boolean isHeal;
         final long spawnTime;
+        /** 追踪首帧算出的「实体脚下中心 → 出生点」相对偏移;null = 尚未初始化。 */
+        double[] trackOff;
+        /** 最近一次合并跳字的时刻(ms,-1 = 未发生过/动画已结束),用于合并时的跳动缩放。 */
+        long mergePopStart = -1;
+        /**
+         * 淡出起点在「本体年龄」时间轴上的位置(ms,-1 = 用默认起点)。
+         * 每次命中把它重置为「本次命中时刻 + 入场与保持时长」,淡出随之顺延;入场等其它阶段
+         * 仍按本体年龄求值,所以不会重播入场动画。
+         */
+        float fadeStartOffsetMs = -1f;
         // Drift direction (consistent with ring spawn angle)
         final float moveDirX;
         final float moveDirY;
@@ -64,8 +87,9 @@ public class DamageIndicator {
         // Random ring radius: distance from the crosshair center where this indicator spawns
         final float ringRadius;
 
-        Indicator(int entityId, double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
-            this.entityId = entityId;
+        Indicator(Entity victim, double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
+            this.victimId = victim != null ? victim.getId() : -1;
+            this.victimRef = victim;
             this.x = x;
             this.y = y;
             this.z = z;
@@ -85,20 +109,76 @@ public class DamageIndicator {
         }
     }
 
-    /**
-     * @param entityId victim entity to anchor the float to (its live position is used
-     *                 every frame while it exists); pass -1 to pin to the given world
-     *                 coordinates
-     */
-    public static void addIndicator(int entityId, double x, double y, double z, float damage, boolean isCrit, boolean isKill) {
-        addIndicator(entityId, x, y, z, damage, isCrit, isKill, false);
+    /** 旧方法(无实体信息),保留;追踪实体 / 合并跳字不可用。victim 传 null。 */
+    public static void addIndicator(double x, double y, double z, float damage, boolean isCrit, boolean isKill) {
+        addIndicator(null, x, y, z, damage, isCrit, isKill, false);
     }
 
-    public static void addIndicator(int entityId, double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
+    public static void addIndicator(double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
+        addIndicator(null, x, y, z, damage, isCrit, isKill, isHeal);
+    }
+
+    /** 带受害实体的版本:追踪实体 / 合并跳字依赖它识别「同一目标」。victim 可为 null。 */
+    public static void addIndicator(Entity victim, double x, double y, double z, float damage, boolean isCrit, boolean isKill) {
+        addIndicator(victim, x, y, z, damage, isCrit, isKill, false);
+    }
+
+    public static void addIndicator(Entity victim, double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
         synchronized (indicators) {
+            long now = System.currentTimeMillis();
+
+            // 合并跳字:把「同一目标」短时间内连续命中的数字并成一个(默认关)。
+            // 建议配合追踪实体使用——有实体 id 时按 id 精确识别;没有实体信息时退回按
+            // 出生点相近(~0.35 格)判断。击杀与普通数字、治疗与伤害不会互相合并。
+            if (DamageEngineConfig.getInstance().indicatorMerge) {
+                int vid = victim != null ? victim.getId() : -1;
+                for (Indicator ind : indicators) {
+                    if (!isAlive(ind, now)) continue;           // 已过期的不参与合并
+                    if (ind.isKill != isKill) continue;         // 击杀与普通数字分开
+                    if (!isKill && ind.isHeal != isHeal) continue; // 治疗与伤害分开
+                    if (!sameTarget(ind, vid, victim, x, y, z)) continue;
+                    // 已经进入淡出的:不再合并(让它自然淡出),本次伤害另起一个新跳字
+                    if (hasStartedExit(ind, now)) continue;
+                    ind.damage += damage;
+                    ind.isCrit |= isCrit;
+                    ind.mergePopStart = now;                    // 合并更新 → 触发跳动动画
+                    // 每次命中把「到淡出」的倒计时整个重置:淡出会在「本次命中 + 入场与保持时长」才开始。
+                    ind.fadeStartOffsetMs = (now - ind.spawnTime) + FADE_START_MS;
+                    return;
+                }
+            }
             // No performance cap on indicator count
-            indicators.add(new Indicator(entityId, x, y, z, damage, isCrit, isKill, isHeal));
+            indicators.add(new Indicator(victim, x, y, z, damage, isCrit, isKill, isHeal));
         }
+    }
+
+    /** 该跳字是否已经进入淡出(淡出已开始,就不该再被合并)。 */
+    private static boolean hasStartedExit(Indicator ind, long now) {
+        float startAt = ind.fadeStartOffsetMs >= 0f ? ind.fadeStartOffsetMs : FADE_START_MS;
+        return (now - ind.spawnTime) >= startAt;
+    }
+
+    /** 是否仍在生命周期内:淡出可能被每次命中往后推,寿命随之顺延。 */
+    private static boolean isAlive(Indicator ind, long now) {
+        float lifeMs = TOTAL_DURATION * 1000f;
+        if (ind.fadeStartOffsetMs >= 0f) {
+            lifeMs += ind.fadeStartOffsetMs - FADE_START_MS; // 淡出被推迟多少,寿命就延长多少
+        }
+        return now - ind.spawnTime <= lifeMs;
+    }
+
+    /** 两个跳字是否属于同一目标:优先实体 id,无实体信息时按出生点相近。 */
+    private static boolean sameTarget(Indicator ind, int vid, Entity victim, double x, double y, double z) {
+        if (vid >= 0) {
+            if (ind.victimId == vid) return true;
+            if (ind.victimRef != null && victim != null && ind.victimRef == victim) return true;
+            return false;
+        }
+        if (ind.victimId < 0) {
+            double dx = ind.x - x, dy = ind.y - y, dz = ind.z - z;
+            return dx * dx + dy * dy + dz * dz < MERGE_DIST_SQ;
+        }
+        return false;
     }
 
     public static void tickAndCleanup() {
@@ -107,7 +187,8 @@ public class DamageIndicator {
         lastCleanupTime = now;
 
         synchronized (indicators) {
-            indicators.removeIf(ind -> now - ind.spawnTime > TOTAL_DURATION * 1000);
+            // 淡出被推迟多少寿命就延长多少,持续合并的跳字不会被提前移除
+            indicators.removeIf(ind -> !isAlive(ind, now));
         }
     }
 
@@ -167,13 +248,38 @@ public class DamageIndicator {
             List<RenderedIndicator> toRender = new ArrayList<>();
 
             for (Indicator ind : indicators) {
-                float age = (now - ind.spawnTime) / 1000f;
-                if (age < 0) continue;
-                if (age > TOTAL_DURATION) continue;
+                long ageMs = now - ind.spawnTime;
+                if (ageMs < 0) continue;
+                // 淡出可能被合并时的命中往后推,寿命随之顺延;不再用固定的 TOTAL_DURATION 截断
+                if (!isAlive(ind, now)) continue;
+                float age = ageMs / 1000f;
+                // 淡出起点(秒):默认 = 入场 + 保持结束;合并过则用被重置的起点
+                float fadeStartSec = (ind.fadeStartOffsetMs >= 0f ? ind.fadeStartOffsetMs : FADE_START_MS) / 1000f;
+
+                // 追踪实体(默认关):跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的偏移,
+                // 之后每帧按目标的插值位置重算世界坐标;实体消失后停在最后位置。
+                if (config.indicatorTrackEntity && ind.victimId >= 0 && client.level != null) {
+                    Entity target = client.level.getEntity(ind.victimId);
+                    if (target != null) {
+                        ind.victimRef = target;
+                        if (ind.trackOff == null) {
+                            Vec3 base = target.getPosition(0f);
+                            double ddx = ind.x - base.x, ddy = ind.y - base.y, ddz = ind.z - base.z;
+                            if (ddx * ddx + ddy * ddy + ddz * ddz > 6.25) {
+                                // 出生点离实体太远(过期坐标),回退到实体附近的上方
+                                ddx = 0; ddy = target.getEyeHeight() * 0.6; ddz = 0;
+                            }
+                            ind.trackOff = new double[]{ddx, ddy, ddz};
+                        }
+                        Vec3 tpos = target.getPosition(tickDelta);
+                        ind.x = tpos.x + ind.trackOff[0];
+                        ind.y = tpos.y + ind.trackOff[1];
+                        ind.z = tpos.z + ind.trackOff[2];
+                    }
+                }
 
                 // The float is pinned to the world position where the hit happened
-                // (server snapshot) - it does NOT follow the entity as it moves
-                // (classic damage-number behaviour).
+                // (server snapshot); with entity tracking on it is recomputed above.
                 double wx = ind.x, wy = ind.y, wz = ind.z;
 
                 Vector4f worldPos;
@@ -230,13 +336,13 @@ public class DamageIndicator {
                     alpha = Mth.lerp(t, 0.0f, 1.0f);
                     // Shrink from START_SCALE to END_SCALE
                     scale = Mth.lerp(t, START_SCALE, END_SCALE);
-                } else if (age < SHRINK_DURATION + HOLD_DURATION) {
-                    // Phase 2: hold at small size
+                } else if (age < fadeStartSec) {
+                    // Phase 2: hold at small size (保持到被重置的淡出起点)
                     scale = END_SCALE;
                     alpha = 1.0f;
                 } else {
-                    // Phase 3: fade out
-                    float t = (age - SHRINK_DURATION - HOLD_DURATION) / FADE_OUT_DURATION;
+                    // Phase 3: fade out (淡出推迟到 fadeStartSec 之后,时长不变)
+                    float t = (age - fadeStartSec) / FADE_OUT_DURATION;
                     scale = END_SCALE;
                     alpha = Mth.lerp(t, 1.0f, 0.0f);
                 }
@@ -285,6 +391,19 @@ public class DamageIndicator {
                 // Subtle distance-based scale: far entities slightly smaller (10% reduction at max distance)
                 float distanceScaleFactor = 0.9f + distFactor * 0.1f;
                 finalScale *= distanceScaleFactor;
+
+                // 合并跳字时的跳动:合并瞬间轻微放大再回落(1.18 → 1.0,360ms,easeOutQuad)。
+                // 每次合并都会重置时钟,连续命中时不断跳动;动画结束后停用。
+                if (ind.mergePopStart >= 0) {
+                    float popMs = now - ind.mergePopStart;
+                    if (popMs < MERGE_POP_MS) {
+                        float pt = popMs / MERGE_POP_MS;
+                        float pe = 1f - (1f - pt) * (1f - pt);
+                        finalScale *= 1.18f - 0.18f * pe;
+                    } else {
+                        ind.mergePopStart = -1;
+                    }
+                }
 
                 toRender.add(new RenderedIndicator(text, finalX, finalY, finalScale, color, ind.isKill));
             }
