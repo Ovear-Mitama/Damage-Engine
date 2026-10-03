@@ -63,6 +63,10 @@ public class DamageEngineConfig {
     public int healIndicatorColor = 0xFFB1EAC2;
     public boolean indicatorPrefixSign = false;
     public boolean showGlobalDamageIndicator = false;
+    // 合并跳字:把同一目标短时间内受到的伤害合并成一个数字(默认关)
+    public boolean indicatorMerge = false;
+    // 追踪实体:伤害跳字跟随受害实体移动(默认关)
+    public boolean indicatorTrackEntity = false;
     // 全局伤害跳字 - 玩家显示距离(0 = 无限制)
     public float globalIndicatorMaxDistance = 128.0f;
     // 感知过滤:看不见且听不见该生物时,隐藏其受到的伤害跳字
@@ -414,6 +418,8 @@ public class DamageEngineConfig {
         this.healIndicatorColor = loaded.healIndicatorColor;
         this.indicatorPrefixSign = loaded.indicatorPrefixSign;
         this.showGlobalDamageIndicator = loaded.showGlobalDamageIndicator;
+        this.indicatorMerge = loaded.indicatorMerge;
+        this.indicatorTrackEntity = loaded.indicatorTrackEntity;
         // 0 = 无限制,保留 0;负数视为无效回退默认
         this.globalIndicatorMaxDistance = loaded.globalIndicatorMaxDistance >= 0 ? loaded.globalIndicatorMaxDistance : 128.0f;
         this.globalIndicatorSmartHide = loaded.globalIndicatorSmartHide;
@@ -542,6 +548,8 @@ public class DamageEngineConfig {
         healIndicatorColor = 0xFFB1EAC2;
         indicatorPrefixSign = false;
         showGlobalDamageIndicator = false;
+        indicatorMerge = false;
+        indicatorTrackEntity = false;
         globalIndicatorMaxDistance = 128.0f;
         globalIndicatorSmartHide = false;
         globalEntityBlockMode = false;
