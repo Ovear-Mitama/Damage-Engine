@@ -60,7 +60,7 @@ public class ClientHealthTracker {
                     );
 
                     if (config.showDamageIndicator && damageAmount > 0) {
-                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                        DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                             damageAmount,
                             false,  // Cannot detect crit in client-only mode
                             false
@@ -68,7 +68,7 @@ public class ClientHealthTracker {
                     }
 
                     if (config.showKillIndicator && killed) {
-                        DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                        DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                             damageAmount,
                             false,
                             true
@@ -106,7 +106,7 @@ public class ClientHealthTracker {
             double maxDist = config.globalIndicatorMaxDistance;
             if (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist) {
                 if (config.showDamageIndicator && damageAmount > 0) {
-                    DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                    DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                         damageAmount,
                         false,  // Cannot detect crit in client-only mode
                         false
@@ -114,7 +114,7 @@ public class ClientHealthTracker {
                 }
 
                 if (config.showKillIndicator && killed) {
-                    DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                    DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                         damageAmount,
                         false,
                         true
