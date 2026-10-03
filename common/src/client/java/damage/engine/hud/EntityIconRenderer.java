@@ -83,12 +83,15 @@ public final class EntityIconRenderer {
      * @param slotX         头像槽左上角 x(屏幕坐标,不套用当前 pose)
      * @param slotY         头像槽左上角 y(屏幕坐标,不套用当前 pose)
      * @param slotSize      头像槽边长(像素)
+     * @param subPixelX     亚像素水平微调(像素,向右为正):GUI 实体管线的画布坐标只能是整数,
+     *                      惯性让位这类小于 1 像素的位移必须走模型位移,否则会一格一格地跳
+     * @param subPixelY     亚像素垂直微调(像素,向下为正)
      * @param alpha         整体透明度(0~1;当前版本的 GUI 实体管线不支持整体透明度,仅用作可见性阈值)
      * @param followRotation true = 跟随实际朝向(以玩家视角为基准),false = 按自定义角度旋转
      * @param customAngle    自定义朝向角度(0~360,0 = 正面朝向观察者,顺时针增大;仅 followRotation=false 时生效)
      */
     public static void render(GuiGraphicsExtractor guiGraphics, LivingEntity entity, int slotX, int slotY, int slotSize,
-                              float alpha, boolean followRotation, int customAngle) {
+                              float subPixelX, float subPixelY, float alpha, boolean followRotation, int customAngle) {
         if (guiGraphics == null || entity == null || slotSize <= 0 || alpha <= 0.01f) return;
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null || mc.player == null) return;
@@ -136,7 +139,10 @@ public final class EntityIconRenderer {
             int boxX = slotX + slotSize / 2 - boxSize / 2;
             int boxY = slotY + slotSize / 2 - boxSize / 2;
 
-            Vector3f translate = new Vector3f(0.0f, translateY, 0.0f);
+            // 亚像素微调换算到模型位移(格):画布坐标只能整数,不足 1 像素的位移放在这里才不会跳。
+            // 该管线里模型位移 +x 向右、+y 向下(与屏幕坐标同向),故两项都取正。
+            Vector3f translate = new Vector3f(subPixelX / pixelsPerBlock,
+                translateY + subPixelY / pixelsPerBlock, 0.0f);
 
             // 与原版 InventoryScreen 一致:绕 Z 轴 180°(GUI 坐标翻转)
             Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI);

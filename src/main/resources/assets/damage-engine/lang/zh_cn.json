@@ -85,6 +85,10 @@
   "option.damage-engine.historyDecimalPlaces": "伤害记录小数点位数",
 
   "option.damage-engine.showDamageIndicator": "伤害跳字",
+  "option.damage-engine.indicator_merge": "合并跳字",
+  "hint.damage-engine.indicator_merge": "把同一目标短时间内受到的伤害合并成一个数字。\n若开启此功能，建议开启「追踪实体」。",
+  "option.damage-engine.indicator_track_entity": "追踪实体",
+  "hint.damage-engine.indicator_track_entity": "开启后，伤害跳字会跟随受害实体移动；实体消失后停在原地。",
   "option.damage-engine.indicatorDecimalPlaces": "伤害跳字小数点位数",
   "option.damage-engine.indicatorMode": "模式",
   "option.damage-engine.mode.enhanced": "增强模式",

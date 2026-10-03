@@ -348,20 +348,20 @@ public class ColorPickerPopup {
             g.requestCursor(DamageConfigScreen.CURSOR_NS);
         }
 
-        // 色相条(右侧,上下拖动;内部半透明,通透感)
+        // 色相条(右侧,上下拖动;不透明绘制,所见即所得)
         for (int i = 0; i < barH; i++) {
-            int c = (hsvToRgb(i / (float) barH, 1f, 1f) & 0xFFFFFF) | 0x88000000;
+            int c = (hsvToRgb(i / (float) barH, 1f, 1f) & 0xFFFFFF) | 0xFF000000;
             g.fill(barX, barY + i, barX + barW, barY + i + 1, c);
         }
         // 色相条指示器(白色)
         int indicatorY = barY + (int) (hue * barH);
         g.fill(barX - 2, indicatorY - 2, barX + barW + 2, indicatorY + 3, 0xFFFFFFFF);
 
-        // 饱和度/亮度大方块(纹理;内部半透明,通透感)
+        // 饱和度/亮度大方块(纹理;不透明绘制,避免取到的颜色看起来带了半透明)
         ensureSquareTexture();
         if (squareTexId != null) {
             g.blit(RenderPipelines.GUI_TEXTURED, squareTexId, squareX, squareY, 0.0f, 0.0f,
-                squareSize, squareSize, squareSize, squareSize, squareSize, squareSize, 0x88FFFFFF);
+                squareSize, squareSize, squareSize, squareSize, squareSize, squareSize, 0xFFFFFFFF);
             g.fill(squareX, squareY, squareX + squareSize, squareY + 1, 0xFF000000);
             g.fill(squareX, squareY + squareSize - 1, squareX + squareSize, squareY + squareSize, 0xFF000000);
             g.fill(squareX, squareY, squareX + 1, squareY + squareSize, 0xFF000000);

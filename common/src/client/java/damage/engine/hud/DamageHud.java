@@ -1041,16 +1041,23 @@ public class DamageHud {
                 guiGraphics.pose().popMatrix();
             } else if (infoAvatarEntity != null && entityRenderEnabled) {
                 // 非玩家实体:交给 GUI 实体渲染管线按真实体型画 3D 模型。
-                // 该管线用屏幕坐标(不套用模块 pose),因此这里手动换算。
+                // 该管线用屏幕坐标(不套用模块 pose),且画布只能是整数像素:把整数部分给画布、
+                // 不足 1 像素的余量交给 EntityIconRenderer 走模型位移,惯性让位时才能跟着面板平滑移动
+                // (否则坐标取整会让实体一格一格地跳)。
                 // 渲染框由 EntityIconRenderer 按实体实际尺寸自行放大,不需要裁剪或限制。
-                int slotX = Math.round(moduleScreenX + avatarDrawX * moduleScreenScale);
-                int slotY = Math.round(moduleScreenY + avatarY * moduleScreenScale);
+                float desiredX = moduleScreenX + avatarDrawX * moduleScreenScale;
+                float desiredY = moduleScreenY + avatarY * moduleScreenScale;
+                int slotX = (int) Math.floor(desiredX);
+                int slotY = (int) Math.floor(desiredY);
+                float subPixelX = desiredX - slotX;
+                float subPixelY = desiredY - slotY;
                 int slotSize = Math.round(avatarSize * moduleScreenScale);
                 if (slotSize > 0) {
                     float fade = infoAvatarAlpha * globalAlpha;
                     boolean followRotation = "follow".equals(DamageEngineConfig.getInstance().entityRenderRotation);
                     int rotationAngle = DamageEngineConfig.getInstance().entityRenderRotationAngle;
-                    EntityIconRenderer.render(guiGraphics, infoAvatarEntity, slotX, slotY, slotSize, fade, followRotation, rotationAngle);
+                    EntityIconRenderer.render(guiGraphics, infoAvatarEntity, slotX, slotY, slotSize,
+                        subPixelX, subPixelY, fade, followRotation, rotationAngle);
                 }
             }
         }
