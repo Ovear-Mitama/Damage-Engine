@@ -81,6 +81,10 @@
   "option.damage-engine.historyDecimalPlaces": "History Decimal Places",
 
   "option.damage-engine.showDamageIndicator": "Damage Numbers",
+  "option.damage-engine.indicator_merge": "Merge Damage Numbers",
+  "hint.damage-engine.indicator_merge": "Merge rapid hits on the same target into a single number.\nIt is recommended to enable Entity Tracking when this is on.",
+  "option.damage-engine.indicator_track_entity": "Track Entity",
+  "hint.damage-engine.indicator_track_entity": "Damage numbers follow the victim entity as it moves; they stay in place once the entity is gone.",
   "option.damage-engine.indicatorDecimalPlaces": "Indicator Decimal Places",
   "option.damage-engine.indicatorMode": "Mode",
   "option.damage-engine.mode.enhanced": "Enhanced",

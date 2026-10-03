@@ -77,12 +77,12 @@ public class NetworkSetup {
                         if (damage.engine.client.GlobalDamageFilter.shouldShow(config, mc, victim, payload.posX(), payload.posY(), payload.posZ())) {
                             if (config.showDamageIndicator && payload.amount() > 0) {
                                 Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                                DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                DamageIndicator.addIndicator(victim, pos.x, pos.y, pos.z,
                                     payload.amount(), payload.isCrit(), false);
                             }
                             if (config.showKillIndicator && payload.killed()) {
                                 Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                                DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                                DamageIndicator.addIndicator(victim, pos.x, pos.y, pos.z,
                                     payload.amount(), false, true);
                             }
                         }
@@ -106,14 +106,16 @@ public class NetworkSetup {
                     DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(), preferSwitchTarget);
 
                     Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
+                    net.minecraft.world.entity.Entity selfVictim = payload.entityId() > 0 && mc.level != null
+                        ? mc.level.getEntity(payload.entityId()) : null;
                     double maxDist = config.globalIndicatorMaxDistance;
                     if (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist) {
                         if (config.showDamageIndicator && payload.amount() > 0) {
-                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                            DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z,
                                 payload.amount(), payload.isCrit(), false);
                         }
                         if (config.showKillIndicator && payload.killed()) {
-                            DamageIndicator.addIndicator(pos.x, pos.y, pos.z,
+                            DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z,
                                 payload.amount(), false, true);
                         }
                     }
