@@ -245,6 +245,13 @@ public class DamageConfigScreen extends Screen {
 
     private void initDamageNumbersTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamageIndicator", config.showDamageIndicator, v -> { config.showDamageIndicator = v; markChanged(); }));
+        // 合并跳字（默认关，悬停提示建议配合追踪实体）；追踪实体（默认关）
+        addOption(new BooleanOptionEntry("option.damage-engine.indicator_merge", config.indicatorMerge,
+            v -> { config.indicatorMerge = v; markChanged(); },
+            Component.translatable("hint.damage-engine.indicator_merge")));
+        addOption(new BooleanOptionEntry("option.damage-engine.indicator_track_entity", config.indicatorTrackEntity,
+            v -> { config.indicatorTrackEntity = v; markChanged(); },
+            Component.translatable("hint.damage-engine.indicator_track_entity")));
         addOption(new IntegerSliderEntry("option.damage-engine.indicatorDecimalPlaces", config.indicatorDecimalPlaces, 0, 10, v -> { config.indicatorDecimalPlaces = v; markChanged(); }, true));
         
         // Mode selector
