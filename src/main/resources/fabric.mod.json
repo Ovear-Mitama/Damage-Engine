@@ -1,0 +1,56 @@
+{
+	"schemaVersion": 1,
+	"id": "damage-engine",
+	"version": "${version}",
+	"name": "Damage Engine",
+	"description": "Display damage info on the UI.",
+	"authors": [
+		"mitama"
+	],
+	"contact": {
+		"homepage": "https://modrinth.com/mod/damage-engine",
+		"sources": "https://github.com/Ovear-Mitama/Damage-Engine",
+		"issues": "https://github.com/Ovear-Mitama/Damage-Engine/issues"
+	},
+	"license": "MIT",
+	"icon": "assets/damage-engine/icon.png",
+	"environment": "*",
+	"entrypoints": {
+		"main": [
+			"damage.engine.DamageEngine"
+		],
+		"client": [
+			"damage.engine.DamageEngineClient"
+		],
+		"modmenu": [
+			"damage.engine.compat.modmenu.ModMenuIntegration"
+		]
+	},
+	"mixins": [
+		"damage-engine.mixins.json",
+		{
+			"config": "damage-engine.client.mixins.json",
+			"environment": "client"
+		},
+		{
+			"config": "damage-engine.xaero.mixins.json",
+			"environment": "client"
+		}
+	],
+	"depends": {
+		"fabricloader": ">=0.15.11",
+		"fabric-api": "*",
+		"minecraft": ">=1.21 <=1.21.1",
+		"java": ">=21",
+		"anima": ">=1.0.0"
+	},
+	"jars": [
+		{
+			"file": "META-INF/jars/anima-1.0.6.jar"
+		}
+	],
+	"suggests": {
+		"modmenu": ">=11.0.0",
+		"quilt_loader": ">=0.20.0"
+	}
+}

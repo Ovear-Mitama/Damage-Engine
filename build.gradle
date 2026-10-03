@@ -1,0 +1,198 @@
+plugins {
+	id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+	id 'maven-publish'
+}
+
+version = project.mod_version
+group = project.maven_group
+
+base {
+	archivesName = project.archives_base_name
+}
+
+// 产物命名:damage-engine-<版本号>-<加载器>-<MC版本号>.jar
+// Fabric 与 Quilt 共用同一份产物,故统一标为 Fabric
+tasks.named('remapJar') {
+	archiveFileName = "${project.archives_base_name}-${project.mod_version}-Fabric-${project.minecraft_version}.jar"
+}
+
+repositories {
+    mavenLocal()
+    maven { url "https://maven.terraformersmc.com/releases/" }
+    maven { url "https://maven.fabricmc.net/" }
+    maven { url "https://mirrors.cloud.tencent.com/nexus/repository/maven-public/" }
+    maven { url "https://maven.aliyun.com/repository/public" }
+}
+
+// ---------------------------------------------------------------------------
+// Modrinth 编译期依赖
+// Modrinth 官方 maven 仓库已停用,改用 CDN 直链下载 jar。
+// TaCZ: Refabricated 发布 jar 用 jar-in-jar 内置依赖,loom dev classpath 不会展开
+// 嵌套 jar,所以编译期直接把完整 jar 放到 libs/ 并以 modCompileOnly 引用。
+// TaCZ 仅用于编译(爆头->暴击兼容),运行时不加载,因此不放进 run/mods/。
+// ---------------------------------------------------------------------------
+def modrinthCompileMods = [
+    // TaCZ: Refabricated 1.21.1 (Timeless and Classics Zero) - 编译期需要,用于爆头->暴击兼容
+    [file: 'TACZ-Refabricated-1.21.1-0.7.0-forge1.1.8-hotfix.jar',
+     url : 'https://cdn.modrinth.com/data/1j76DVHU/versions/sqMweCpe/TACZ-Refabricated-1.21.1-0.7.0-forge1.1.8-hotfix.jar'],
+]
+
+def modrinthModsDir = file('libs')
+
+tasks.register('downloadModrinthMods') {
+    outputs.dir(modrinthModsDir)
+    doLast {
+        modrinthModsDir.mkdirs()
+        modrinthCompileMods.each { m ->
+            def dest = new File(modrinthModsDir, m.file)
+            if (!dest.exists() || dest.length() == 0L) {
+                logger.lifecycle("Downloading {} from Modrinth ...", m.file)
+                URLConnection conn = new URL(m.url).openConnection()
+                conn.setConnectTimeout(15000)
+                conn.setReadTimeout(120000)
+                conn.connect()
+                conn.inputStream.withCloseable { ins ->
+                    dest.withOutputStream { out -> out << ins }
+                }
+            }
+        }
+    }
+}
+
+// 编译期需要 TaCZ jar 在场(modCompileOnly files(...))。jar 缺失时 build 会排除
+// TaczFabricCompat 并继续(见 dependencies 块);downloadModrinthMods 任务保留供
+// 手动执行 ./gradlew downloadModrinthMods 下载。不要自动 dependsOn,以免网络
+// 不可用时构建被下载卡住。
+//tasks.named('compileJava') { dependsOn 'downloadModrinthMods' }
+
+loom {
+    splitEnvironmentSourceSets()
+    accessWidenerPath = file("src/main/resources/damage-engine.accesswidener")
+
+    mods {
+        "damage-engine" {
+            sourceSet sourceSets.main
+            sourceSet sourceSets.client
+        }
+    }
+
+}
+
+// Include common shared sources
+sourceSets {
+    main {
+        java {
+            srcDir 'common/src/main/java'
+        }
+    }
+    client {
+        java {
+            srcDir 'common/src/client/java'
+        }
+    }
+}
+
+dependencies {
+    // To change the versions see the gradle.properties file
+    minecraft "com.mojang:minecraft:${project.minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+
+    // Fabric API (required for networking)
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+
+    // ModMenu (optional, for config screen integration)
+    modCompileOnly "com.terraformersmc:modmenu:${project.modmenu_version}"
+    modLocalRuntime "com.terraformersmc:modmenu:${project.modmenu_version}"
+
+    // TaCZ: Refabricated (Timeless and Classics Zero) - compile only, for crit (headshot) compat.
+    // jar 由 downloadModrinthMods 任务从 Modrinth CDN 下载到 libs/(仅编译,不随运行时加载)。
+    // jar 缺失时(如网络不可用)排除硬引用 TACZ 的兼容类,保证构建仍可通过;有 jar 才启用兼容。
+    def taczJar = file('libs/TACZ-Refabricated-1.21.1-0.7.0-forge1.1.8-hotfix.jar')
+    if (taczJar.exists()) {
+        modCompileOnly files(taczJar)
+    } else {
+        sourceSets.main.java.exclude('damage/engine/compat/tacz/TaczFabricCompat.java')
+        logger.lifecycle('TaCZ jar not found in libs - TaczFabricCompat excluded, TACZ compat disabled for this build.')
+    }
+
+    // Anima: 跳字（伤害数字）动画 / 渲染库,必需依赖。
+    // 本地产物来自同级仓库 texture-animation-library,先在那里执行 ./gradlew build。
+    // 开发环境用 build/devlibs 的 -dev jar(已映射为 named,且不带新版 Loom 的版本校验);
+    // 发布产物通过下面的 include 内置本库(见下)。
+    def animaJar = file('../texture-animation-library/build/devlibs/anima-1.0.6-dev.jar')
+    if (!animaJar.exists()) {
+        throw new GradleException("Anima dev jar 不存在: ${animaJar}\n请先在 texture-animation-library 执行 ./gradlew build")
+    }
+    modImplementation files(animaJar)
+}
+
+// 把库内置进产物（Jar-in-Jar）：Anima 还没上传 Modrinth，玩家不需要单独安装。
+// 库产物命名与 DE 一致：anima-<版本>-Fabric-<MC>.jar；嵌套进 jar 后统一叫
+// META-INF/jars/anima-<版本>.jar，fabric.mod.json 的 "jars" 按这个名字声明。
+// （Loom 的 include files(...) 不支持普通文件依赖，会报 "not a module component"。）
+tasks.named('jar') {
+    def animaProdJar = file("../texture-animation-library/build/libs/anima-${anima_version}-Fabric-${project.minecraft_version}.jar")
+    if (!animaProdJar.exists()) {
+        throw new GradleException("Anima 正式 jar 不存在: ${animaProdJar}\n请先在 texture-animation-library 执行 ./gradlew build")
+    }
+    def animaNestedName = "anima-${anima_version}.jar"
+    from(animaProdJar) {
+        into 'META-INF/jars'
+        rename { animaNestedName }
+    }
+}
+
+processResources {
+	inputs.property "version", project.version
+
+	filesMatching("fabric.mod.json") {
+		expand "version": inputs.properties.version
+	}
+}
+
+tasks.withType(JavaCompile).configureEach {
+	it.options.release = 21
+}
+
+java {
+	// Loom will automatically attach sourcesJar to a RemapSourcesJar task and to the "build" task
+	// if it is present.
+	// If you remove this line, sources will not be generated.
+	withSourcesJar()
+
+	sourceCompatibility = JavaVersion.VERSION_21
+	targetCompatibility = JavaVersion.VERSION_21
+	
+	toolchain {
+		languageVersion = JavaLanguageVersion.of(21)
+	}
+}
+
+jar {
+	inputs.property "archivesName", project.base.archivesName
+
+	from(sourceSets.client.output)
+
+	from("LICENSE") {
+		rename { "${it}_${inputs.properties.archivesName}"}
+	}
+}
+
+// configure the maven publication
+publishing {
+	publications {
+		create("mavenJava", MavenPublication) {
+			artifactId = project.archives_base_name
+			from components.java
+		}
+	}
+
+	// See https://docs.gradle.org/current/userguide/publishing_maven.html for information on how to set up publishing.
+	repositories {
+		// Add repositories to publish to here.
+		// Notice: This block does NOT have the same function as the block in the top level.
+		// The repositories here will be used for publishing your artifact, not for
+		// retrieving dependencies.
+	}
+}
