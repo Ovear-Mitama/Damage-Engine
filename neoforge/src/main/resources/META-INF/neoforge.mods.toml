@@ -28,6 +28,10 @@ clientOnly=true
 config="damage-engine.xaero.mixins.json"
 clientOnly=true
 
+[[mixins]]
+config="damage-engine.dummy.mixins.json"
+clientOnly=true
+
 [[dependencies.${mod_id}]]
     modId="neoforge"
     type="required"

@@ -1,0 +1,11 @@
+{
+	"required": false,
+	"package": "damage.engine.mixin.client.compat.dummy",
+	"compatibilityLevel": "JAVA_21",
+	"client": [
+		"DummyDamageNumberMixin"
+	],
+	"injectors": {
+		"defaultRequire": 0
+	}
+}
