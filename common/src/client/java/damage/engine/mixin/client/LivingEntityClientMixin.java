@@ -32,6 +32,10 @@ public class LivingEntityClientMixin {
     private void onTickClientSide(CallbackInfo ci) {
         LivingEntity self = (LivingEntity) (Object) this;
         if (!self.level().isClientSide()) return;
+        // Target dummies recharge their health before it reaches the client, so health
+        // diffs are meaningless for them. Their damage numbers come from
+        // DummyDamageCompat via the dummy mod's own message instead.
+        if (self.getClass().getName().startsWith("net.mehvahdjukaar.dummmmmmy.")) return;
         
         float h = self.getHealth();
         float a = self.getAbsorptionAmount();
