@@ -2,9 +2,10 @@ package damage.engine.client;
 
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
-import damage.engine.hud.DamageIndicator;
-import damage.engine.hud.DamageSessionManager;
+import damage.engine.hud.indicator.DamageIndicator;
+import damage.engine.hud.session.DamageSessionManager;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.world.phys.Vec3;
@@ -86,8 +87,14 @@ public class ClientHealthTracker {
 
         // 准星命中的实体交给会话判断(末影龙需从部件映射到本体),命中时强制切换信息面板目标
         Minecraft client = Minecraft.getInstance();
+        Entity crosshair = client.hitResult instanceof EntityHitResult ehr ? ehr.getEntity() : null;
+
+        float distance = client.player != null
+            ? damage.engine.hud.rating.CombatContext.distance(client.player, entity) : 0f;
+        boolean unseen = killed && client.player != null
+            && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(entity, client.player);
         DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(),
-            client.hitResult instanceof EntityHitResult ehr ? ehr.getEntity() : null);
+            crosshair, killed, distance, unseen);
 
         // Blend indicator position toward crosshair hit point
         Vec3 pos = DamageEngineClient.blendIndicatorPos(

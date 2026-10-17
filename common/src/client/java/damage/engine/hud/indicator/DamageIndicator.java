@@ -1,4 +1,6 @@
-package damage.engine.hud;
+package damage.engine.hud.indicator;
+
+import damage.engine.hud.format.DamageNumberFormat;
 
 import anima.api.AnimaApi;
 import anima.api.Easing;

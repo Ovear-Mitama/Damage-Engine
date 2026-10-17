@@ -1,5 +1,7 @@
 package damage.engine.client.gui;
 
+import damage.engine.client.gui.config.StyledButton;
+
 import anima.api.AnimaApi;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -29,12 +31,12 @@ public class ConfigWorldNeededScreen extends Screen {
         int buttonY = this.height / 2 + 20;
 
         // Cancel (left) — back to the settings screen
-        this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX - 105, buttonY, 100, 20,
+        this.addRenderableWidget(new StyledButton(centerX - 105, buttonY, 100, 20,
             Component.translatable("gui.cancel").withColor(0xFFFC887E),
             () -> mcl.setScreen(settingsScreen)));
 
         // Confirm (right) — enter the dedicated preview world
-        this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX + 5, buttonY, 100, 20,
+        this.addRenderableWidget(new StyledButton(centerX + 5, buttonY, 100, 20,
             Component.translatable("button.damage-engine.enter_config_world").withColor(0xFFB7F3C8),
             () -> AnimaApi.enterConfigWorld(settingsScreen)));
     }

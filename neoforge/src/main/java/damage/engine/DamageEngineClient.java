@@ -78,7 +78,7 @@ public class DamageEngineClient {
         });
 
         // 伤害跳字交给 Anima 在世界渲染阶段画真 3D 文字（有透视、随距离缩放、会被方块遮挡）
-        anima.api.AnimaApi.onWorldRender(damage.engine.hud.DamageIndicator::renderWorld);
+        anima.api.AnimaApi.onWorldRender(damage.engine.hud.indicator.DamageIndicator::renderWorld);
     }
 
     @SubscribeEvent

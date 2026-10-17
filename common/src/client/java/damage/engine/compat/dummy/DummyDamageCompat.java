@@ -2,8 +2,8 @@ package damage.engine.compat.dummy;
 
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
-import damage.engine.hud.DamageIndicator;
-import damage.engine.hud.DamageSessionManager;
+import damage.engine.hud.indicator.DamageIndicator;
+import damage.engine.hud.session.DamageSessionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.EntityHitResult;
