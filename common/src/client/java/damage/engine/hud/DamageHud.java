@@ -127,7 +127,7 @@ public class DamageHud {
                         globalAlpha = 1.0f - fadeProgress;
                         if (globalAlpha < 0) globalAlpha = 0;
                     }
-                    globalAlpha = Mth.clamp(globalAlpha, 0.0f, 1.0f);
+                    globalAlpha = Math.clamp(globalAlpha, 0.0f, 1.0f);
                 }
                 
                 if (globalAlpha > 0.01f) {
@@ -215,9 +215,13 @@ public class DamageHud {
                 throw new Exception("Failed to read native image");
             }
             Identifier texId = Identifier.fromNamespaceAndPath("damage-engine", "rating_" + imagePath);
-            net.minecraft.client.renderer.texture.DynamicTexture dynamicTexture = new net.minecraft.client.renderer.texture.DynamicTexture(() -> "damage-engine/rating_" + imagePath, nativeImage);
-            client.getTextureManager().register(texId, dynamicTexture);
-            return new RatingTexture(texId, nativeImage.getWidth(), nativeImage.getHeight());
+            net.minecraft.client.renderer.texture.TextureResources texture =
+                net.minecraft.client.renderer.texture.TextureResources.from2dImage(() -> "damage-engine/rating_" + imagePath, nativeImage);
+            client.getTextureManager().register(texId, texture);
+            int width = nativeImage.getWidth();
+            int height = nativeImage.getHeight();
+            nativeImage.close();
+            return new RatingTexture(texId, width, height);
         } catch (Exception e) {
             DamageEngineClient.LOGGER.error("Failed to load rating image: " + e.getMessage());
             return null;
@@ -236,7 +240,7 @@ public class DamageHud {
 
         if (isPreview && !previewGrade.isEmpty()) {
             long t = System.currentTimeMillis() % 1500;
-            float progress = Mth.clamp(t / 1500f, 0f, 1f);
+            float progress = Math.clamp(t / 1500f, 0f, 1f);
             ratingAlpha = progress < 0.15f ? progress / 0.15f : (progress > 0.7f ? (1f - (progress - 0.7f) / 0.3f) : 1f);
             ratingText = previewGrade;
             ratingColor = previewGradeColor;
@@ -251,7 +255,7 @@ public class DamageHud {
             }
         } else if (!isPreview && rm.isVisible()) {
             long elapsed = System.currentTimeMillis() - rm.getGradeShowTime();
-            float progress = Mth.clamp(elapsed / 2000f, 0f, 1f);
+            float progress = Math.clamp(elapsed / 2000f, 0f, 1f);
             ratingAlpha = progress > 0.6f ? (1f - (progress - 0.6f) / 0.4f) : 1f;
             ratingText = rm.getGrade();
             ratingColor = rm.getGradeColor();
@@ -350,7 +354,7 @@ public class DamageHud {
 
     /** 当前惯性强度倍率:100 = 默认幅度。 */
     private static float inertiaStrength() {
-        return Mth.clamp(DamageEngineConfig.getInstance().hudInertiaStrength, 0, 200) / 100f;
+        return Math.clamp(DamageEngineConfig.getInstance().hudInertiaStrength, 0, 200) / 100f;
     }
 
     /**
@@ -366,7 +370,7 @@ public class DamageHud {
         if (rawDt > 0.25f) {
             inertiaPrevInit = false;
         }
-        float dt = Mth.clamp(rawDt, 1f / 240f, 0.1f);
+        float dt = Math.clamp(rawDt, 1f / 240f, 0.1f);
 
         Camera camera = client.level == null ? null : client.gameRenderer.mainCamera();
         if (camera == null || "off".equals(DamageEngineConfig.getInstance().hudInertiaMode)) {
@@ -411,8 +415,8 @@ public class DamageHud {
         float damp = 2f * (float) Math.sqrt(INERTIA_STIFFNESS);
         inertiaVelX += (-INERTIA_STIFFNESS * inertiaX - damp * inertiaVelX) * dt;
         inertiaVelY += (-INERTIA_STIFFNESS * inertiaY - damp * inertiaVelY) * dt;
-        inertiaX = Mth.clamp(inertiaX + inertiaVelX * dt, -maxOffset, maxOffset);
-        inertiaY = Mth.clamp(inertiaY + inertiaVelY * dt, -maxOffset, maxOffset);
+        inertiaX = Math.clamp(inertiaX + inertiaVelX * dt, -maxOffset, maxOffset);
+        inertiaY = Math.clamp(inertiaY + inertiaVelY * dt, -maxOffset, maxOffset);
 
         if (Math.abs(inertiaX) < 0.02f && Math.abs(inertiaVelX) < 0.02f) {
             inertiaX = 0f;
@@ -566,12 +570,12 @@ public class DamageHud {
                             timeSinceLast = System.currentTimeMillis() - session.getLastHitTime();
                         }
                         float realProgress = 1.0f - (float)timeSinceLast / (float)resetTimeMs;
-                        smoothProgress = Mth.clamp(realProgress, 0.0f, 1.0f);
+                        smoothProgress = Math.clamp(realProgress, 0.0f, 1.0f);
                     } else {
                         smoothProgress = 0.0f;
                     }
                 }
-                smoothProgress = Mth.clamp(smoothProgress, 0.0f, 1.0f);
+                smoothProgress = Math.clamp(smoothProgress, 0.0f, 1.0f);
             }
 
             float barWidth = contentHalfWidth * 2.0f;
@@ -622,7 +626,7 @@ public class DamageHud {
         }
         if (batchCount < 1) batchCount = 1;
         float settleProgress = isPreview ? 1.0f
-            : Mth.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
+            : Math.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
 
         int baseY = 15;
 
@@ -659,13 +663,13 @@ public class DamageHud {
             // 会因为随后又来了一条而把进度重置,表现为"闪一下又消失"。
             float entryAlphaMul = 1.0f;
             if (!isPreview) {
-                float ownProgress = Mth.clamp((now - entry.timestamp()) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
+                float ownProgress = Math.clamp((now - entry.timestamp()) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
                 if (ownProgress < 1.0f) entryAlphaMul = ownProgress;
             }
 
             finalItemAlpha *= globalAlpha * entryAlphaMul;
             if (finalItemAlpha <= 0) continue;
-            finalItemAlpha = Mth.clamp(finalItemAlpha, 0.0f, 1.0f);
+            finalItemAlpha = Math.clamp(finalItemAlpha, 0.0f, 1.0f);
             int itemAlpha = (int)(255 * finalItemAlpha);
             if (itemAlpha < 5) continue;
 
@@ -718,7 +722,7 @@ public class DamageHud {
     private void updateInfoAnimation(DamageSessionManager session, Minecraft client) {
         long now = System.currentTimeMillis();
         float dt = infoLastUpdateMs == 0 ? 0.016f : (now - infoLastUpdateMs) / 1000.0f;
-        dt = Mth.clamp(dt, 0.0f, 0.1f);
+        dt = Math.clamp(dt, 0.0f, 0.1f);
         infoLastUpdateMs = now;
 
         int candidateTargetId = session.isInfoActive() ? session.getLastTargetEntityId() : infoLastTargetId;
@@ -816,7 +820,7 @@ public class DamageHud {
 
         if (infoFading) {
             float t = (now - infoFadeStartMs) / (float)INFO_FADE_MS;
-            infoAlpha = 1.0f - Mth.clamp(t, 0.0f, 1.0f);
+            infoAlpha = 1.0f - Math.clamp(t, 0.0f, 1.0f);
             if (infoAlpha <= 0.01f) {
                 infoAlpha = 0.0f;
                 infoFading = false;
@@ -916,14 +920,14 @@ public class DamageHud {
 
         int hp = Math.max(0, Math.round(health + absorption));
         int maxHp = maxHealth > 0f ? Math.max(1, Math.round(maxHealth)) : 0;
-        float ratio = maxHealth > 0f ? Mth.clamp(health / maxHealth, 0.0f, 1.0f) : 0.0f;
+        float ratio = maxHealth > 0f ? Math.clamp(health / maxHealth, 0.0f, 1.0f) : 0.0f;
 
         int baseAlpha = (int)(255 * globalAlpha);
         if (baseAlpha < 5) return;
 
         long now = System.currentTimeMillis();
         float layoutDt = infoLayoutLastUpdateMs == 0 ? 0.016f : (now - infoLayoutLastUpdateMs) / 1000.0f;
-        layoutDt = Mth.clamp(layoutDt, 0.0f, 0.1f);
+        layoutDt = Math.clamp(layoutDt, 0.0f, 0.1f);
         infoLayoutLastUpdateMs = now;
 
         // 玩家恒有头像(皮肤脸);非玩家实体在开启实体渲染且有目标时展开头像槽
@@ -931,15 +935,15 @@ public class DamageHud {
         float targetAvatar = (isPlayer || (entityRenderEnabled && infoAvatarEntity != null)) ? 1.0f : 0.0f;
         float avatarSmoothing = 1.0f - (float)Math.pow(0.0001, layoutDt);
         infoAvatarFactor += (targetAvatar - infoAvatarFactor) * avatarSmoothing;
-        infoAvatarFactor = Mth.clamp(infoAvatarFactor, 0.0f, 1.0f);
+        infoAvatarFactor = Math.clamp(infoAvatarFactor, 0.0f, 1.0f);
 
         float targetAvatarAlpha = targetAvatar;
         infoAvatarAlpha += (targetAvatarAlpha - infoAvatarAlpha) * avatarSmoothing;
-        infoAvatarAlpha = Mth.clamp(infoAvatarAlpha, 0.0f, 1.0f);
+        infoAvatarAlpha = Math.clamp(infoAvatarAlpha, 0.0f, 1.0f);
 
         int panelH = 30;
 
-        int bgOpacity = Mth.clamp(DamageEngineConfig.getInstance().infoBackgroundOpacity, 0, 100);
+        int bgOpacity = Math.clamp(DamageEngineConfig.getInstance().infoBackgroundOpacity, 0, 100);
         int bgBaseAlpha = (int)Math.round(255 * (bgOpacity / 100.0f));
         int bgAlpha = (int)Math.round(bgBaseAlpha * globalAlpha);
         if (globalAlpha < 0.99f && bgAlpha < 25) {
@@ -1081,7 +1085,7 @@ public class DamageHud {
 
         float dt = infoHealthLastUpdateMs == 0 ? 0.016f : (now - infoHealthLastUpdateMs) / 1000.0f;
         infoHealthLastUpdateMs = now;
-        dt = Mth.clamp(dt, 0.0f, 0.1f);
+        dt = Math.clamp(dt, 0.0f, 0.1f);
 
         if (infoSmoothRatio < 0) {
             infoSmoothRatio = ratio;
@@ -1144,18 +1148,18 @@ public class DamageHud {
             }
         }
 
-        infoSmoothRatio = Mth.clamp(infoSmoothRatio, 0.0f, 1.0f);
-        infoLagRatio = Mth.clamp(infoLagRatio, 0.0f, 1.0f);
-        infoHealRatio = Mth.clamp(infoHealRatio, 0.0f, 1.0f);
+        infoSmoothRatio = Math.clamp(infoSmoothRatio, 0.0f, 1.0f);
+        infoLagRatio = Math.clamp(infoLagRatio, 0.0f, 1.0f);
+        infoHealRatio = Math.clamp(infoHealRatio, 0.0f, 1.0f);
         int barColor = DamageEngineConfig.getInstance().infoBarColor;
         int healColorBase = DamageEngineConfig.getInstance().infoBarHealColor;
         int damageColorBase = DamageEngineConfig.getInstance().infoBarDamageColor;
 
         if (oldAlphaMul() > 0.01f && infoPrevSmoothRatio >= 0) {
             float oldMul = oldAlphaMul();
-            float s = Mth.clamp(infoPrevSmoothRatio, 0.0f, 1.0f);
-            float lag = Mth.clamp(infoPrevLagRatio, 0.0f, 1.0f);
-            float heal = Mth.clamp(infoPrevHealRatio, 0.0f, 1.0f);
+            float s = Math.clamp(infoPrevSmoothRatio, 0.0f, 1.0f);
+            float lag = Math.clamp(infoPrevLagRatio, 0.0f, 1.0f);
+            float heal = Math.clamp(infoPrevHealRatio, 0.0f, 1.0f);
             int a = (int)(baseAlpha * oldMul);
 
             int fillW = (int)Math.floor(barW * s);
@@ -1220,14 +1224,14 @@ public class DamageHud {
 
     private float oldAlphaMul() {
         if (infoSwitching) {
-            return 1.0f - Mth.clamp((System.currentTimeMillis() - infoSwitchStartMs) / (float)INFO_SWITCH_MS, 0.0f, 1.0f);
+            return 1.0f - Math.clamp((System.currentTimeMillis() - infoSwitchStartMs) / (float)INFO_SWITCH_MS, 0.0f, 1.0f);
         }
         return 0.0f;
     }
 
     private float newAlphaMul() {
         if (infoSwitching) {
-            return Mth.clamp((System.currentTimeMillis() - infoSwitchStartMs) / (float)INFO_SWITCH_MS, 0.0f, 1.0f);
+            return Math.clamp((System.currentTimeMillis() - infoSwitchStartMs) / (float)INFO_SWITCH_MS, 0.0f, 1.0f);
         }
         return 1.0f;
     }

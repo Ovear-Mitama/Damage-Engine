@@ -13,7 +13,6 @@ import net.minecraft.world.entity.projectile.throwableitemprojectile.AbstractThr
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.damagesource.DamageTypes;
 import net.minecraft.world.phys.AABB;
-import net.minecraft.util.Mth;
 import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
 import org.slf4j.Logger;
 
@@ -122,14 +121,14 @@ public class DamageTrackerHelper {
             // Clamp the projectile hit point into the victim's AABB so the float
             // stays on the victim no matter where the projectile reports its position.
             AABB box = self.getBoundingBox();
-            srcX = Mth.clamp(directSource.getX(), box.minX, box.maxX);
-            srcY = Mth.clamp(directSource.getY(), box.minY, box.maxY);
-            srcZ = Mth.clamp(directSource.getZ(), box.minZ, box.maxZ);
+            srcX = Math.clamp(directSource.getX(), box.minX, box.maxX);
+            srcY = Math.clamp(directSource.getY(), box.minY, box.maxY);
+            srcZ = Math.clamp(directSource.getZ(), box.minZ, box.maxZ);
         } else if (attacker != null) {
             AABB box = self.getBoundingBox();
-            srcX = Mth.clamp(attacker.getX(), box.minX, box.maxX);
+            srcX = Math.clamp(attacker.getX(), box.minX, box.maxX);
             srcY = (box.minY + box.maxY) * 0.5;
-            srcZ = Mth.clamp(attacker.getZ(), box.minZ, box.maxZ);
+            srcZ = Math.clamp(attacker.getZ(), box.minZ, box.maxZ);
         } else {
             AABB box = self.getBoundingBox();
             srcX = self.getX();

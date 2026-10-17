@@ -252,14 +252,14 @@ public class DamageIndicator {
                 // NDC -> 屏幕坐标;不过度剔除屏幕外位置(clamp 保底)
                 float ndcX = worldPos.x() / worldPos.w();
                 float ndcY = worldPos.y() / worldPos.w();
-                ndcX = Mth.clamp(ndcX, -2.0f, 2.0f);
-                ndcY = Mth.clamp(ndcY, -2.0f, 2.0f);
+                ndcX = Math.clamp(ndcX, -2.0f, 2.0f);
+                ndcY = Math.clamp(ndcY, -2.0f, 2.0f);
                 float anchorX = (ndcX * 0.5f + 0.5f) * screenW;
                 float anchorY = (1.0f - (ndcY * 0.5f + 0.5f)) * screenH;
 
                 // Distance factor affects drift distance / text scale
                 float distW = Math.abs(worldPos.w());
-                float distFactor = Mth.clamp(5f / distW, 0.3f, 1.0f); // 0.3-1.0, small = far
+                float distFactor = Math.clamp(5f / distW, 0.3f, 1.0f); // 0.3-1.0, small = far
 
                 // Spawn around the crosshair hit point (anchored in world space),
                 // each indicator at its own random ring radius.
@@ -337,7 +337,7 @@ public class DamageIndicator {
 
                 float finalScale = scale * baseScale;
                 // Slight size variation based on damage amount
-                float damageScaleFactor = 1.0f + Mth.clamp(ind.damage / 100f, 0f, 0.3f);
+                float damageScaleFactor = 1.0f + Math.clamp(ind.damage / 100f, 0f, 0.3f);
                 finalScale *= damageScaleFactor;
                 // Subtle distance-based scale: far entities slightly smaller (10% reduction at max distance)
                 float distanceScaleFactor = 0.9f + distFactor * 0.1f;

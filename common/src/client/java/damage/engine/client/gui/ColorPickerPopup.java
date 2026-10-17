@@ -8,7 +8,7 @@ import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
-import net.minecraft.client.renderer.texture.DynamicTexture;
+import net.minecraft.client.renderer.texture.TextureResources;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
@@ -52,7 +52,7 @@ public class ColorPickerPopup {
 
     // 方块纹理(色相变化时重建)
     private NativeImage squareImage;
-    private DynamicTexture squareTexture;
+    private TextureResources squareTexture;
     private Identifier squareTexId;
     private int squareHueCache = -1;
 
@@ -84,8 +84,8 @@ public class ColorPickerPopup {
         int sh = screen.height;
         int x = anchorX - panelW - 12;
         int y = anchorY + 10;
-        x = Mth.clamp(x, 4, Math.max(4, sw - panelW - 4));
-        y = Mth.clamp(y, 4, Math.max(4, sh - panelH - 4));
+        x = Math.clamp(x, 4, Math.max(4, sw - panelW - 4));
+        y = Math.clamp(y, 4, Math.max(4, sh - panelH - 4));
         panelX = x;
         panelY = y;
 
@@ -193,7 +193,7 @@ public class ColorPickerPopup {
         if (s == null || s.isEmpty()) return fallback;
         try {
             int v = Integer.parseInt(s);
-            return Mth.clamp(v, min, max);
+            return Math.clamp(v, min, max);
         } catch (NumberFormatException e) {
             return fallback;
         }
@@ -318,13 +318,13 @@ public class ColorPickerPopup {
     }
 
     private void updateFromSquare(double x, double y) {
-        sat = Mth.clamp((float) ((x - squareX) / (double) squareSize), 0f, 1f);
-        val = Mth.clamp(1f - (float) ((y - squareY) / (double) squareSize), 0f, 1f);
+        sat = Math.clamp((float) ((x - squareX) / (double) squareSize), 0f, 1f);
+        val = Math.clamp(1f - (float) ((y - squareY) / (double) squareSize), 0f, 1f);
         syncFromPicker();
     }
 
     private void updateFromBar(double y) {
-        hue = Mth.clamp((float) ((y - barY) / (double) barH), 0f, 1f);
+        hue = Math.clamp((float) ((y - barY) / (double) barH), 0f, 1f);
         syncFromPicker();
     }
 
@@ -430,7 +430,7 @@ public class ColorPickerPopup {
         if (squareTexture == null) {
             squareImage = new NativeImage(256, 256, true);
             squareTexId = Identifier.fromNamespaceAndPath("damage-engine", "color_square_" + System.nanoTime());
-            squareTexture = new DynamicTexture(() -> "damage-engine/color_square", squareImage);
+            squareTexture = TextureResources.from2dImage(() -> "damage-engine/color_square", squareImage);
             client.getTextureManager().register(squareTexId, squareTexture);
             squareHueCache = -1;
         }
@@ -446,7 +446,8 @@ public class ColorPickerPopup {
                     squareImage.setPixelABGR(x, y, abgr);
                 }
             }
-            squareTexture.upload();
+            squareTexture = TextureResources.from2dImage(() -> "damage-engine/color_square", squareImage);
+            client.getTextureManager().register(squareTexId, squareTexture);
         }
     }
 
