@@ -3,7 +3,7 @@ package damage.engine.mixin.client;
 import damage.engine.client.ClientHealthTracker;
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
-import damage.engine.hud.DamageIndicator;
+import damage.engine.hud.indicator.DamageIndicator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.LivingEntity;
 import org.spongepowered.asm.mixin.Mixin;

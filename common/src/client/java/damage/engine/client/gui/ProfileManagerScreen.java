@@ -50,7 +50,6 @@ public class ProfileManagerScreen extends Screen {
             ));
         }
 
-        // Done button
         int buttonWidth = 80;
         int buttonY = this.height - 35;
         this.addRenderableWidget(new StyledButton(
@@ -95,7 +94,6 @@ public class ProfileManagerScreen extends Screen {
             this.extractPanorama(guiGraphics, delta);
         }
 
-        // Title
         String titleText = Component.translatable("title.damage-engine.profile_manager").getString();
         guiGraphics.centeredText(this.font, titleText, this.width / 2, 15, 0xFFFFFFFF);
 
@@ -140,7 +138,6 @@ public class ProfileManagerScreen extends Screen {
             if (isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
             int x = getX(); int y = getY(); int w = getWidth(); int h = getHeight();
 
-            // Background
             int bgColor = isHovered() ? 0x30FFFFFF : 0x10000000;
             guiGraphics.fill(x, y, x + w, y + h, bgColor);
 

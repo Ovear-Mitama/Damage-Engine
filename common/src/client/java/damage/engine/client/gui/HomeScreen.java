@@ -3,7 +3,6 @@ package damage.engine.client.gui;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import damage.engine.DamageEngineConfig;
 import damage.engine.DamageEngineMeta;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -21,7 +20,6 @@ import java.time.Duration;
 
 public class HomeScreen extends Screen {
     private final Screen parent;
-    private final DamageEngineConfig config;
     private int buttonsLeftX;
 
     private enum UpdateState { IDLE, CHECKING, LATEST, OUTDATED, ERROR }
@@ -42,7 +40,6 @@ public class HomeScreen extends Screen {
     public HomeScreen(Screen parent) {
         super(Component.translatable("title.damage-engine.home"));
         this.parent = parent;
-        this.config = DamageEngineConfig.getInstance();
     }
 
     @Override
@@ -61,7 +58,6 @@ public class HomeScreen extends Screen {
         // Left edge of the centered button row; the title above is aligned to it
         this.buttonsLeftX = centerX - totalButtonsWidth / 2;
 
-        // Settings button
         this.addRenderableWidget(new StyledButton(
             this.buttonsLeftX, buttonY,
             buttonWidth, buttonHeight,

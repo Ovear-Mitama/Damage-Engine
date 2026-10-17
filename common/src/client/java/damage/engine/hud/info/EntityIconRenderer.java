@@ -1,4 +1,4 @@
-package damage.engine.hud;
+package damage.engine.hud.info;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;
@@ -70,9 +70,6 @@ public final class EntityIconRenderer {
      * 模型几何是静态的,缓存除了省开销,更重要的是避免逐帧读取"当前动画姿态"导致居中基准随行走摆动而抖动。
      */
     private static final Map<EntityType<?>, ModelExtents> MODEL_CACHE = new HashMap<>();
-
-    /** 诊断用:上次打印取景信息的实体 id(避免刷屏) */
-    private static int lastLogId = -1;
 
     private EntityIconRenderer() {
     }
@@ -146,22 +143,6 @@ public final class EntityIconRenderer {
             Quaternionf rotation = new Quaternionf().rotateZ((float) Math.PI);
             // 覆盖相机朝向,使火焰等公告板元素朝向 GUI 观察者
             Quaternionf cameraAngle = new Quaternionf();
-
-            if (entity.getId() != lastLogId) {
-                lastLogId = entity.getId();
-                LOGGER.info("[DE] icon: id={} 类型={} follow={} 包围箱={}x{} 模型XYZ={}x{}x{} 中点Y={} 体型缩放={} 每格像素={} 位移Y={} 渲染框={}",
-                    entity.getId(), entity.getType().getDescription().getString(), followRotation,
-                    String.format("%.2f", bbW),
-                    String.format("%.2f", bbH),
-                    model != null ? String.format("%.2f", model.spanX()) : "n/a",
-                    model != null ? String.format("%.2f", model.spanY()) : "n/a",
-                    model != null ? String.format("%.2f", model.spanZ()) : "n/a",
-                    model != null ? String.format("%.2f", model.centerY()) : "n/a",
-                    String.format("%.2f", bodyScale),
-                    String.format("%.2f", pixelsPerBlock),
-                    String.format("%.2f", translateY),
-                    boxSize);
-            }
 
             guiGraphics.entity(state, pixelsPerBlock, translate, rotation, cameraAngle,
                 boxX, boxY, boxX + boxSize, boxY + boxSize);
