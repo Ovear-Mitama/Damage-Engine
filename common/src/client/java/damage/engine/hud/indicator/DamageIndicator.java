@@ -1,6 +1,7 @@
-package damage.engine.hud;
+package damage.engine.hud.indicator;
 
 import damage.engine.DamageEngineConfig;
+import damage.engine.hud.format.DamageNumberFormat;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;

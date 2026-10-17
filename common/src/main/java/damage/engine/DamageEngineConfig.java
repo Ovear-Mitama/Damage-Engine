@@ -16,7 +16,6 @@ public class DamageEngineConfig {
     
     private static final Path CONFIG_DIR = Path.of("config", "damage-engine");
     private static final Path PROFILES_DIR = CONFIG_DIR.resolve("profiles");
-    private static final Path CONFIG_PATH = PROFILES_DIR.resolve("default.json");
     private static final DamageEngineConfig INSTANCE = new DamageEngineConfig();
     
     private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
@@ -99,15 +98,20 @@ public class DamageEngineConfig {
     public int infoBarDamageColor = 0xFFF9867D;
     
     // ========== Rating ==========
-    public boolean showRating = true;
-    public float ratingResetTime = 10f;
-    public float comboPoints = 0.2f;
-    public float hitPoints = 6f;
-    public float critPoints = 10f;
-    // 动态伤害加分:每次造成伤害增加(伤害数值 × 此倍率)分
-    public float damageScoreMultiplier = 0.5f;
-    // 单次伤害数值加分(默认空项,可添加)
-    public List<DamageBonus> damageBonuses = new ArrayList<>();
+    public boolean showRating = false;
+    // 评分分数显示(类似 COD 的加分提示)
+    public boolean showRatingScore = true;
+    // 加分时是否显示加分项目名称(连击/暴击/伤害加成等)
+    public boolean showRatingScoreSource = true;
+    // 加分提示同时显示的最大条数,超出后最旧的条目不再显示
+    public int ratingScoreMaxGains = 5;
+    // 评分总分的颜色
+    public int ratingScoreColor = 0xFFB1EAC2;
+    public float ratingResetTime = 20f;
+    // 连击在该时间内没有新命中则重置（秒）
+    public float comboResetTime = 10f;
+    // 加分规则(内置 + 自定义)，表达式支持 {combo} {crit} {damage} {kill} {unseen} {meter} 等
+    public List<BonusRule> bonusRules = new ArrayList<>();
     public boolean ratingUseImages = false;
     public List<RatingGrade> ratingGrades = new ArrayList<>();
     
@@ -121,11 +125,12 @@ public class DamageEngineConfig {
     public boolean hasShownWelcomeMessage = false;
     
     // ========== Module Configs ==========
-    public ModuleConfig totalDamageConfig = new ModuleConfig(0.8160156f, 0.37278107f, 0.95652175f);
+    public ModuleConfig totalDamageConfig = new ModuleConfig(0.8171875f, 0.38462415f, 0.95652175f, 2, 0, 117f, 83.71873f);
     public ModuleConfig comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
     public ModuleConfig historyConfig = new ModuleConfig(0.9359375f, 0.3305973f, 0.95652175f);
-    public ModuleConfig infoConfig = new ModuleConfig(0.61875f, 0.59909815f, 0.5539445f);
-    public ModuleConfig ratingConfig = new ModuleConfig(0.7867187f, 0.31508327f, 1.4066461f);
+    public ModuleConfig infoConfig = new ModuleConfig(0.6359375f, 0.38017642f, 0.5539445f);
+    public ModuleConfig ratingConfig = new ModuleConfig(0.7867187f, 0.31508327f, 1.4066461f, 2, 0, 136.5f, 0f);
+    public ModuleConfig ratingScoreConfig = new ModuleConfig(0.5953125f, 0.43195266f, 1.0f);
     
     public List<DamageThreshold> damageThresholds = new ArrayList<>();
 
@@ -136,9 +141,86 @@ public class DamageEngineConfig {
         public float y;
         public float scale;
         public boolean enabled;
+        /** 横向锚点：0 = 按屏幕比例，1 = 距左边固定像素，2 = 距右边固定像素。 */
+        public int anchorX = 0;
+        /** 纵向锚点：0 = 按屏幕比例，1 = 距顶部固定像素，2 = 距底部固定像素。 */
+        public int anchorY = 0;
+        public float marginX = 0f;
+        public float marginY = 0f;
 
         public ModuleConfig() {
             this.enabled = true;
+        }
+
+        /** 屏幕横坐标：靠近边缘的模块保持固定像素边距，其余按比例定位。 */
+        public int resolveScreenX(int guiWidth) {
+            if (anchorX == 1) return Math.round(marginX);
+            if (anchorX == 2) return guiWidth - Math.round(marginX);
+            if (x == -1.0f) return guiWidth / 2;
+            return Math.round(x * guiWidth);
+        }
+
+        public int resolveScreenY(int guiHeight) {
+            if (anchorY == 1) return Math.round(marginY);
+            if (anchorY == 2) return guiHeight - Math.round(marginY);
+            if (y == -1.0f) return guiHeight / 2;
+            return Math.round(y * guiHeight);
+        }
+
+        /** 旧配置首次渲染时自动决定贴边锚点。 */
+        public void ensureAnchor(int guiWidth, int guiHeight) {
+            if (anchorX == 0 && x >= 0f && x <= 1f) {
+                float cx = x * guiWidth;
+                if (cx <= guiWidth * 0.25f) {
+                    anchorX = 1;
+                    marginX = cx;
+                } else if (cx >= guiWidth * 0.75f) {
+                    anchorX = 2;
+                    marginX = guiWidth - cx;
+                }
+            }
+            if (anchorY == 0 && y >= 0f && y <= 1f) {
+                float cy = y * guiHeight;
+                if (cy <= guiHeight * 0.25f) {
+                    anchorY = 1;
+                    marginY = cy;
+                } else if (cy >= guiHeight * 0.75f) {
+                    anchorY = 2;
+                    marginY = guiHeight - cy;
+                }
+            }
+        }
+
+        /** 拖动结束后更新锚点：靠近边缘的模块改为固定像素边距。 */
+        public void updateAnchor(int guiWidth, int guiHeight) {
+            if (x < 0f || x > 1f) {
+                anchorX = 0;
+            } else {
+                float cx = x * guiWidth;
+                if (cx <= guiWidth * 0.25f) {
+                    anchorX = 1;
+                    marginX = cx;
+                } else if (cx >= guiWidth * 0.75f) {
+                    anchorX = 2;
+                    marginX = guiWidth - cx;
+                } else {
+                    anchorX = 0;
+                }
+            }
+            if (y < 0f || y > 1f) {
+                anchorY = 0;
+            } else {
+                float cy = y * guiHeight;
+                if (cy <= guiHeight * 0.25f) {
+                    anchorY = 1;
+                    marginY = cy;
+                } else if (cy >= guiHeight * 0.75f) {
+                    anchorY = 2;
+                    marginY = guiHeight - cy;
+                } else {
+                    anchorY = 0;
+                }
+            }
         }
 
         public ModuleConfig(float x, float y, float scale) {
@@ -146,6 +228,15 @@ public class DamageEngineConfig {
             this.y = y;
             this.scale = scale;
             this.enabled = true;
+        }
+
+        public ModuleConfig(float x, float y, float scale,
+                            int anchorX, int anchorY, float marginX, float marginY) {
+            this(x, y, scale);
+            this.anchorX = anchorX;
+            this.anchorY = anchorY;
+            this.marginX = marginX;
+            this.marginY = marginY;
         }
     }
 
@@ -163,18 +254,94 @@ public class DamageEngineConfig {
     }
 
     /**
-     * 单次伤害数值加分项:单次命中达到 damageSize 时增加 points 分。
+     * 一条加分规则。
+     * <p>expression 支持占位符与 + - * / 和括号，例如 {@code {kill} * 50}、{@code {damage:1}}。</p>
      */
-    public static class DamageBonus {
-        public float damageSize = 10f;
-        public float points = 0f;
+    public static class BonusRule {
+        /** 唯一标识；内置规则使用固定 id。 */
+        public String id = "";
+        /** 显示名称；内置规则留空时使用语言文件中的名称。 */
+        public String name = "";
+        /** 计分表达式。 */
+        public String expression = "0";
+        public boolean enabled = true;
+        public boolean builtin = false;
+        /** 持续项：不产生浮动提示，累计值常驻显示在评分界面。 */
+        public boolean continuous = false;
 
-        public DamageBonus() {
+        public BonusRule() {
         }
 
-        public DamageBonus(float damageSize, float points) {
-            this.damageSize = damageSize;
-            this.points = points;
+        public BonusRule(String id, String name, String expression, boolean builtin, boolean continuous) {
+            this.id = id;
+            this.name = name;
+            this.expression = expression;
+            this.builtin = builtin;
+            this.continuous = continuous;
+        }
+    }
+
+    /** 默认加分规则。 */
+    public static List<BonusRule> defaultBonusRules() {
+        List<BonusRule> list = new ArrayList<>();
+        list.add(new BonusRule("combo", "", "{combo,time:combo_time} * 0.2", true, true));
+        list.add(new BonusRule("killstreak", "", "{killstreak,time:20000} * 10", true, true));
+        list.add(new BonusRule("crit", "", "{crit:5}", true, false));
+        list.add(new BonusRule("damage", "", "{damage:1}", true, true));
+        list.add(new BonusRule("kill", "", "{kill:25}", true, false));
+        list.add(new BonusRule("unseen", "", "{unseen:20}", true, false));
+        list.add(new BonusRule("distance", "", "{kill_meter} > 5 ? {kill_meter} * 2 : 0", true, false));
+        return list;
+    }
+
+    /** 旧版本默认表达式迁移到新格式，用户自定义过的值保持不动。 */
+    private void migrateBonusRules() {
+        if (bonusRules == null) return;
+        for (BonusRule rule : bonusRules) {
+            if (rule == null || !rule.builtin) continue;
+            String expr = rule.expression == null ? "" : rule.expression.trim();
+            switch (rule.id) {
+                case "combo" -> {
+                    if (expr.equals("{combo} * 2") || expr.equals("{combo} * 0.2")) {
+                        rule.expression = "{combo,time:combo_time} * 0.2";
+                    }
+                    rule.continuous = true;
+                }
+                case "crit" -> {
+                    if (expr.equals("{crit} * 5")) rule.expression = "{crit:5}";
+                }
+                case "kill" -> {
+                    if (expr.equals("{kill} * 50")) rule.expression = "{kill:25}";
+                }
+                case "unseen" -> {
+                    if (expr.equals("{unseen} * 20")) rule.expression = "{unseen:20}";
+                }
+                case "killstreak" -> {
+                    if (expr.equals("{连杀} * 10") || expr.equals("{killstreak} * 10")) {
+                        rule.expression = "{killstreak,time:20000} * 10";
+                    }
+                }
+                case "distance" -> {
+                    if (expr.equals("{kill_meter}") || expr.equals("{kill_meter} * 2")
+                        || expr.equals("{kill} * {meter} * 5")) {
+                        rule.expression = "{kill_meter} > 5 ? {kill_meter} * 2 : 0";
+                    }
+                }
+                default -> {
+                }
+            }
+        }
+        // 旧配置没有“连杀”时补上默认项
+        boolean hasKillstreak = false;
+        for (BonusRule rule : bonusRules) {
+            if (rule != null && "killstreak".equals(rule.id)) {
+                hasKillstreak = true;
+                rule.continuous = true;
+                break;
+            }
+        }
+        if (!hasKillstreak) {
+            bonusRules.add(new BonusRule("killstreak", "", "{killstreak,time:20000} * 10", true, true));
         }
     }
 
@@ -450,15 +617,17 @@ public class DamageEngineConfig {
         
         // Rating
         this.showRating = loaded.showRating;
-        this.ratingResetTime = loaded.ratingResetTime;
-        this.comboPoints = loaded.comboPoints;
-        this.hitPoints = loaded.hitPoints;
-        this.critPoints = loaded.critPoints;
-        this.damageScoreMultiplier = loaded.damageScoreMultiplier;
+        this.showRatingScore = loaded.showRatingScore;
+        this.showRatingScoreSource = loaded.showRatingScoreSource;
+        this.ratingScoreMaxGains = Math.max(1, Math.min(10, loaded.ratingScoreMaxGains));
+        // 旧默认 10 秒迁移到新的 20 秒；用户其它取值保持不动
+        this.ratingResetTime = Math.abs(loaded.ratingResetTime - 10f) < 0.001f
+            ? 20f : loaded.ratingResetTime;
+        this.comboResetTime = loaded.comboResetTime > 0f ? loaded.comboResetTime : 10f;
         this.ratingUseImages = loaded.ratingUseImages;
-        if (loaded.damageBonuses != null) {
-            this.damageBonuses = loaded.damageBonuses;
-        }
+        this.bonusRules = (loaded.bonusRules != null && !loaded.bonusRules.isEmpty())
+            ? loaded.bonusRules : defaultBonusRules();
+        migrateBonusRules();
         if (loaded.ratingGrades != null && !loaded.ratingGrades.isEmpty()) {
             this.ratingGrades = loaded.ratingGrades;
             for (int i = 0; i < this.ratingGrades.size(); i++) {
@@ -481,6 +650,7 @@ public class DamageEngineConfig {
         if (loaded.historyConfig != null) this.historyConfig = loaded.historyConfig;
         if (loaded.infoConfig != null) this.infoConfig = loaded.infoConfig;
         if (loaded.ratingConfig != null) this.ratingConfig = loaded.ratingConfig;
+        if (loaded.ratingScoreConfig != null) this.ratingScoreConfig = loaded.ratingScoreConfig;
         
         if (loaded.damageThresholds != null) {
             this.damageThresholds = loaded.damageThresholds;
@@ -577,14 +747,16 @@ public class DamageEngineConfig {
         infoBarDamageColor = 0xFFF9867D;
         
         // Rating
-        showRating = true;
-        ratingResetTime = 10f;
-        comboPoints = 0.2f;
-        hitPoints = 6f;
-        critPoints = 10f;
-        damageScoreMultiplier = 0.5f;
+        showRating = false;
+        showRatingScore = true;
+        showRatingScoreSource = true;
+        ratingScoreMaxGains = 5;
+        ratingScoreColor = 0xFFB1EAC2;
+        ratingResetTime = 20f;
+        comboResetTime = 10f;
         ratingUseImages = false;
-        damageBonuses.clear();
+        bonusRules.clear();
+        bonusRules.addAll(defaultBonusRules());
         ratingGrades.clear();
         ratingGrades.add(new RatingGrade(1000f, "S", 0xFFD700, 1));
         ratingGrades.add(new RatingGrade(500f, "A", 0xFF6347, 2));
@@ -601,11 +773,12 @@ public class DamageEngineConfig {
         previewEnabled = false;
         
         // Module configs
-        totalDamageConfig = new ModuleConfig(0.8160156f, 0.37278107f, 0.95652175f);
+        totalDamageConfig = new ModuleConfig(0.8171875f, 0.38462415f, 0.95652175f, 2, 0, 117f, 83.71873f);
         comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
         historyConfig = new ModuleConfig(0.9359375f, 0.3305973f, 0.95652175f);
-        infoConfig = new ModuleConfig(0.61875f, 0.59909815f, 0.5539445f);
-        ratingConfig = new ModuleConfig(0.7867187f, 0.31508327f, 1.4066461f);
+        infoConfig = new ModuleConfig(0.6359375f, 0.38017642f, 0.5539445f);
+        ratingConfig = new ModuleConfig(0.7867187f, 0.31508327f, 1.4066461f, 2, 0, 136.5f, 0f);
+        ratingScoreConfig = new ModuleConfig(0.5953125f, 0.43195266f, 1.0f);
         
         damageThresholds.clear();
         damageThresholds.add(new DamageThreshold(0f, 0xFFFFFFFF));

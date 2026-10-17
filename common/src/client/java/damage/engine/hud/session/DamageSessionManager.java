@@ -1,6 +1,7 @@
-package damage.engine.hud;
+package damage.engine.hud.session;
 
 import damage.engine.DamageEngineConfig;
+import damage.engine.hud.rating.RatingManager;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.boss.enderdragon.EnderDragonPart;
 import java.util.List;
@@ -51,6 +52,21 @@ public class DamageSessionManager {
      * @param crosshairEntity 准星当前命中的实体(可为 null);命中本次受害者时会强制切换信息面板目标
      */
     public void addDamage(float amount, boolean isCrit, int targetEntityId, Entity crosshairEntity) {
+        addDamage(amount, isCrit, targetEntityId, isSameVictim(crosshairEntity, targetEntityId));
+    }
+
+    public void addDamage(float amount, boolean isCrit, int targetEntityId, Entity crosshairEntity,
+                          boolean killed, float distance, boolean unseen) {
+        addDamage(amount, isCrit, targetEntityId, isSameVictim(crosshairEntity, targetEntityId),
+            killed, distance, unseen);
+    }
+
+    public void addDamage(float amount, boolean isCrit, int targetEntityId, boolean preferSwitchTarget) {
+        addDamage(amount, isCrit, targetEntityId, preferSwitchTarget, false, 0f, false);
+    }
+
+    public void addDamage(float amount, boolean isCrit, int targetEntityId, boolean preferSwitchTarget,
+                          boolean killed, float distance, boolean unseen) {
         long now = System.currentTimeMillis();
         if (DamageEngineConfig.getInstance().resetEnabled && isActive && (now - lastHitTime) > DamageEngineConfig.getInstance().resetTime * 1000) {
             RatingManager.getInstance().endSession();
@@ -62,10 +78,10 @@ public class DamageSessionManager {
         comboCount++;
         lastHitTime = now;
 
-        RatingManager.getInstance().addHit(amount, isCrit);
+        RatingManager.getInstance().addHit(amount, isCrit, killed, distance, unseen);
 
         if (targetEntityId != -1) {
-            if (!isInfoActive() || targetEntityId == lastTargetEntityId || isSameVictim(crosshairEntity, targetEntityId)) {
+            if (!isInfoActive() || targetEntityId == lastTargetEntityId || preferSwitchTarget) {
                 lastTargetEntityId = targetEntityId;
                 infoExpireAt = now + (long)(DamageEngineConfig.getInstance().infoTrackTime * 1000);
             }

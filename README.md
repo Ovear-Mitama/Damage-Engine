@@ -4,65 +4,83 @@
 
 ![](https://cdn.modrinth.com/data/cached_images/2790e9f4439f9d099471217416ad36543a5b4e12_0.webp)
 
-Damage Engine displays comprehensive combat information on your HUD — total damage, combo counter, damage history, target entity info, floating damage numbers, and a rating system.
+Damage Engine shows your combat in clear numbers: how much damage you deal, how many hits you chain, where each hit lands, and how the target is doing.
 
-**Requires installation on both client and server.**
+> Install it on **both client and server** for the full experience. If the server does not have it, the client can still show damage numbers in a limited client-only mode.
 
----
+***
+
+## Features
+
+### Floating Damage Numbers
+
+- Damage numbers appear in the world at the hit location, not on a fixed HUD corner.
+- Separate colors and animations for normal hits, crits and kills, with custom kill text.
+- Numbers scale with distance, so nearby hits are readable and far ones stay subtle.
+- **Enhanced** and **cloud** animation modes, plus an in-game animation editor.
+- Add particle effects to animations and preview them directly in the editor.
+- Optional **merge** mode: fast hits on the same target combine into one number.
+- Optional **entity tracking**: the number follows a moving target.
+- Heal numbers and global damage numbers for hits dealt by other players.
+- **Damage overflow** option: show the full damage dealt instead of stopping at the target's remaining health.
 
 ### HUD Modules
 
-- **Total Damage** — Accumulated damage in the current combat session, with configurable color thresholds (e.g., white → blue → magenta → gold at different damage milestones).
-- **Combo Counter** — Shows how many hits you've landed in a row (e.g., "x5").
-- **Progress Bar** — A bar that instantly refills on hit and smoothly drains over time, indicating when the combo/damage session will reset.
-- **Damage History** — A scrolling list of recent individual damage values, newest on top, with slide-in and fade-out animations.
-- **Target Info Panel** — Displays the last entity you hit: player avatar head (for players), entity name, HP values, and an animated health bar with damage tail and heal effects.
-- **Floating Damage Indicators** — World-space numbers that pop up from hit targets or projectiles, with distinct animations for normal hits, crits, and kills ("Kill!"). Supports distance-based scaling.
-- **Rating System** — Earn a grade (S / A / B / C / D) based on combo count, normal hits, and crits in each combat session. All scoring weights and grade thresholds are fully configurable.
+- **Total Damage** — damage dealt in the current fight, with configurable color tiers.
+- **Combo Counter** — consecutive hits, for example `x5`.
+- **Progress Bar** — shows when the current combo will reset.
+- **Damage History** — recent hits, newest first, with smooth slide animation.
+- **Target Info** — the last target's name, 3D entity preview, health values and an animated health bar with damage-tail and heal effects. A perception filter can hide targets you can neither see nor hear.
+- **Rating** — an S / A / B / C / D grade based on combos, hits and crits.
 
-### HUD Editor
+### HUD Editor and Layout
 
-Each module can be independently repositioned and resized via a drag-and-drop HUD editor, with undo/redo support.
+- Drag, resize and arrange every module in-game, with undo and redo.
+- HUD inertia: modules smoothly follow camera movement, with adjustable strength.
+- Left/right alignment for the damage display.
 
----
+### Quality of Life
 
-### Configurable Options
+- Number formatting: separators (`1,000`) and abbreviation (`1.5K`).
+- Configurable decimal places for totals and floating numbers.
+- F1 compatibility: optionally hide the HUD with the vanilla GUI.
+- Multiple config profiles for different servers or playstyles.
+- Debug options for raw damage info and live rating score.
 
-- Show/hide each HUD module individually.
-- Custom colors for progress bar, combo, history entries, normal/crit damage, health bars, floating indicators, and kill text.
-- Configurable color thresholds for total damage (define color tiers at any damage value).
-- Adjustable combo reset time, history entry limit (1–50), history display duration, and decimal places (0–10).
-- F1 compatibility — optionally hide the HUD when the vanilla GUI is hidden.
-- Debug mode — optionally print raw damage info to chat or show current rating score in the action bar.
-- Full `config/damage-engine/config.json` for manual editing.
+***
 
----
+## Client-Only Mode
+
+When the server does not have Damage Engine installed, the client estimates damage from health changes.
+
+- Works for most mobs and players without installing anything on the server.
+- Limited accuracy: the attacker, crits and projectile hits cannot always be identified, and the number position is estimated.
+
+***
+
+## Configuration
+
+- Open the config screen with the config key binding or from Mod Menu.
+- Edit the HUD layout directly in-game through the HUD editor.
+- Colors, timings, distances, animations and number formats are configurable in-game.
 
 ### Key Bindings
 
 All keys are unbound by default and can be assigned in the controls menu:
 
-- **Open Config** — Opens the configuration GUI.
-- **Toggle HUD** — Show/hide the entire Damage Engine HUD.
-- **Clear Damage** — Reset the current damage session and clear all floating indicators.
-
----
+- **Open Config** — open the configuration screen.
+- **Toggle HUD** — show or hide the whole HUD.
+- **Clear Damage** — reset the current session and remove floating numbers.
 
 ### Commands
 
-- **`/damage_engine clear`** — Clears current damage data (same as the key binding).
+- `/damage_engine clear` — clears current damage data.
 
----
+***
 
-### Compatibility
+## Links
 
-- **Mod Menu** — Full configuration GUI integration via the Mod Menu gear button.
-- **FOV/Zoom Mods** — Correctly handles projection matrices for accurate floating indicator positioning.
-- **Jade** — Listed as a suggested dependency.
+- Source: <https://github.com/Ovear-Mitama/Damage-Engine>
+- Issues and suggestions: <https://github.com/Ovear-Mitama/Damage-Engine/issues>
 
----
-
-### Feedback & License
-
-- Issues and suggestions: [https://github.com/Ovear-Mitama/Damage-Engine/issues](https://github.com/Ovear-Mitama/Damage-Engine/issues)
-- Licensed under the [MIT](https://opensource.org/license/MIT) license.
+Licensed under the [MIT](https://opensource.org/license/MIT) license.
