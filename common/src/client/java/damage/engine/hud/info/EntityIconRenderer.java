@@ -1,4 +1,4 @@
-package damage.engine.hud;
+package damage.engine.hud.info;
 
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;

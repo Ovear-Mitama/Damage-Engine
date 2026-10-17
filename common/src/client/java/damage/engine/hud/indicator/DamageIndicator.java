@@ -1,6 +1,7 @@
-package damage.engine.hud;
+package damage.engine.hud.indicator;
 
 import damage.engine.DamageEngineConfig;
+import damage.engine.hud.format.DamageNumberFormat;
 import com.mojang.blaze3d.systems.RenderSystem;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;

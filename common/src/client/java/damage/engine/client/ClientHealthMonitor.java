@@ -2,7 +2,7 @@ package damage.engine.client;
 
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
-import damage.engine.hud.DamageIndicator;
+import damage.engine.hud.indicator.DamageIndicator;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.LivingEntity;
 

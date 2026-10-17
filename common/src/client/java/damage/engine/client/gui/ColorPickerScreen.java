@@ -81,7 +81,6 @@ public class ColorPickerScreen extends Screen {
         int previewH = 26;
         panelH = pad + squareSize + 8 + btnH + pad + previewH;
 
-        // 居中
         panelX = (this.width - panelW) / 2;
         panelY = (this.height - panelH) / 2;
 

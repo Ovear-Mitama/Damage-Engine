@@ -1,7 +1,13 @@
 package damage.engine.hud;
 
+import damage.engine.hud.format.DamageNumberFormat;
+import damage.engine.hud.info.EntityIconRenderer;
+import damage.engine.hud.session.DamageSessionManager;
+
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
+import damage.engine.hud.rating.RatingManager;
+import damage.engine.hud.rating.RatingRenderer;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
@@ -123,31 +129,46 @@ public class DamageHud {
                 });
             }
 
-            if (!config.showDamage) return;
-            if (!config.showDamageDisplay) {
-                return;
-            }
-
-            float globalAlpha = 1.0f;
-            if (session.isActive()) {
-                if (config.resetEnabled) {
-                    long now = System.currentTimeMillis();
-                    long timeSinceLast = now - session.getLastHitTime();
-                    long resetTimeMs = (long)(DamageEngineConfig.getInstance().resetTime * 1000);
-                    if (timeSinceLast > resetTimeMs) {
-                        float fadeProgress = (timeSinceLast - resetTimeMs) / 1000.0f;
-                        globalAlpha = 1.0f - fadeProgress;
-                        if (globalAlpha < 0) globalAlpha = 0;
+            if (config.showDamage && config.showDamageDisplay) {
+                if (session.isActive()) {
+                    float globalAlpha = 1.0f;
+                    if (config.resetEnabled) {
+                        long now = System.currentTimeMillis();
+                        long timeSinceLast = now - session.getLastHitTime();
+                        long resetTimeMs = (long) (config.resetTime * 1000);
+                        if (timeSinceLast > resetTimeMs) {
+                            float fadeProgress = (timeSinceLast - resetTimeMs) / 1000.0f;
+                            globalAlpha = 1.0f - fadeProgress;
+                            if (globalAlpha < 0) globalAlpha = 0;
+                        }
+                        globalAlpha = Mth.clamp(globalAlpha, 0.0f, 1.0f);
                     }
-                    globalAlpha = Mth.clamp(globalAlpha, 0.0f, 1.0f);
-                }
-                
-                if (globalAlpha > 0.01f) {
-                    renderDamageContent(guiGraphics, session.getTotalDamage(), session.getComboCount(),
-                        session.getRemainingTimeProgress(), session.getDamageHistory(), false, globalAlpha);
+                    if (globalAlpha > 0.01f) {
+                        renderDamageContent(guiGraphics, session.getTotalDamage(), session.getComboCount(),
+                            session.getRemainingTimeProgress(), session.getDamageHistory(), false, globalAlpha);
+                    }
+                } else {
+                    lastComboCount = 0;
                 }
             } else {
                 lastComboCount = 0;
+            }
+
+            // 评分模块最后绘制：保证在伤害 HUD 之上，淡出时不会被遮挡后“重新出现”
+            RatingManager rating = RatingManager.getInstance();
+            float ratingAlpha = rating.getFadeAlpha();
+            // 极低透明度下文字容易出现残影/闪烁，低于 5/255 直接不画
+            if (ratingAlpha > 5f / 255f) {
+                if (config.showRating) {
+                    renderModule(guiGraphics, config.ratingConfig, client, ratingAlpha, () -> {
+                        renderRatingGrade(guiGraphics, false, ratingAlpha, client);
+                    });
+                }
+                if (config.showRatingScore) {
+                    renderModule(guiGraphics, config.ratingScoreConfig, client, ratingAlpha, () -> {
+                        renderRatingScore(guiGraphics, false, ratingAlpha, client);
+                    });
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -190,11 +211,17 @@ public class DamageHud {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         Minecraft client = Minecraft.getInstance();
 
-        RatingManager rm = RatingManager.getInstance();
-        if ((isPreview && config.showRating) || (!isPreview && config.showRating && rm.isVisible())) {
-            renderModule(guiGraphics, config.ratingConfig, client, globalAlpha, () -> {
-                renderRating(guiGraphics, isPreview, globalAlpha, client);
-            });
+        if (isPreview) {
+            if (config.showRating) {
+                renderModule(guiGraphics, config.ratingConfig, client, globalAlpha, () -> {
+                    renderRatingGrade(guiGraphics, true, globalAlpha, client);
+                });
+            }
+            if (config.showRatingScore) {
+                renderModule(guiGraphics, config.ratingScoreConfig, client, globalAlpha, () -> {
+                    renderRatingScore(guiGraphics, true, globalAlpha, client);
+                });
+            }
         }
 
         if (!isPreview || config.showDamageDisplay) {
@@ -208,111 +235,24 @@ public class DamageHud {
         }
     }
 
-    public void renderRating(GuiGraphics guiGraphics, boolean isPreview, float globalAlpha, Minecraft client) {
-        Font font = client.font;
-        RatingManager rm = RatingManager.getInstance();
-        int baseAlpha = (int)(255 * globalAlpha);
+    public void renderRatingGrade(GuiGraphics guiGraphics, boolean isPreview, float globalAlpha, Minecraft client) {
+        RatingRenderer.renderGrade(guiGraphics, isPreview, globalAlpha, client, previewGrade, previewGradeColor);
+    }
 
-        float ratingAlpha = 0f;
-        String ratingText = "";
-        int ratingColor = 0;
-        String imagePath = "";
-
-        if (isPreview && !previewGrade.isEmpty()) {
-            long t = System.currentTimeMillis() % 1500;
-            float progress = Mth.clamp(t / 1500f, 0f, 1f);
-            ratingAlpha = progress < 0.15f ? progress / 0.15f : (progress > 0.7f ? (1f - (progress - 0.7f) / 0.3f) : 1f);
-            ratingText = previewGrade;
-            ratingColor = previewGradeColor;
-            List<DamageEngineConfig.RatingGrade> grades = DamageEngineConfig.getInstance().ratingGrades;
-            if (grades != null) {
-                for (DamageEngineConfig.RatingGrade g : grades) {
-                    if (g.text.equals(previewGrade)) {
-                        imagePath = g.imagePath;
-                        break;
-                    }
-                }
-            }
-        } else if (!isPreview && rm.isVisible()) {
-            long elapsed = System.currentTimeMillis() - rm.getGradeShowTime();
-            float progress = Mth.clamp(elapsed / 2000f, 0f, 1f);
-            ratingAlpha = progress > 0.6f ? (1f - (progress - 0.6f) / 0.4f) : 1f;
-            ratingText = rm.getGrade();
-            ratingColor = rm.getGradeColor();
-            imagePath = rm.getGradeImagePath();
-        }
-
-        if (ratingAlpha > 0.01f) {
-            int rAlpha = (int)(baseAlpha * ratingAlpha);
-            int rColor = (ratingColor & 0x00FFFFFF) | (rAlpha << 24);
-
-            if (DamageEngineConfig.getInstance().ratingUseImages && imagePath != null && !imagePath.isEmpty()) {
-                try {
-                    java.io.File imageFile = new java.io.File(client.gameDirectory, "config/damage-engine/images/" + imagePath + ".png");
-
-                    if (!imageFile.exists()) {
-                        throw new Exception("Image file not found: " + imageFile.getAbsolutePath());
-                    }
-
-                    java.io.FileInputStream fis = new java.io.FileInputStream(imageFile);
-                    com.mojang.blaze3d.platform.NativeImage nativeImage = com.mojang.blaze3d.platform.NativeImage.read(fis);
-                    fis.close();
-
-                    if (nativeImage == null) {
-                        throw new Exception("Failed to read native image");
-                    }
-
-                    ResourceLocation texId = new ResourceLocation("damage-engine", "rating_" + imagePath);
-                    net.minecraft.client.renderer.texture.DynamicTexture dynamicTexture = new net.minecraft.client.renderer.texture.DynamicTexture(nativeImage);
-                    client.getTextureManager().register(texId, dynamicTexture);
-
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().scale(0.15f, 0.15f, 1.0f);
-
-                    com.mojang.blaze3d.systems.RenderSystem.enableBlend();
-                    com.mojang.blaze3d.systems.RenderSystem.defaultBlendFunc();
-                    guiGraphics.setColor(1.0f, 1.0f, 1.0f, (float)rAlpha / 255.0f);
-
-                    int imgWidth = nativeImage.getWidth();
-                    int imgHeight = nativeImage.getHeight();
-                    guiGraphics.blit(texId, -imgWidth / 2, -imgHeight / 2, 0, 0, imgWidth, imgHeight, imgWidth, imgHeight);
-
-                    guiGraphics.setColor(1.0f, 1.0f, 1.0f, 1.0f);
-                    com.mojang.blaze3d.systems.RenderSystem.disableBlend();
-
-                    guiGraphics.pose().popPose();
-                } catch (Exception e) {
-                    DamageEngineClient.LOGGER.error("Failed to load rating image: " + e.getMessage());
-                    float rs = 1.2f;
-                    guiGraphics.pose().pushPose();
-                    guiGraphics.pose().scale(rs, rs, 1.0f);
-                    int gw = font.width(ratingText);
-                    guiGraphics.drawString(font, ratingText, -gw / 2, -font.lineHeight / 2, rColor);
-                    guiGraphics.pose().popPose();
-                }
-            } else {
-                float rs = 1.2f;
-                guiGraphics.pose().pushPose();
-                guiGraphics.pose().scale(rs, rs, 1.0f);
-                int gw = font.width(ratingText);
-                guiGraphics.drawString(font, ratingText, -gw / 2, -font.lineHeight / 2, rColor);
-                guiGraphics.pose().popPose();
-            }
-        }
+    public void renderRatingScore(GuiGraphics guiGraphics, boolean isPreview, float globalAlpha, Minecraft client) {
+        RatingRenderer.renderScore(guiGraphics, isPreview, globalAlpha, client);
     }
 
     public void renderModule(GuiGraphics guiGraphics, DamageEngineConfig.ModuleConfig moduleConfig, Minecraft client, float globalAlpha, Runnable renderAction) {
         if (!moduleConfig.enabled) return;
 
-        int x = moduleConfig.x == -1.0f ? client.getWindow().getGuiScaledWidth() / 2 : (int)(moduleConfig.x * client.getWindow().getGuiScaledWidth());
-        int y = moduleConfig.y == -1.0f ? client.getWindow().getGuiScaledHeight() / 2 : (int)(moduleConfig.y * client.getWindow().getGuiScaledHeight());
+        int guiWidth = client.getWindow().getGuiScaledWidth();
+        int guiHeight = client.getWindow().getGuiScaledHeight();
+        moduleConfig.ensureAnchor(guiWidth, guiHeight);
+        int x = moduleConfig.resolveScreenX(guiWidth);
+        int y = moduleConfig.resolveScreenY(guiHeight);
 
-        // 屏幕坐标系里的子项必须自己带上偏移;pose 里是否再叠一次看模式——"整层 HUD"
-        // 模式已由外层统一偏移,这里不再叠加。用浮点不用取整,否则位移会被量化成一格一格。
-        this.moduleScreenX = x + inertiaX;
-        this.moduleScreenY = y + inertiaY;
-        this.moduleScreenScale = moduleConfig.scale;
-
+        // "整层 HUD"模式已由外层统一偏移,这里不再叠加。用浮点不用取整,否则位移会被量化成一格一格。
         float inertiaOffX = applyOwnInertiaOffset() ? inertiaX : 0f;
         float inertiaOffY = applyOwnInertiaOffset() ? inertiaY : 0f;
 
@@ -350,10 +290,6 @@ public class DamageHud {
     /** 已压进矩阵栈的偏移量,用于给整屏特效临时抵消 */
     private float globalShiftX = 0f;
     private float globalShiftY = 0f;
-    /** 模块在屏幕坐标系里的落点(含惯性偏移),供不吃 pose 的子项使用。 */
-    private float moduleScreenX = 0f;
-    private float moduleScreenY = 0f;
-    private float moduleScreenScale = 1f;
 
     /** 只让 DE 自己的 HUD 让位时才在模块变换里叠偏移;"整层 HUD"模式由外层统一偏移。 */
     private static boolean applyOwnInertiaOffset() {
@@ -511,7 +447,7 @@ public class DamageHud {
         boolean showCombo = DamageEngineConfig.getInstance().showCombo;
         float labelScale = 0.9f;
         int labelAlpha = baseAlpha;
-        int labelColor = (0xFFFFFFFF) | (labelAlpha << 24);
+        int labelColor = (0xFFFFFF) | (labelAlpha << 24);
 
         String damageLabel = "damage";
         String fullLabel;

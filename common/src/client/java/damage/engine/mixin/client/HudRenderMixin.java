@@ -1,7 +1,7 @@
 package damage.engine.mixin.client;
 
 import damage.engine.hud.DamageHud;
-import damage.engine.hud.DamageIndicator;
+import damage.engine.hud.indicator.DamageIndicator;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import org.spongepowered.asm.mixin.Mixin;

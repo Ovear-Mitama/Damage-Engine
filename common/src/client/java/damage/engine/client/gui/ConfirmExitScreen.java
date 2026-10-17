@@ -1,11 +1,12 @@
 package damage.engine.client.gui;
 
+import damage.engine.client.gui.config.StyledButton;
+
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextColor;
 
 /**
  * Custom-styled confirmation dialog for unsaved changes.
@@ -31,13 +32,13 @@ public class ConfirmExitScreen extends Screen {
         int buttonY = this.height / 2 + 20;
 
         // Cancel button (left) - returns to settings
-        this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX - 105, buttonY, 100, 20,
-            Component.translatable("gui.cancel").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFC887E))),
+        this.addRenderableWidget(new StyledButton(centerX - 105, buttonY, 100, 20,
+            Component.translatable("gui.cancel").withStyle(s -> s.withColor(net.minecraft.network.chat.TextColor.fromRgb(0xFFFC887E & 0xFFFFFF))),
             () -> mcl.setScreen(settingsScreen)));
 
         // Confirm button (right) - discards changes and exits
-        this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX + 5, buttonY, 100, 20,
-            Component.translatable("gui.confirm").withStyle(style -> style.withColor(TextColor.fromRgb(0xFFB7F3C8))),
+        this.addRenderableWidget(new StyledButton(centerX + 5, buttonY, 100, 20,
+            Component.translatable("gui.confirm").withStyle(s -> s.withColor(net.minecraft.network.chat.TextColor.fromRgb(0xFFB7F3C8 & 0xFFFFFF))),
             () -> {
                 config.load();
                 mcl.setScreen(parent);
@@ -48,7 +49,6 @@ public class ConfirmExitScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
         this.renderBackground(guiGraphics);
 
-        // Warning message
         String msg = Component.translatable("text.damage-engine.unsaved_changes").getString();
         guiGraphics.drawCenteredString(this.font, msg, this.width / 2, this.height / 2 - 25, 0xFFFFFFFF);
 

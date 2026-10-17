@@ -2,8 +2,8 @@ package damage.engine.client;
 
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
-import damage.engine.hud.DamageIndicator;
-import damage.engine.hud.DamageSessionManager;
+import damage.engine.hud.indicator.DamageIndicator;
+import damage.engine.hud.session.DamageSessionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.phys.EntityHitResult;
@@ -95,7 +95,12 @@ public class ClientHealthTracker {
             preferSwitchTarget = ehr.getEntity().getId() == entity.getId();
         }
 
-        DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(), preferSwitchTarget);
+        float distance = client.player != null
+            ? damage.engine.hud.rating.CombatContext.distance(client.player, entity) : 0f;
+        boolean unseen = killed && client.player != null
+            && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(entity, client.player);
+        DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(),
+            preferSwitchTarget, killed, distance, unseen);
 
         // Blend indicator position toward crosshair hit point, capped by the configured max distance
         if (client.player != null) {

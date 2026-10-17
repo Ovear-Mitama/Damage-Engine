@@ -1,6 +1,6 @@
 package damage.engine.mixin.client;
 
-import damage.engine.hud.DamageIndicator;
+import damage.engine.hud.indicator.DamageIndicator;
 import net.minecraft.client.renderer.LevelRenderer;
 import org.joml.Matrix4f;
 import org.spongepowered.asm.mixin.Mixin;

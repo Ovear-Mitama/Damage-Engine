@@ -113,7 +113,7 @@ public class DamageEngineClient {
                 try {
                     // 此时整层偏移(若有)还在栈上,DE 自己的 HUD 也就跟着走了
                     damage.engine.hud.DamageHud.INSTANCE.onHudRender(ev.getGuiGraphics(), ev.getPartialTick());
-                    damage.engine.hud.DamageIndicator.render(ev.getGuiGraphics(), ev.getPartialTick());
+                    damage.engine.hud.indicator.DamageIndicator.render(ev.getGuiGraphics(), ev.getPartialTick());
                 } finally {
                     damage.engine.hud.DamageHud.INSTANCE.endGlobalShift(ev.getGuiGraphics());
                 }
@@ -126,7 +126,7 @@ public class DamageEngineClient {
                     // Use the event's PoseStack (same source as Fabric's
                     // BEFORE_ENTITIES matrixStack) instead of RenderSystem's
                     // modelview, which is not the pure camera view at this point.
-                    damage.engine.hud.DamageIndicator.captureMatrices(
+                    damage.engine.hud.indicator.DamageIndicator.captureMatrices(
                         new org.joml.Matrix4f(ev.getProjectionMatrix()),
                         new org.joml.Matrix4f(ev.getPoseStack().last().pose()));
                 }
@@ -177,14 +177,14 @@ public class DamageEngineClient {
                 }
                 if (ClientKeybindings.clearDamageKeyBinding != null) {
                     while (ClientKeybindings.clearDamageKeyBinding.consumeClick()) {
-                        damage.engine.hud.DamageSessionManager.getInstance().reset();
-                        damage.engine.hud.DamageIndicator.clearAll();
+                        damage.engine.hud.session.DamageSessionManager.getInstance().reset();
+                        damage.engine.hud.indicator.DamageIndicator.clearAll();
                     }
                 }
 
                 if (!mc.isPaused()) {
-                    damage.engine.hud.DamageSessionManager.getInstance().tick();
-                    damage.engine.hud.DamageIndicator.tickAndCleanup();
+                    damage.engine.hud.session.DamageSessionManager.getInstance().tick();
+                    damage.engine.hud.indicator.DamageIndicator.tickAndCleanup();
                     damage.engine.client.ClientAttackTracker.getInstance().cleanup();
                     damage.engine.client.ClientHealthMonitor.cleanup();
                 }

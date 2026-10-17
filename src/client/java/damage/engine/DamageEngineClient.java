@@ -1,8 +1,8 @@
 package damage.engine;
 
-import damage.engine.hud.DamageSessionManager;
-import damage.engine.hud.DamageIndicator;
-import damage.engine.hud.RatingManager;
+import damage.engine.hud.session.DamageSessionManager;
+import damage.engine.hud.indicator.DamageIndicator;
+import damage.engine.hud.rating.RatingManager;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -52,7 +52,7 @@ public class DamageEngineClient implements ClientModInitializer {
         net.fabricmc.fabric.api.client.rendering.v1.WorldRenderEvents.BEFORE_ENTITIES.register(ctx -> {
             org.joml.Matrix4f proj = ctx.projectionMatrix();
             org.joml.Matrix4f view = new org.joml.Matrix4f(ctx.matrixStack().last().pose());
-            damage.engine.hud.DamageIndicator.captureMatrices(
+            damage.engine.hud.indicator.DamageIndicator.captureMatrices(
                 proj != null ? new org.joml.Matrix4f(proj) : null, view);
         });
 
@@ -141,11 +141,17 @@ public class DamageEngineClient implements ClientModInitializer {
                         }
                     } catch (Exception ignored) {}
 
-                    DamageSessionManager.getInstance().addDamage(amount, isCrit, entityId, preferSwitchTarget);
-
-                    Vec3 pos = blendIndicatorPos(posX, posY, posZ, entityId);
                     net.minecraft.world.entity.Entity selfVictim = entityId > 0 && client.level != null
                         ? client.level.getEntity(entityId) : null;
+                    float distance = (selfVictim != null && client.player != null)
+                        ? (float) Math.sqrt(client.player.distanceToSqr(selfVictim)) : 0f;
+                    boolean unseen = killed && selfVictim != null && client.player != null
+                        && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(selfVictim, client.player);
+
+                    DamageSessionManager.getInstance().addDamage(amount, isCrit, entityId,
+                        preferSwitchTarget, killed, distance, unseen);
+
+                    Vec3 pos = blendIndicatorPos(posX, posY, posZ, entityId);
                     double maxDist = config.globalIndicatorMaxDistance;
                     if (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist) {
                         if (config.showDamageIndicator && amount > 0) {
