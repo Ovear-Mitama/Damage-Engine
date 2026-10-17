@@ -66,7 +66,7 @@ public class DamageEngineClient {
         );
 
         // 跳字走 Anima 的世界渲染（真 3D：透视 + 遮挡），不再画在 2D HUD 层
-        anima.api.AnimaApi.onWorldRender(damage.engine.hud.DamageIndicator::renderWorld);
+        anima.api.AnimaApi.onWorldRender(damage.engine.hud.indicator.DamageIndicator::renderWorld);
     }
 
     @SubscribeEvent

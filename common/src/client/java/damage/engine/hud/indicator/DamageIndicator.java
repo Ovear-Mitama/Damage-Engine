@@ -1,4 +1,6 @@
-package damage.engine.hud;
+package damage.engine.hud.indicator;
+
+import damage.engine.hud.format.DamageNumberFormat;
 
 import anima.api.AnimaApi;
 import anima.api.Easing;
@@ -179,8 +181,6 @@ public class DamageIndicator {
     }
 
     private static long lastCleanupTime = 0;
-    /** 临时诊断用（定位"跳字不显示"）——排查完可以删。 */
-    private static long lastDebugLog = 0;
 
     public static class Indicator {
         double x, y, z;
@@ -382,8 +382,6 @@ public class DamageIndicator {
                 partialTick = client.getTimer().getGameTimeDeltaPartialTick(true);
             }
 
-            int drawnCount = 0;
-
             for (Indicator ind : indicators) {
                 if (!isAlive(ind, now)) continue;
 
@@ -490,22 +488,12 @@ public class DamageIndicator {
                 // 双绘（同原版名字牌）：先 see-through 一遍（不做深度测试 → 不被方块 / 实体遮挡），
                 // 再常规画一遍（有遮挡）——这样即使穿透那遍在某些渲染阶段没生效，跳字也一定可见
                 int color = 0xFF000000 | (argbColor & 0x00FFFFFF);
-                boolean drewA = AnimaApi.drawWorldText3D(buffers, camera, label, tx, ty, tz,
+                AnimaApi.drawWorldText3D(buffers, camera, label, tx, ty, tz,
                     offsetX, offsetY, color, null,
                     trueMs, durationMs, WorldText3D.DEFAULT_SCALE, scaleMul, alphaMul, glyphs, true);
-                boolean drewB = AnimaApi.drawWorldText3D(buffers, camera, label, tx, ty, tz,
+                AnimaApi.drawWorldText3D(buffers, camera, label, tx, ty, tz,
                     offsetX, offsetY, color, null,
                     trueMs, durationMs, WorldText3D.DEFAULT_SCALE, scaleMul, alphaMul, glyphs, false);
-                if (drewA || drewB) {
-                    drawnCount++;
-                }
-            }
-
-            // 临时诊断（定位"跳字不显示"）：每秒最多打一行，确认回调有没有跑、有没有真画出去
-            if (now - lastDebugLog > 1000) {
-                lastDebugLog = now;
-                damage.engine.DamageEngine.LOGGER.info("[DE跳字] renderWorld: indicators={} drawn={} buffers={}",
-                    indicators.size(), drawnCount, buffers == null ? "null" : buffers.getClass().getSimpleName());
             }
         }
     }

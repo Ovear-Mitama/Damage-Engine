@@ -1,4 +1,4 @@
-package damage.engine.hud;
+package damage.engine.hud.info;
 
 import com.mojang.blaze3d.platform.Lighting;
 import com.mojang.blaze3d.systems.RenderSystem;
@@ -18,8 +18,6 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.EntityDimensions;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.animal.Animal;
-import net.minecraft.world.entity.animal.WaterAnimal;
 import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -54,8 +52,6 @@ public final class EntityIconRenderer {
 
     /** 原版 GUI 深度:实体画在 z=50(比面板背景 z=0 更靠近观察者,因此覆盖在面板之上)。 */
     private static final double GUI_Z = 50.0;
-    /** 实体在头像框内占据的比例(超出部分由上层文本/血条盖住,不做裁剪限制)。 */
-    private static final float FILL_RATIO = 0.98f;
 
     /**
      * 换算基准:多少格高度对应"刚好填满头像槽"。
@@ -74,9 +70,6 @@ public final class EntityIconRenderer {
 
     /** 模型几何缓存(按实体类型 + 是否幼年);几何是静态的,缓存后取景比例不随行走摆动而抖动。 */
     private static final Map<CacheKey, float[]> MODEL_CACHE = new HashMap<>();
-
-    /** 诊断用:上次打印取景信息的实体 id(避免刷屏) */
-    private static int lastLogId = -1;
 
     private EntityIconRenderer() {
     }
@@ -150,17 +143,6 @@ public final class EntityIconRenderer {
                 float height = Math.max(entity.getBbHeight(), 0.1f);
                 focusX = 0.0f;
                 focusY = height * 0.5f;
-            }
-
-            if (entity.getId() != lastLogId) {
-                lastLogId = entity.getId();
-                LOGGER.info("[DE] icon: 取景 id={} 类型={} yaw={} 模型={} 碰撞箱高={} 每格像素={}",
-                    entity.getId(), entity.getType().getDescription().getString(),
-                    String.format("%.1f", savedBodyRot + yawOffset),
-                    bounds == null ? "无(退化)"
-                        : String.format("center=(%.3f,%.3f)", bounds[0], bounds[1]),
-                    String.format("%.3f", entity.getBbHeight()),
-                    String.format("%.2f", scale));
             }
 
             // 与原版一致:基础角度为绕 Z 轴 180°,配合 z 轴负缩放修正朝向
@@ -377,11 +359,6 @@ public final class EntityIconRenderer {
     private static ModelPart[] humanoidParts(HumanoidModel<?> humanoid) {
         return new ModelPart[]{humanoid.head, humanoid.hat, humanoid.body,
             humanoid.rightArm, humanoid.leftArm, humanoid.rightLeg, humanoid.leftLeg};
-    }
-
-    /** 动物类(含鱿鱼/鱼/海豚等水生动物)判定,用于取景时再收一档。 */
-    private static boolean isAnimal(LivingEntity entity) {
-        return entity instanceof Animal || entity instanceof WaterAnimal;
     }
 
     /**

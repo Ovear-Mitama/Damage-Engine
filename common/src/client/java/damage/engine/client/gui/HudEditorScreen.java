@@ -2,7 +2,8 @@ package damage.engine.client.gui;
 
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
-import damage.engine.hud.DamageSessionManager;
+import damage.engine.client.gui.config.StyledButton;
+import damage.engine.hud.session.DamageSessionManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.Minecraft;
@@ -33,9 +34,9 @@ public class HudEditorScreen extends Screen {
     
     private long lastKeyboardAdjustTime = 0;
     
-    private DamageConfigScreen.StyledButton undoBtn;
-    private DamageConfigScreen.StyledButton redoBtn;
-    private DamageConfigScreen.StyledButton resetBtn;
+    private StyledButton undoBtn;
+    private StyledButton redoBtn;
+    private StyledButton resetBtn;
 
 
     public HudEditorScreen(Screen parent) {
@@ -46,6 +47,7 @@ public class HudEditorScreen extends Screen {
         
         modules.add(new EditorModule(config.totalDamageConfig, ModuleType.TOTAL));
         modules.add(new EditorModule(config.ratingConfig, ModuleType.RATING));
+        modules.add(new EditorModule(config.ratingScoreConfig, ModuleType.RATING_SCORE));
         modules.add(new EditorModule(config.infoConfig, ModuleType.INFO));
     }
     
@@ -70,11 +72,11 @@ public class HudEditorScreen extends Screen {
         int btnX = 10;
         int spacing = 5;
         
-        undoBtn = new DamageConfigScreen.StyledButton(btnX, btnY, 40, 20, Component.translatable("hud.editor.undo"), this::undo);
+        undoBtn = new StyledButton(btnX, btnY, 40, 20, Component.translatable("hud.editor.undo"), this::undo);
         
-        redoBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.redo"), this::redo);
+        redoBtn = new StyledButton(btnX + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.redo"), this::redo);
             
-        resetBtn = new DamageConfigScreen.StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.reset").withColor(0xFFFC887E), this::handleResetClick);
+        resetBtn = new StyledButton(btnX + 40 + spacing + 40 + spacing, btnY, 40, 20, Component.translatable("hud.editor.reset").withColor(0xFFFC887E), this::handleResetClick);
             
         this.addRenderableWidget(undoBtn);
         this.addRenderableWidget(redoBtn);
@@ -164,14 +166,26 @@ public class HudEditorScreen extends Screen {
         config.totalDamageConfig.x = 0.8160156f;
         config.totalDamageConfig.y = 0.37278107f;
         config.totalDamageConfig.scale = 0.95652175f;
+        config.totalDamageConfig.anchorX = 0;
+        config.totalDamageConfig.anchorY = 0;
         
         config.infoConfig.x = 0.61875f;
         config.infoConfig.y = 0.59909815f;
         config.infoConfig.scale = 0.5539445f;
+        config.infoConfig.anchorX = 0;
+        config.infoConfig.anchorY = 0;
         
         config.ratingConfig.x = 0.7867187f;
         config.ratingConfig.y = 0.31508327f;
         config.ratingConfig.scale = 1.4066461f;
+        config.ratingConfig.anchorX = 0;
+        config.ratingConfig.anchorY = 0;
+
+        config.ratingScoreConfig.x = 0.7867187f;
+        config.ratingScoreConfig.y = 0.365f;
+        config.ratingScoreConfig.scale = 1.0f;
+        config.ratingScoreConfig.anchorX = 0;
+        config.ratingScoreConfig.anchorY = 0;
         config.save();
     }
 
@@ -219,7 +233,10 @@ public class HudEditorScreen extends Screen {
                     break;
                 case RATING:
                     damageHud.cyclePreviewGrades();
-                    damageHud.renderRating(guiGraphics, true, 1.0f, this.minecraft);
+                    damageHud.renderRatingGrade(guiGraphics, true, 1.0f, this.minecraft);
+                    break;
+                case RATING_SCORE:
+                    damageHud.renderRatingScore(guiGraphics, true, 1.0f, this.minecraft);
                     break;
                 case INFO:
                     damageHud.renderInfo(guiGraphics, null, true, 1.0f, this.minecraft);
@@ -248,8 +265,9 @@ public class HudEditorScreen extends Screen {
     }
     
     private int[] getBounds(EditorModule m) {
-        int cx = m.config.x == -1.0f ? width / 2 : (int)(m.config.x * width);
-        int cy = m.config.y == -1.0f ? height / 2 : (int)(m.config.y * height);
+        m.config.ensureAnchor(width, height);
+        int cx = m.config.resolveScreenX(width);
+        int cy = m.config.resolveScreenY(height);
         float s = m.config.scale;
         
         int w = 0, h = 0;
@@ -263,8 +281,28 @@ public class HudEditorScreen extends Screen {
                 oy = (int)(-h/2 + 12 * s);
                 break;
             case RATING:
-                w = (int)(30 * s); h = (int)(18 * s);
-                ox = -w/2; oy = -h/2 - (int)(2 * s);
+                float[] gradeBounds = damage.engine.hud.rating.RatingRenderer.getLastGradeBounds();
+                if (gradeBounds != null) {
+                    w = Math.round(gradeBounds[2] * s);
+                    h = Math.round(gradeBounds[3] * s);
+                    ox = Math.round(gradeBounds[0] * s);
+                    oy = Math.round(gradeBounds[1] * s);
+                } else {
+                    w = (int)(60 * s); h = (int)(20 * s);
+                    ox = -w/2; oy = -h/2;
+                }
+                break;
+            case RATING_SCORE:
+                float[] scoreBounds = damage.engine.hud.rating.RatingRenderer.getLastScoreBounds();
+                if (scoreBounds != null) {
+                    w = Math.round(scoreBounds[2] * s);
+                    h = Math.round(scoreBounds[3] * s);
+                    ox = Math.round(scoreBounds[0] * s);
+                    oy = Math.round(scoreBounds[1] * s);
+                } else {
+                    w = (int)(80 * s); h = (int)(26 * s);
+                    ox = -w/2; oy = -4;
+                }
                 break;
             case INFO:
                 // 与 renderInfo 的实际面板一致:头像槽 27 + 左内边距 2 + 血条 80 + 右内边距 2
@@ -307,7 +345,10 @@ public class HudEditorScreen extends Screen {
                 return true;
             }
             
-            for (EditorModule m : modules) {
+            // 从后往前命中检测：后绘制的模块在上层，先响应点击，
+            // 避免评分模块被体积更大的伤害模块挡住而无法选中。
+            for (int i = modules.size() - 1; i >= 0; i--) {
+                EditorModule m = modules.get(i);
                 if (isOverModule(mx, my, m)) {
                     if (selectedModule != m) {
                          selectedModule = m;
@@ -316,8 +357,8 @@ public class HudEditorScreen extends Screen {
                     saveStateForUndo();
                     dragging = true;
                     
-                    int cx = m.config.x == -1.0f ? this.width / 2 : (int)(m.config.x * this.width);
-                    int cy = m.config.y == -1.0f ? this.height / 2 : (int)(m.config.y * this.height);
+                    int cx = m.config.resolveScreenX(this.width);
+                    int cy = m.config.resolveScreenY(this.height);
                     
                     dragOffsetX = (float)mx - cx;
                     dragOffsetY = (float)my - cy;
@@ -360,6 +401,7 @@ public class HudEditorScreen extends Screen {
             
             selectedModule.config.x = newX;
             selectedModule.config.y = newY;
+            selectedModule.config.updateAnchor(width, height);
             return true;
         }
         return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY); 
@@ -416,6 +458,7 @@ public class HudEditorScreen extends Screen {
         if (selectedModule.config.y == -1.0f) selectedModule.config.y = 0.5f;
         selectedModule.config.x += dx / (float)width;
         selectedModule.config.y += dy / (float)height;
+        selectedModule.config.updateAnchor(width, height);
     }
     
     @Override
@@ -430,7 +473,7 @@ public class HudEditorScreen extends Screen {
         public EditorModule(DamageEngineConfig.ModuleConfig c, ModuleType t) { this.config = c; this.type = t; }
     }
     
-    private enum ModuleType { TOTAL, RATING, INFO }
+    private enum ModuleType { TOTAL, RATING, RATING_SCORE, INFO }
     
     private record ModuleSnapshot(float x, float y, float scale, boolean enabled) {
         public ModuleSnapshot(DamageEngineConfig.ModuleConfig c) { this(c.x, c.y, c.scale, c.enabled); }

@@ -50,7 +50,6 @@ public class ProfileManagerScreen extends Screen {
             ));
         }
 
-        // Done button
         int buttonWidth = 80;
         int buttonY = this.height - 35;
         this.addRenderableWidget(new StyledButton(
@@ -91,7 +90,6 @@ public class ProfileManagerScreen extends Screen {
     public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
         this.renderBackground(guiGraphics, mouseX, mouseY, delta);
 
-        // Title
         String titleText = Component.translatable("title.damage-engine.profile_manager").getString();
         guiGraphics.drawCenteredString(this.font, titleText, this.width / 2, 15, 0xFFFFFFFF);
 
@@ -137,7 +135,6 @@ public class ProfileManagerScreen extends Screen {
         protected void renderWidget(GuiGraphics guiGraphics, int mouseX, int mouseY, float delta) {
             int x = getX(); int y = getY(); int w = getWidth(); int h = getHeight();
 
-            // Background
             int bgColor = isHovered() ? 0x30FFFFFF : 0x10000000;
             guiGraphics.fill(x, y, x + w, y + h, bgColor);
 
