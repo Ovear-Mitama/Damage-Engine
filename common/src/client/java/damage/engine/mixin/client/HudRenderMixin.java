@@ -1,7 +1,7 @@
 package damage.engine.mixin.client;
 
 import damage.engine.hud.DamageHud;
-import damage.engine.hud.DamageIndicator;
+import damage.engine.hud.indicator.DamageIndicator;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.gui.Hud;
 import net.minecraft.client.gui.GuiGraphicsExtractor;

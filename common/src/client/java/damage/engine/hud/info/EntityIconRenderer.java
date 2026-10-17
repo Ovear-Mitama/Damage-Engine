@@ -1,4 +1,4 @@
-package damage.engine.hud;
+package damage.engine.hud.info;
 
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.Minecraft;

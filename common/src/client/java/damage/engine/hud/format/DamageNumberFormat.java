@@ -1,4 +1,4 @@
-package damage.engine.hud;
+package damage.engine.hud.format;
 
 import damage.engine.DamageEngineConfig;
 

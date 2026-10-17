@@ -3,9 +3,9 @@ package damage.engine.network;
 import damage.engine.DamageEngine;
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
-import damage.engine.hud.DamageIndicator;
-import damage.engine.hud.DamageSessionManager;
-import damage.engine.hud.RatingManager;
+import damage.engine.hud.indicator.DamageIndicator;
+import damage.engine.hud.session.DamageSessionManager;
+import damage.engine.hud.rating.RatingManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.EntityHitResult;
@@ -112,12 +112,17 @@ public class NetworkSetup {
                         }
                     } catch (Exception ignored) {}
 
-                    DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(),
-                        preferSwitchTarget);
-
-                    Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
                     net.minecraft.world.entity.Entity selfVictim = payload.entityId() > 0 && mc.level != null
                         ? mc.level.getEntity(payload.entityId()) : null;
+                    float distance = (selfVictim != null && mc.player != null)
+                        ? (float) Math.sqrt(mc.player.distanceToSqr(selfVictim)) : 0f;
+                    boolean unseen = payload.killed() && selfVictim != null && mc.player != null
+                        && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(selfVictim, mc.player);
+
+                    DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(),
+                        payload.entityId(), preferSwitchTarget, payload.killed(), distance, unseen);
+
+                    Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
                     double maxDist = config.globalIndicatorMaxDistance;
                     if (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist) {
                         if (config.showDamageIndicator && payload.amount() > 0) {

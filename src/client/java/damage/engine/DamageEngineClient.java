@@ -1,8 +1,8 @@
 package damage.engine;
 
-import damage.engine.hud.DamageSessionManager;
-import damage.engine.hud.DamageIndicator;
-import damage.engine.hud.RatingManager;
+import damage.engine.hud.session.DamageSessionManager;
+import damage.engine.hud.indicator.DamageIndicator;
+import damage.engine.hud.rating.RatingManager;
 import damage.engine.network.DamagePayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -125,12 +125,18 @@ public class DamageEngineClient implements ClientModInitializer {
                         preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == dp.entityId();
                     }
                 } catch (Exception ignored) {}
-                
-                DamageSessionManager.getInstance().addDamage(dp.amount(), dp.isCrit(), dp.entityId(), preferSwitchTarget);
-                
-                Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
+
                 net.minecraft.world.entity.Entity selfVictim = dp.entityId() > 0 && mc.level != null
                     ? mc.level.getEntity(dp.entityId()) : null;
+                float distance = (selfVictim != null && mc.player != null)
+                    ? (float) Math.sqrt(mc.player.distanceToSqr(selfVictim)) : 0f;
+                boolean unseen = dp.killed() && selfVictim != null && mc.player != null
+                    && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(selfVictim, mc.player);
+
+                DamageSessionManager.getInstance().addDamage(dp.amount(), dp.isCrit(), dp.entityId(),
+                    preferSwitchTarget, dp.killed(), distance, unseen);
+                
+                Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                 double maxDist = config.globalIndicatorMaxDistance;
                 if (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist) {
                     if (config.showDamageIndicator && dp.amount() > 0) {

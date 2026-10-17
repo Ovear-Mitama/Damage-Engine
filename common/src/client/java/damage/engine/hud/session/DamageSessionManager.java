@@ -1,6 +1,8 @@
-package damage.engine.hud;
+package damage.engine.hud.session;
 
 import damage.engine.DamageEngineConfig;
+import damage.engine.hud.rating.RatingManager;
+
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -31,6 +33,11 @@ public class DamageSessionManager {
     }
 
     public void addDamage(float amount, boolean isCrit, int targetEntityId, boolean preferSwitchTarget) {
+        addDamage(amount, isCrit, targetEntityId, preferSwitchTarget, false, 0f, false);
+    }
+
+    public void addDamage(float amount, boolean isCrit, int targetEntityId, boolean preferSwitchTarget,
+                          boolean killed, float distance, boolean unseen) {
         long now = System.currentTimeMillis();
         if (DamageEngineConfig.getInstance().resetEnabled && isActive && (now - lastHitTime) > DamageEngineConfig.getInstance().resetTime * 1000) {
             RatingManager.getInstance().endSession();
@@ -42,7 +49,7 @@ public class DamageSessionManager {
         comboCount++;
         lastHitTime = now;
 
-        RatingManager.getInstance().addHit(amount, isCrit);
+        RatingManager.getInstance().addHit(amount, isCrit, killed, distance, unseen);
 
         if (targetEntityId != -1) {
             if (!isInfoActive() || targetEntityId == lastTargetEntityId || preferSwitchTarget) {

@@ -1,5 +1,7 @@
 package damage.engine.client.gui;
 
+import damage.engine.client.gui.config.StyledButton;
+
 import damage.engine.DamageEngineConfig;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -30,12 +32,12 @@ public class ConfirmExitScreen extends Screen {
         int buttonY = this.height / 2 + 20;
 
         // Cancel button (left) - returns to settings
-        this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX - 105, buttonY, 100, 20,
+        this.addRenderableWidget(new StyledButton(centerX - 105, buttonY, 100, 20,
             Component.translatable("gui.cancel").withColor(0xFFFC887E),
             () -> mcl.gui.setScreen(settingsScreen)));
 
         // Confirm button (right) - discards changes and exits
-        this.addRenderableWidget(new DamageConfigScreen.StyledButton(centerX + 5, buttonY, 100, 20,
+        this.addRenderableWidget(new StyledButton(centerX + 5, buttonY, 100, 20,
             Component.translatable("gui.confirm").withColor(0xFFB7F3C8),
             () -> {
                 config.load();
@@ -51,7 +53,6 @@ public class ConfirmExitScreen extends Screen {
             this.extractPanorama(guiGraphics, delta);
         }
 
-        // Warning message
         String msg = Component.translatable("text.damage-engine.unsaved_changes").getString();
         guiGraphics.centeredText(this.font, msg, this.width / 2, this.height / 2 - 25, 0xFFFFFFFF);
 
