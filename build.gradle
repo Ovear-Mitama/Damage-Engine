@@ -83,6 +83,14 @@ dependencies {
     // dependency chain is heavy). Headshot->crit compatibility activates only when the
     // player has TaCZ installed in their own game.
     modCompileOnly "curse.maven:tacz-refabricated-1334246:${project.tacz_refabricated_file_id}"
+
+    // MmmMmmMmmMmm (dummmmmmy): compile-only target for the optional dummy damage
+    // mixin. Runtime-only opt-in - no dependency is declared, and the mixin is
+    // skipped entirely when the dummy mod is not installed.
+    // Compiled against the raw Modrinth jar (plain compileOnly, not modCompileOnly):
+    // Loom rejects the jar because it was built with a newer Loom. Only the class
+    // name/primitive shadow fields are used at compile time, so no remap is needed.
+    compileOnly "maven.modrinth:mmmmmmmmmmmm:1.20-2.0.12-fabric"
 }
 
 processResources {

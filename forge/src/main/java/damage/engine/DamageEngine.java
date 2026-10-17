@@ -18,7 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Mod("damageengine")
 public class DamageEngine {
 	public static final String MOD_ID = "damageengine";
-	public static final String MOD_VERSION = "1.4.9";
+	public static final String MOD_VERSION = "1.4.9.1";
 	public static final Logger LOGGER = LogUtils.getLogger();
 
 	// NOTE: keyed by entity id, NOT LivingEntity - referencing LivingEntity in a
@@ -41,6 +41,7 @@ public class DamageEngine {
 		DistExecutor.unsafeRunWhenOn(net.minecraftforge.api.distmarker.Dist.CLIENT,
 			() -> () -> {
 				org.spongepowered.asm.mixin.Mixins.addConfiguration("damage-engine.client.mixins.json");
+				org.spongepowered.asm.mixin.Mixins.addConfiguration("damage-engine.dummy.mixins.json");
 			});
 
 		DamageEngineConfig.getInstance().load();

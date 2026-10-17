@@ -83,6 +83,13 @@ minecraft {
 
 repositories {
     maven {
+        name = "Modrinth"
+        url = "https://api.modrinth.com/maven"
+        content {
+            includeGroup "maven.modrinth"
+        }
+    }
+    maven {
         name = "Curse Maven"
         url = "https://www.cursemaven.com"
         content {
@@ -94,6 +101,11 @@ repositories {
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
     compileOnly fg.deobf("curse.maven:timeless-and-classics-zero-1028108:${tacz_file_id}")
+    // MmmMmmMmmMmm (dummmmmmy): compile-only target for the optional dummy damage
+    // mixin. Not a runtime dependency - the mixin is skipped when the mod is absent.
+    // Raw jar without fg.deobf: only the class name/primitive shadow fields are used
+    // at compile time, so no SRG remapping is needed.
+    compileOnly "maven.modrinth:mmmmmmmmmmmm:1.20-2.0.12-forge"
     // Run TaCZ from the classpath in dev (deobfuscated, matches the dev mojmap
     // environment) instead of the raw mods/ jar - the raw release jar's mixins
     // use SRG names and fail to apply in the forge dev (mapped_official) runtime.

@@ -27,6 +27,10 @@ public final class ClientHealthMonitor {
 
     public static void onTick(LivingEntity self) {
         if (!self.level().isClientSide()) return;
+        // Target dummies recharge their health before it reaches the client, so health
+        // diffs are meaningless for them. Their damage numbers come from
+        // DummyDamageCompat via the dummy mod's own message instead.
+        if (isTargetDummy(self)) return;
 
         int id = self.getId();
         float h = self.getHealth();
@@ -84,6 +88,11 @@ public final class ClientHealthMonitor {
 
         st[0] = h;
         st[1] = a;
+    }
+
+    /** Target dummies are handled by DummyDamageCompat, not by health diffs. */
+    private static boolean isTargetDummy(LivingEntity self) {
+        return self.getClass().getName().startsWith("net.mehvahdjukaar.dummmmmmy.");
     }
 
     /** Drop state for entities no longer present in the client world. */
