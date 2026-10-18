@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "Decimali cronologia",
   "option.damage-engine.showDamageIndicator": "Numeri dei danni",
   "option.damage-engine.indicator_merge": "Unisci numeri dei danni",
-  "hint.damage-engine.indicator_merge": "Unisce i colpi ravvicinati sullo stesso bersaglio in un unico numero.\nSi consiglia di attivare «Segui entità» con questa opzione.",
-  "option.damage-engine.indicator_track_entity": "Segui entità",
-  "hint.damage-engine.indicator_track_entity": "I numeri seguono l'entità mentre si muove; se scompare, restano sul posto.",
+  "hint.damage-engine.indicator_merge": "Unisce i colpi ravvicinati sullo stesso bersaglio in un unico numero.\nSi consiglia di impostare «Modalità di inseguimento» su «Entità».",
+  "option.damage-engine.indicator_track_mode": "Modalità di inseguimento",
+  "hint.damage-engine.indicator_track_mode": "Come seguono i numeri del danno:\nDisattivato = restano sul punto di impatto; Entità = seguono l'entità colpita; Mirino = seguono il mirino dello schermo.",
+  "option.damage-engine.mode.entity": "Entità",
+  "option.damage-engine.mode.crosshair": "Mirino",
   "option.damage-engine.indicatorDecimalPlaces": "Decimali dei numeri",
   "option.damage-engine.indicatorMode": "Modalità",
   "option.damage-engine.mode.enhanced": "Potenziato",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "Serie di uccisioni",
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "Reset combo (s)"
+  "option.damage-engine.comboResetTime": "Reset combo (s)",
+  "command.damage-engine.cleared": "Dati di danno e punteggio cancellati."
 }

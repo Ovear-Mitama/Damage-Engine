@@ -5,6 +5,8 @@ import damage.engine.hud.indicator.DamageIndicator;
 import damage.engine.hud.rating.RatingManager;
 import damage.engine.network.DamagePayload;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
@@ -33,6 +35,17 @@ public class DamageEngineClient implements ClientModInitializer {
         toggleHudKeyBinding = ClientKeybindings.toggleHudKeyBinding;
         clearDamageKeyBinding = ClientKeybindings.clearDamageKeyBinding;
         KeyMapping.resetMapping();
+
+        // 客户端命令：/damage_engine clear 清空当前伤害与评分数据
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
+            dispatcher.register(ClientCommands.literal("damage_engine")
+                .then(ClientCommands.literal("clear").executes(ctx -> {
+                    DamageSessionManager.getInstance().reset();
+                    RatingManager.getInstance().reset();
+                    DamageIndicator.clearAll();
+                    ctx.getSource().sendFeedback(Component.translatable("command.damage-engine.cleared"));
+                    return 1;
+                }))));
 
         // 伤害跳字交给 Anima 在世界渲染阶段画真 3D 文字（有透视、随距离缩放、会被方块遮挡）
         anima.api.AnimaApi.onWorldRender(DamageIndicator::renderWorld);

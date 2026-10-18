@@ -36,9 +36,11 @@
   "option.damage-engine.damageIndicatorKillColor": "Kill! 顏色",
   "option.damage-engine.showDamageIndicator": "顯示傷害跳字",
   "option.damage-engine.indicator_merge": "合併跳字",
-  "hint.damage-engine.indicator_merge": "把同一目標短時間內受到的傷害合併成一個數字。\n若開啟此功能，建議開啟「追蹤實體」。",
-  "option.damage-engine.indicator_track_entity": "追蹤實體",
-  "hint.damage-engine.indicator_track_entity": "開啟後，傷害跳字會跟隨受害實體移動；實體消失後停在原地。",
+  "hint.damage-engine.indicator_merge": "把同一目標短時間內受到的傷害合併成一個數字。\n若開啟此功能，建議把「追蹤模式」設為「實體」。",
+  "option.damage-engine.indicator_track_mode": "追蹤模式",
+  "hint.damage-engine.indicator_track_mode": "傷害跳字的跟隨方式：\n關閉 = 停在命中點；實體 = 跟隨受害實體移動；準心 = 跟隨螢幕準心。",
+  "option.damage-engine.mode.entity": "實體",
+  "option.damage-engine.mode.crosshair": "準心",
   "option.damage-engine.indicatorBold": "粗體傷害數字",
   "option.damage-engine.animationEditor": "動畫編輯器",
   "option.damage-engine.showHealIndicator": "恢復生命跳字",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "連殺",
   "text.damage-engine.bonus_help": "加分表達式說明",
   "hint.damage-engine.bonus_syntax": "變數：\n{combo} 連擊數\n{combo_time} 連擊重置時間（毫秒）\n{killstreak} 連殺數\n{crit} 暴擊（0/1）\n{damage} 本次傷害\n{kill} 擊殺（0/1）\n{kill_meter} 擊殺距離（公尺）\n{unseen} 看不見目標（0/1）\n運算子：+ - * / ( ) > >= < <= == != ? :\n範例：{kill:25}\n範例：{combo} * 0.2\n範例：{kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "連擊重置時間（秒）"
+  "option.damage-engine.comboResetTime": "連擊重置時間（秒）",
+  "command.damage-engine.cleared": "已清除傷害與評分資料。"
 }

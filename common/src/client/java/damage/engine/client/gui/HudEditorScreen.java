@@ -164,29 +164,24 @@ public class HudEditorScreen extends Screen {
 
     private void resetAllModules() {
         saveStateForUndo();
+        // 重置后按当前窗口作为布局基准，避免旧基准让整套 HUD 被缩放
+        config.hudLayoutBaseWidth = this.width;
+        config.hudLayoutBaseHeight = this.height;
         config.totalDamageConfig.x = 0.8160156f;
         config.totalDamageConfig.y = 0.37278107f;
         config.totalDamageConfig.scale = 0.95652175f;
-        config.totalDamageConfig.anchorX = 0;
-        config.totalDamageConfig.anchorY = 0;
         
         config.infoConfig.x = 0.61875f;
         config.infoConfig.y = 0.59909815f;
         config.infoConfig.scale = 0.5539445f;
-        config.infoConfig.anchorX = 0;
-        config.infoConfig.anchorY = 0;
         
         config.ratingConfig.x = 0.7867187f;
         config.ratingConfig.y = 0.31508327f;
         config.ratingConfig.scale = 1.4066461f;
-        config.ratingConfig.anchorX = 0;
-        config.ratingConfig.anchorY = 0;
 
         config.ratingScoreConfig.x = 0.7867187f;
         config.ratingScoreConfig.y = 0.365f;
         config.ratingScoreConfig.scale = 1.0f;
-        config.ratingScoreConfig.anchorX = 0;
-        config.ratingScoreConfig.anchorY = 0;
         config.save();
     }
 
@@ -285,10 +280,10 @@ public class HudEditorScreen extends Screen {
     }
     
     private int[] getBounds(EditorModule m) {
-        m.config.ensureAnchor(width, height);
-        int cx = m.config.resolveScreenX(width);
-        int cy = m.config.resolveScreenY(height);
-        float s = m.config.scale;
+        DamageEngineConfig cfg = DamageEngineConfig.getInstance();
+        int cx = cfg.resolveHudX(m.config, width, height);
+        int cy = cfg.resolveHudY(m.config, height);
+        float s = cfg.resolveHudScale(m.config, height);
         
         int w = 0, h = 0;
         int ox = 0, oy = 0;
@@ -377,8 +372,8 @@ public class HudEditorScreen extends Screen {
                     saveStateForUndo();
                     dragging = true;
                     
-                    int cx = m.config.resolveScreenX(this.width);
-                    int cy = m.config.resolveScreenY(this.height);
+                    int cx = config.resolveHudX(m.config, this.width, this.height);
+                    int cy = config.resolveHudY(m.config, this.height);
                     
                     dragOffsetX = (float)mx - cx;
                     dragOffsetY = (float)my - cy;
@@ -416,12 +411,15 @@ public class HudEditorScreen extends Screen {
         }
         
         if (dragging && selectedModule != null) {
-            float newX = ((float)event.x() - dragOffsetX) / (float)width;
+            // 位置按「布局基准坐标」保存：渲染时再乘布局缩放，窗口变化不会破坏相对位置
+            float baseW = config.hudBaseWidth(width);
+            float layoutScale = config.hudLayoutScale(height);
+            float newX = ((float)event.x() - dragOffsetX) / (baseW * layoutScale);
             float newY = ((float)event.y() - dragOffsetY) / (float)height;
             
             selectedModule.config.x = newX;
             selectedModule.config.y = newY;
-            selectedModule.config.updateAnchor(width, height);
+
             return true;
         }
         return super.mouseDragged(event, deltaX, deltaY); 
@@ -477,13 +475,18 @@ public class HudEditorScreen extends Screen {
         // -1 表示居中,先落到屏幕中心对应的实际坐标再微调
         if (selectedModule.config.x == -1.0f) selectedModule.config.x = 0.5f;
         if (selectedModule.config.y == -1.0f) selectedModule.config.y = 0.5f;
-        selectedModule.config.x += dx / (float)width;
+        float baseW = config.hudBaseWidth(width);
+        float layoutScale = config.hudLayoutScale(height);
+        selectedModule.config.x += dx / (baseW * layoutScale);
         selectedModule.config.y += dy / (float)height;
-        selectedModule.config.updateAnchor(width, height);
+
     }
 
     @Override
     public void onClose() {
+        // 以关闭编辑器时的窗口尺寸作为新的布局基准，之后缩放窗口整套 HUD 等比缩放
+        config.hudLayoutBaseWidth = this.width;
+        config.hudLayoutBaseHeight = this.height;
         config.save();
         minecraft.setScreen(parent);
     }

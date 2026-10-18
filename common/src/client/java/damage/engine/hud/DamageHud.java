@@ -235,9 +235,17 @@ public class DamageHud {
 
         int guiWidth = client.getWindow().getGuiScaledWidth();
         int guiHeight = client.getWindow().getGuiScaledHeight();
-        moduleConfig.ensureAnchor(guiWidth, guiHeight);
-        int x = moduleConfig.resolveScreenX(guiWidth);
-        int y = moduleConfig.resolveScreenY(guiHeight);
+
+        DamageEngineConfig layout = DamageEngineConfig.getInstance();
+        // 还没有布局基准时，把当前窗口记为基准：之后缩放窗口整套 HUD 等比缩放，
+        // 控件之间的相对位置保持不变（否则仍会按宽度比例被拉伸）。
+        if (layout.hudLayoutBaseHeight <= 0f) {
+            layout.hudLayoutBaseWidth = guiWidth;
+            layout.hudLayoutBaseHeight = guiHeight;
+        }
+        int x = layout.resolveHudX(moduleConfig, guiWidth, guiHeight);
+        int y = layout.resolveHudY(moduleConfig, guiHeight);
+        float moduleScale = layout.resolveHudScale(moduleConfig, guiHeight);
 
         // 屏幕坐标系里的子项(实体头像走 GUI 实体管线,不吃 pose)必须自己带上偏移;
         // 用浮点不用取整,否则位移会被量化成一格一格,看着不平滑。
@@ -251,7 +259,7 @@ public class DamageHud {
 
         guiGraphics.pose().pushMatrix();
         guiGraphics.pose().translate(x + inertiaOffX, y + inertiaOffY);
-        guiGraphics.pose().scale(moduleConfig.scale, moduleConfig.scale);
+        guiGraphics.pose().scale(moduleScale, moduleScale);
 
         renderAction.run();
 
@@ -724,7 +732,11 @@ public class DamageHud {
             infoAlpha = 1.0f;
             infoDeathDrain = false;
             if (wasInactive) {
-                infoAvatarFactor = targetAvatar ? 1.0f : 0.0f;
+                // 面板本来就没显示时，头像槽直接按最终状态展开：
+                // 非玩家实体在开启实体渲染时也应有头像，避免出现「左侧慢慢变宽」的入场动画。
+                boolean hasAvatar = targetAvatar
+                    || (DamageEngineConfig.getInstance().entityRenderEnabled && infoAvatarEntity != null);
+                infoAvatarFactor = hasAvatar ? 1.0f : 0.0f;
                 infoAvatarAlpha = infoAvatarFactor;
                 infoPrevPlayerSkin = null;
             }

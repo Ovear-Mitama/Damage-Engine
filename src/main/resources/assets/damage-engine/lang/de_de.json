@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "Dezimalstellen (Verlauf)",
   "option.damage-engine.showDamageIndicator": "Schadenszahlen",
   "option.damage-engine.indicator_merge": "Schadenszahlen zusammenfassen",
-  "hint.damage-engine.indicator_merge": "Fasst schnelle Treffer auf dasselbe Ziel zu einer Zahl zusammen.\nEs wird empfohlen, dazu „Entität verfolgen“ zu aktivieren.",
-  "option.damage-engine.indicator_track_entity": "Entität verfolgen",
-  "hint.damage-engine.indicator_track_entity": "Zahlen folgen der Entität bei Bewegung; verschwindet sie, bleiben sie an ihrem Platz.",
+  "hint.damage-engine.indicator_merge": "Fasst schnelle Treffer auf dasselbe Ziel zu einer Zahl zusammen.\nEs wird empfohlen, „Verfolgungsmodus“ auf „Entität“ zu stellen.",
+  "option.damage-engine.indicator_track_mode": "Verfolgungsmodus",
+  "hint.damage-engine.indicator_track_mode": "Wie Schadenszahlen folgen:\nAus = am Trefferpunkt bleiben; Entität = der getroffenen Entität folgen; Fadenkreuz = dem Fadenkreuz folgen.",
+  "option.damage-engine.mode.entity": "Entität",
+  "option.damage-engine.mode.crosshair": "Fadenkreuz",
   "option.damage-engine.indicatorDecimalPlaces": "Dezimalstellen (Zahlen)",
   "option.damage-engine.indicatorMode": "Modus",
   "option.damage-engine.mode.enhanced": "Verbessert",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "Killstreak",
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "Combo-Reset-Zeit (s)"
+  "option.damage-engine.comboResetTime": "Combo-Reset-Zeit (s)",
+  "command.damage-engine.cleared": "Schadens- und Bewertungsdaten gelöscht."
 }
