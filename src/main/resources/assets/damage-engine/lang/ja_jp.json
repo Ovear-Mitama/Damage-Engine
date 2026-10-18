@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "履歴の小数桁",
   "option.damage-engine.showDamageIndicator": "ダメージ数値",
   "option.damage-engine.indicator_merge": "ダメージ数値を合算",
-  "hint.damage-engine.indicator_merge": "同じ対象への連続ヒットを1つの数値にまとめます。\n有効にする場合は「エンティティを追跡」もオンにすることをおすすめします。",
-  "option.damage-engine.indicator_track_entity": "エンティティを追跡",
-  "hint.damage-engine.indicator_track_entity": "ダメージ数値が対象の移動に追従します。対象が消えるとその場に残ります。",
+  "hint.damage-engine.indicator_merge": "同じ対象への連続ヒットを1つの数値にまとめます。\n有効にする場合は「追跡モード」を「エンティティ」にすることをおすすめします。",
+  "option.damage-engine.indicator_track_mode": "追跡モード",
+  "hint.damage-engine.indicator_track_mode": "ダメージ数値の追従方法：\nオフ = 命中地点に固定；エンティティ = 対象のエンティティを追従；クロスヘア = 画面中央のクロスヘアを追従。",
+  "option.damage-engine.mode.entity": "エンティティ",
+  "option.damage-engine.mode.crosshair": "クロスヘア",
   "option.damage-engine.indicatorDecimalPlaces": "数値の小数桁",
   "option.damage-engine.indicatorMode": "モード",
   "option.damage-engine.mode.enhanced": "強化",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "キルストリーク",
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "コンボリセット時間（秒）"
+  "option.damage-engine.comboResetTime": "コンボリセット時間（秒）",
+  "command.damage-engine.cleared": "ダメージと評価データをクリアしました。"
 }

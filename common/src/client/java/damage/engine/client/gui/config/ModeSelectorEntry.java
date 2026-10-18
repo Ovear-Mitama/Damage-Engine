@@ -13,9 +13,19 @@ import java.util.function.Consumer;
 
 /** 多模式循环切换行。 */
 public class ModeSelectorEntry extends OptionEntry {
+    /** 关闭态的配色与开关按钮一致；其它模式统一用绿色。 */
+    private static final int COLOR_ON = 0xFFB5F0C6;
+    private static final int COLOR_OFF = 0xFFFC887E;
+
     private final StyledButton button;
     private final Component label;
     private String mode;
+
+    private static Component modeText(String mode) {
+        int color = ("off".equals(mode) ? COLOR_OFF : COLOR_ON) & 0xFFFFFF;
+        return Component.translatable("option.damage-engine.mode." + mode)
+            .withStyle(s -> s.withColor(net.minecraft.network.chat.TextColor.fromRgb(color)));
+    }
 
     public ModeSelectorEntry(String key, String initial, Consumer<String> onChange) {
         this(key, initial, new String[]{"enhanced", "cloud"},
@@ -28,14 +38,13 @@ public class ModeSelectorEntry extends OptionEntry {
         setSearchText(this.label);
         this.mode = initial;
         final StyledButton[] ref = new StyledButton[1];
-        ref[0] = new StyledButton(0, 0, 100, 20,
-            Component.translatable("option.damage-engine.mode." + mode), () -> {
+        ref[0] = new StyledButton(0, 0, 100, 20, modeText(mode), () -> {
             int idx = 0;
             for (int i = 0; i < modes.length; i++) {
                 if (modes[i].equals(mode)) { idx = i; break; }
             }
             mode = modes[(idx + 1) % modes.length];
-            ref[0].setMessage(Component.translatable("option.damage-engine.mode." + mode));
+            ref[0].setMessage(modeText(mode));
             onChange.accept(mode);
         });
         this.button = ref[0];

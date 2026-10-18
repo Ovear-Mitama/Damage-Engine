@@ -4,6 +4,8 @@ import damage.engine.hud.session.DamageSessionManager;
 import damage.engine.hud.indicator.DamageIndicator;
 import damage.engine.hud.rating.RatingManager;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
@@ -37,6 +39,17 @@ public class DamageEngineClient implements ClientModInitializer {
         toggleHudKeyBinding = ClientKeybindings.toggleHudKeyBinding;
         clearDamageKeyBinding = ClientKeybindings.clearDamageKeyBinding;
         KeyMapping.resetMapping();
+
+        // 客户端命令：/damage_engine clear 清空当前伤害与评分数据
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
+            dispatcher.register(ClientCommandManager.literal("damage_engine")
+                .then(ClientCommandManager.literal("clear").executes(ctx -> {
+                    DamageSessionManager.getInstance().reset();
+                    RatingManager.getInstance().reset();
+                    DamageIndicator.clearAll();
+                    ctx.getSource().sendFeedback(Component.translatable("command.damage-engine.cleared"));
+                    return 1;
+                }))));
 
         // Set up handshake sender for multiplayer server mod detection
         handshakeSender = () -> {

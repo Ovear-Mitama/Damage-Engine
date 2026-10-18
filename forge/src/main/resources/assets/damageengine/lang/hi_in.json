@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "इतिहास दशमलव स्थान",
   "option.damage-engine.showDamageIndicator": "डैमेज संख्याएँ",
   "option.damage-engine.indicator_merge": "डैमेज संख्याएँ मिलाएँ",
-  "hint.damage-engine.indicator_merge": "एक ही लक्ष्य पर लगातार हिट को एक संख्या में मिलाता है।\nइसके साथ «एंटिटी ट्रैक करें» चालू करने की सलाह है।",
-  "option.damage-engine.indicator_track_entity": "एंटिटी ट्रैक करें",
-  "hint.damage-engine.indicator_track_entity": "डैमेज संख्याएँ एंटिटी के साथ चलती हैं; एंटिटी गायब होने पर वहीं रुक जाती हैं।",
+  "hint.damage-engine.indicator_merge": "एक ही लक्ष्य पर लगातार हिट को एक संख्या में मिलाता है।\nइसके साथ «ट्रैक मोड» को «एंटिटी» पर सेट करने की सलाह है।",
+  "option.damage-engine.indicator_track_mode": "ट्रैक मोड",
+  "hint.damage-engine.indicator_track_mode": "डैमेज संख्याएँ कैसे चलें:\nबंद = हिट बिंदु पर रुकें; एंटिटी = घायल एंटिटी के साथ चलें; क्रॉसहेयर = स्क्रीन क्रॉसहेयर के साथ चलें।",
+  "option.damage-engine.mode.entity": "एंटिटी",
+  "option.damage-engine.mode.crosshair": "क्रॉसहेयर",
   "option.damage-engine.indicatorDecimalPlaces": "संख्याओं के दशमलव स्थान",
   "option.damage-engine.indicatorMode": "मोड",
   "option.damage-engine.mode.enhanced": "उन्नत",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "किलस्ट्रीक",
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "कॉम्बो रीसेट समय (से.)"
+  "option.damage-engine.comboResetTime": "कॉम्बो रीसेट समय (से.)",
+  "command.damage-engine.cleared": "डैमेज और रेटिंग डेटा साफ़ कर दिया गया।"
 }

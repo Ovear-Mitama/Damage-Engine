@@ -257,9 +257,13 @@ public class DamageIndicator {
                 // 淡出起点(秒):默认 = 入场 + 保持结束;合并过则用被重置的起点
                 float fadeStartSec = (ind.fadeStartOffsetMs >= 0f ? ind.fadeStartOffsetMs : FADE_START_MS) / 1000f;
 
-                // 追踪实体(默认关):跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的偏移,
-                // 之后每帧按目标的插值位置重算世界坐标;实体消失后停在最后位置。
-                if (config.indicatorTrackEntity && ind.victimId >= 0 && client.level != null) {
+                // 追踪模式：
+                // - 实体：跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的偏移，
+                //   之后每帧按目标的插值位置重算世界坐标；实体消失后停在最后位置。
+                // - 准心：跳过世界投影，跳字直接锚在屏幕准心（画面中心）。
+                boolean trackEntity = "entity".equals(config.indicatorTrackMode);
+                boolean trackCrosshair = "crosshair".equals(config.indicatorTrackMode);
+                if (trackEntity && ind.victimId >= 0 && client.level != null) {
                     Entity target = client.level.getEntity(ind.victimId);
                     if (target != null) {
                         ind.victimRef = target;
@@ -279,39 +283,49 @@ public class DamageIndicator {
                     }
                 }
 
-                // The float is pinned to the world position where the hit happened
-                // (server snapshot); with entity tracking on it is recomputed above.
-                double wx = ind.x, wy = ind.y, wz = ind.z;
-
-                Vector4f worldPos;
-                if (useCaptured) {
-                    // camera-relative: shift by -camera pos first
-                    worldPos = new Vector4f((float) (wx - camPos.x), (float) (wy - camPos.y), (float) (wz - camPos.z), 1.0f);
-                    worldPos.mul(viewProjMatrix);
+                float entityScreenX;
+                float entityScreenY;
+                float distFactor;
+                if (trackCrosshair) {
+                    // 准心模式：直接使用屏幕中心
+                    entityScreenX = screenW / 2f;
+                    entityScreenY = screenH / 2f;
+                    distFactor = 1.0f;
                 } else {
-                    worldPos = new Vector4f((float) wx, (float) wy, (float) wz, 1.0f);
-                    worldPos.mul(viewProjMatrix);
-                    // MC 1.20.1 pitch fix for the self-built fallback (logs proved X
-                    // was correct but Y was inverted). Not needed for captured matrices.
-                    worldPos.y = -worldPos.y;
+                    // The float is pinned to the world position where the hit happened
+                    // (server snapshot); with entity tracking on it is recomputed above.
+                    double wx = ind.x, wy = ind.y, wz = ind.z;
+
+                    Vector4f worldPos;
+                    if (useCaptured) {
+                        // camera-relative: shift by -camera pos first
+                        worldPos = new Vector4f((float) (wx - camPos.x), (float) (wy - camPos.y), (float) (wz - camPos.z), 1.0f);
+                        worldPos.mul(viewProjMatrix);
+                    } else {
+                        worldPos = new Vector4f((float) wx, (float) wy, (float) wz, 1.0f);
+                        worldPos.mul(viewProjMatrix);
+                        // MC 1.20.1 pitch fix for the self-built fallback (logs proved X
+                        // was correct but Y was inverted). Not needed for captured matrices.
+                        worldPos.y = -worldPos.y;
+                    }
+                    // Skip only if the anchor is behind the camera
+                    if (worldPos.w() <= 0.001f) continue;
+
+                    float ndcX = worldPos.x() / worldPos.w();
+                    float ndcY = worldPos.y() / worldPos.w();
+
+                    // Clamp NDC to keep indicator within screen bounds
+                    ndcX = Mth.clamp(ndcX, -2.0f, 2.0f);
+                    ndcY = Mth.clamp(ndcY, -2.0f, 2.0f);
+
+                    // Entity screen position from world projection
+                    entityScreenX = (ndcX * 0.5f + 0.5f) * screenW;
+                    entityScreenY = (1.0f - (ndcY * 0.5f + 0.5f)) * screenH;
+
+                    // Distance factor: far entities get smaller drift/ring
+                    float distW = Math.abs(worldPos.w());
+                    distFactor = Mth.clamp(5f / distW, 0.3f, 1.0f); // 0.3-1.0, small = far
                 }
-                // Skip only if the anchor is behind the camera
-                if (worldPos.w() <= 0.001f) continue;
-
-                float ndcX = worldPos.x() / worldPos.w();
-                float ndcY = worldPos.y() / worldPos.w();
-
-                // Clamp NDC to keep indicator within screen bounds
-                ndcX = Mth.clamp(ndcX, -2.0f, 2.0f);
-                ndcY = Mth.clamp(ndcY, -2.0f, 2.0f);
-
-                // Entity screen position from world projection
-                float entityScreenX = (ndcX * 0.5f + 0.5f) * screenW;
-                float entityScreenY = (1.0f - (ndcY * 0.5f + 0.5f)) * screenH;
-
-                // Distance factor: far entities get smaller drift/ring
-                float distW = Math.abs(worldPos.w());
-                float distFactor = Mth.clamp(5f / distW, 0.3f, 1.0f); // 0.3-1.0, small = far
 
                 // Spawn around the crosshair hit point (anchored in world space),
                 // each indicator at its own random ring radius.
