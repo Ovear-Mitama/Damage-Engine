@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "기록 소수 자릿수",
   "option.damage-engine.showDamageIndicator": "데미지 숫자",
   "option.damage-engine.indicator_merge": "데미지 숫자 합치기",
-  "hint.damage-engine.indicator_merge": "같은 대상에 대한 연속 타격을 하나의 숫자로 합칩니다.\n사용 시 「엔티티 추적」을 함께 켜는 것을 권장합니다.",
-  "option.damage-engine.indicator_track_entity": "엔티티 추적",
-  "hint.damage-engine.indicator_track_entity": "데미지 숫자가 대상의 움직임을 따라갑니다. 대상이 사라지면 그 자리에 남습니다.",
+  "hint.damage-engine.indicator_merge": "같은 대상에 대한 연속 타격을 하나의 숫자로 합칩니다.\n사용 시 「추적 모드」를 「엔티티」로 설정하는 것을 권장합니다.",
+  "option.damage-engine.indicator_track_mode": "추적 모드",
+  "hint.damage-engine.indicator_track_mode": "피해 숫자가 따라가는 방식:\n끄기 = 명중 지점에 고정; 엔티티 = 피해를 입은 엔티티를 따라감; 크로스헤어 = 화면 조준선을 따라감.",
+  "option.damage-engine.mode.entity": "엔티티",
+  "option.damage-engine.mode.crosshair": "크로스헤어",
   "option.damage-engine.indicatorDecimalPlaces": "숫자 소수 자릿수",
   "option.damage-engine.indicatorMode": "모드",
   "option.damage-engine.mode.enhanced": "강화",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "연속 처치",
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "콤보 초기화 시간 (초)"
+  "option.damage-engine.comboResetTime": "콤보 초기화 시간 (초)",
+  "command.damage-engine.cleared": "피해 및 평가 데이터를 지웠습니다."
 }

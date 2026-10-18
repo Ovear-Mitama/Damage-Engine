@@ -36,6 +36,9 @@ public class DamageIndicator {
     /** 增强模式下漂移完成所需的时间（秒）——只影响跳字在屏幕上的移动节奏。 */
     private static final float DRIFT_DURATION = 2.3f;
 
+    /** 准心追踪模式：跳字锚点在视线前方多远（格）。6 格与字号基准距离一致，屏幕大小不变。 */
+    private static final double CROSSHAIR_TRACK_DISTANCE = 6.0;
+
     /** 一个剪辑都没有时的兜底显示时长（秒），免得跳字一闪而过。 */
     private static final float FALLBACK_LIFETIME = 1.5f;
 
@@ -389,9 +392,14 @@ public class DamageIndicator {
                 // 出场被每次攻击重置时只平移出场剪辑（见 Indicator#renderClips），其余不动。
                 float trueMs = now - ind.spawnTime;
 
-                // 追踪实体（默认关）：跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的
-                // 偏移，之后每帧按目标的插值位置重算世界坐标；实体消失后停在最后位置。
-                if (config.indicatorTrackEntity && ind.victimId >= 0) {
+                // 追踪模式：
+                // - 实体：跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的偏移，
+                //   之后每帧按目标的插值位置重算世界坐标；实体消失后停在最后位置。
+                // - 准心：跳字固定锚在视线前方，随视角一起移动，始终围绕屏幕准心。
+                double px = ind.x, py = ind.y, pz = ind.z;
+                boolean trackEntity = "entity".equals(config.indicatorTrackMode);
+                boolean trackCrosshair = "crosshair".equals(config.indicatorTrackMode);
+                if (trackEntity && ind.victimId >= 0) {
                     Entity target = client.level != null ? client.level.getEntity(ind.victimId) : null;
                     if (target != null) {
                         ind.victimRef = target;
@@ -408,11 +416,19 @@ public class DamageIndicator {
                         ind.x = pos.x + ind.trackOff[0];
                         ind.y = pos.y + ind.trackOff[1];
                         ind.z = pos.z + ind.trackOff[2];
+                        px = ind.x;
+                        py = ind.y;
+                        pz = ind.z;
                     }
+                } else if (trackCrosshair) {
+                    Vec3 look = client.player.getViewVector(partialTick);
+                    px = camPos.x + look.x * CROSSHAIR_TRACK_DISTANCE;
+                    py = camPos.y + look.y * CROSSHAIR_TRACK_DISTANCE;
+                    pz = camPos.z + look.z * CROSSHAIR_TRACK_DISTANCE;
                 }
 
                 // 距离系数：远处目标的漂移更小（字号由 3D 透视自然缩放，不再补偿）
-                float distFactor = Mth.clamp(5f / Math.max((float) camPos.distanceTo(new Vec3(ind.x, ind.y, ind.z)), 0.01f),
+                float distFactor = Mth.clamp(5f / Math.max((float) camPos.distanceTo(new Vec3(px, py, pz)), 0.01f),
                     0.3f, 1.0f);
 
                 // 屏幕像素偏移：随机环半径 + 增强模式漂移——DE 只提供随机值，曲线由库求值。
@@ -454,9 +470,9 @@ public class DamageIndicator {
                 // 字号：伤害越大略大；再乘上编辑器里调的文本属性（缩放 / 透明度 / 位置偏移 / 距离缩放）
                 JsonObject textProps = textPropsJson();
                 float[] tp = AnimaApi.evalTextProps(textProps, trueMs);
-                double tx = ind.x + tp[0];
-                double ty = ind.y + tp[1];
-                double tz = ind.z + tp[2];
+                double tx = px + tp[0];
+                double ty = py + tp[1];
+                double tz = pz + tp[2];
                 float scaleMul = (1.0f + Mth.clamp(ind.damage / 100f, 0f, 0.3f)) * tp[3];
                 float alphaMul = tp[4];
                 // 距离缩放：默认关（无属性时按关处理）；关 = 按距离补偿世界尺寸，屏幕上大小恒定
@@ -464,7 +480,7 @@ public class DamageIndicator {
                     && textProps.get("distanceScale").getAsBoolean();
                 if (!distScale) {
                     // 与编辑器一致，基准 6 格
-                    scaleMul *= (float) Math.max(0.05, camPos.distanceTo(new Vec3(ind.x, ind.y, ind.z)) / 6.0);
+                    scaleMul *= (float) Math.max(0.05, camPos.distanceTo(new Vec3(px, py, pz)) / 6.0);
                 }
 
                 // 合并跳字时的跳动：汇总数字更新瞬间撑大再回落（缩放由库的 ScaleEffect 求值）。

@@ -6,6 +6,8 @@ import damage.engine.hud.rating.RatingManager;
 import damage.engine.network.DamagePayload;
 import damage.engine.network.NetworkRegistry;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.world.phys.EntityHitResult;
@@ -35,6 +37,17 @@ public class DamageEngineClient implements ClientModInitializer {
 
         // 跳字走 Anima 的世界渲染（真 3D：透视 + 遮挡），不再画在 2D HUD 层
         anima.api.AnimaApi.onWorldRender(DamageIndicator::renderWorld);
+
+        // 客户端命令：/damage_engine clear 清空当前伤害与评分数据
+        ClientCommandRegistrationCallback.EVENT.register((dispatcher, registryAccess) ->
+            dispatcher.register(ClientCommandManager.literal("damage_engine")
+                .then(ClientCommandManager.literal("clear").executes(ctx -> {
+                    DamageSessionManager.getInstance().reset();
+                    RatingManager.getInstance().reset();
+                    DamageIndicator.clearAll();
+                    ctx.getSource().sendFeedback(Component.translatable("command.damage-engine.cleared"));
+                    return 1;
+                }))));
 
         // 用 NetworkRegistry 注册 S2C 处理器（不走 Fabric API 的 registerGlobalReceiver）
         NetworkRegistry.registerS2C(DamagePayload.TYPE, DamagePayload.STREAM_CODEC, (payload, ctx) -> {

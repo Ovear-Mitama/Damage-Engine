@@ -48,23 +48,35 @@ public class RatingManager {
         private final String source;
         private final long time;
         private final String suffix;
+        /** 距离击杀的米数（用于和分值一起做增长动画）；NaN = 无距离。 */
+        private final float distance;
         private long fadeOutAt = Long.MAX_VALUE;
 
         public ScoreGain(float points, String source, long time) {
-            this(points, source, time, "");
+            this(points, source, time, "", Float.NaN);
         }
 
         public ScoreGain(float points, String source, long time, String suffix) {
+            this(points, source, time, suffix, Float.NaN);
+        }
+
+        public ScoreGain(float points, String source, long time, float distance) {
+            this(points, source, time, "", distance);
+        }
+
+        private ScoreGain(float points, String source, long time, String suffix, float distance) {
             this.points = points;
             this.source = source;
             this.time = time;
             this.suffix = suffix == null ? "" : suffix;
+            this.distance = distance;
         }
 
         public float points() { return points; }
         public String source() { return source; }
         public long time() { return time; }
         public String suffix() { return suffix; }
+        public float distance() { return distance; }
         public long fadeOutAt() { return fadeOutAt; }
 
         private void forceFade(long now) {
@@ -153,8 +165,9 @@ public class RatingManager {
         Map<String, Float> vars = new HashMap<>();
         vars.put("combo", (float) sessionComboCount);
         vars.put("combo_time", config.comboResetTime * 1000f);
-        // 连杀只在击杀的这次命中里参与计分，避免后续普通攻击重复加分
-        vars.put("killstreak", killed ? (float) sessionKillStreak : 0f);
+        // 连杀只在击杀的这次命中里参与计分，避免后续普通攻击重复加分；
+        // 且从第 2 杀才开始算连杀（第一个击杀不加分）。
+        vars.put("killstreak", killed && sessionKillStreak > 1 ? (float) sessionKillStreak : 0f);
         vars.put("hit", 1f);
         vars.put("crit", isCrit ? 1f : 0f);
         vars.put("damage", damage);
@@ -176,9 +189,12 @@ public class RatingManager {
                     continuousTotals.merge(rule.id, points, Float::sum);
                     continuousNames.put(rule.id, ruleName(rule));
                 } else {
-                    String suffix = "distance".equals(rule.id)
-                        ? String.format(java.util.Locale.ROOT, " %.1fm", distance) : "";
-                    addGain(points, ruleName(rule), now, suffix);
+                    // 距离击杀把米数一并交给渲染层，让它和分值一起做增长动画
+                    if ("distance".equals(rule.id)) {
+                        addGain(points, ruleName(rule), now, distance);
+                    } else {
+                        addGain(points, ruleName(rule), now, "");
+                    }
                 }
             }
         }
@@ -214,6 +230,12 @@ public class RatingManager {
         long time = Math.max(now, nextGainTime);
         nextGainTime = time + GAIN_STAGGER_MS;
         recentGains.add(new ScoreGain(points, source, time, suffix));
+    }
+
+    private void addGain(float points, String source, long now, float distance) {
+        long time = Math.max(now, nextGainTime);
+        nextGainTime = time + GAIN_STAGGER_MS;
+        recentGains.add(new ScoreGain(points, source, time, distance));
     }
 
     private static String ruleName(DamageEngineConfig.BonusRule rule) {
