@@ -56,6 +56,7 @@ public class StyledSliderWidget extends AbstractSliderButton {
 
     @Override
     public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float d) {
+        if (isHovered() || isFocused()) g.requestCursor(DamageConfigScreen.CURSOR_EW);
         int x = getX(), y = getY(), w = getWidth(), h = getHeight();
         g.fill(x, y, x + w, y + h, 0x20000000);
         int bc = isHovered() ? 0xFFFFFFFF : 0xFFA0A0A0;

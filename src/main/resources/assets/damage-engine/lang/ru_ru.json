@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "Знаков после запятой (история)",
   "option.damage-engine.showDamageIndicator": "Числа урона",
   "option.damage-engine.indicator_merge": "Объединять числа урона",
-  "hint.damage-engine.indicator_merge": "Объединяет быстрые удары по одной цели в одно число.\nРекомендуется включить «Слежение за сущностью».",
-  "option.damage-engine.indicator_track_entity": "Слежение за сущностью",
-  "hint.damage-engine.indicator_track_entity": "Числа следуют за целью при движении; если сущность исчезает, они остаются на месте.",
+  "hint.damage-engine.indicator_merge": "Объединяет быстрые удары по одной цели в одно число.\nРекомендуется включить «Режим слежения: Сущность».",
+  "option.damage-engine.indicator_track_mode": "Режим слежения",
+  "hint.damage-engine.indicator_track_mode": "Как следуют числа урона:\nВыкл. = остаются в точке попадания; Сущность = следуют за поражённой сущностью; Прицел = следуют за прицелом экрана.",
+  "option.damage-engine.mode.entity": "Сущность",
+  "option.damage-engine.mode.crosshair": "Прицел",
   "option.damage-engine.indicatorDecimalPlaces": "Знаков после запятой (числа)",
   "option.damage-engine.indicatorMode": "Режим",
   "option.damage-engine.mode.enhanced": "Улучшенный",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "Серия убийств",
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "Сброс комбо (с)"
+  "option.damage-engine.comboResetTime": "Сброс комбо (с)",
+  "command.damage-engine.cleared": "Данные урона и оценки очищены."
 }

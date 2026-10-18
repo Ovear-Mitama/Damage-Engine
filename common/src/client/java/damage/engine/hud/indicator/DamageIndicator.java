@@ -222,10 +222,14 @@ public class DamageIndicator {
                 if (!isAlive(ind, now)) continue; // 淡出被合并推迟时，寿命随之顺延
                 float age = (now - ind.spawnTime) / 1000f;
                 if (age < 0) continue;
-
-                // 追踪实体（默认关）：跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的
-                // 偏移，之后每帧按目标的插值位置重算世界坐标；实体消失后停在最后位置。
-                if (config.indicatorTrackEntity && ind.victimId >= 0) {
+                // 追踪模式：
+                // - 实体：跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的偏移，
+                //   之后每帧按目标的插值位置重算世界坐标；实体消失后停在最后位置。
+                // - 准心：跳字锚定在屏幕准心（画面中心），随视角一起移动。
+                boolean trackEntity = "entity".equals(config.indicatorTrackMode);
+                boolean trackCrosshair = "crosshair".equals(config.indicatorTrackMode);
+                double px = ind.x, py = ind.y, pz = ind.z;
+                if (trackEntity && ind.victimId >= 0) {
                     Entity target = client.level != null ? client.level.getEntity(ind.victimId) : null;
                     if (target != null) {
                         ind.victimRef = target;
@@ -242,25 +246,38 @@ public class DamageIndicator {
                         ind.x = pos.x + ind.trackOff[0];
                         ind.y = pos.y + ind.trackOff[1];
                         ind.z = pos.z + ind.trackOff[2];
+                        px = ind.x;
+                        py = ind.y;
+                        pz = ind.z;
                     }
                 }
 
-                // 世界坐标投影到屏幕:跳字锚定在准心命中点(世界 pos),而非实体中心
-                Vector4f worldPos = new Vector4f((float) ind.x, (float) ind.y, (float) ind.z, 1.0f);
-                worldPos.mul(viewProjMatrix);
-                if (worldPos.w() <= 0.001f) continue; // 命中点在相机后则不显示
+                float anchorX;
+                float anchorY;
+                float distFactor;
+                if (trackCrosshair) {
+                    // 准心模式：跳过世界投影，直接锚在屏幕中心
+                    anchorX = screenW / 2f;
+                    anchorY = screenH / 2f;
+                    distFactor = 1.0f;
+                } else {
+                    // 世界坐标投影到屏幕:跳字锚定在准心命中点(世界 pos),而非实体中心
+                    Vector4f worldPos = new Vector4f((float) px, (float) py, (float) pz, 1.0f);
+                    worldPos.mul(viewProjMatrix);
+                    if (worldPos.w() <= 0.001f) continue; // 命中点在相机后则不显示
 
-                // NDC -> 屏幕坐标;不过度剔除屏幕外位置(clamp 保底)
-                float ndcX = worldPos.x() / worldPos.w();
-                float ndcY = worldPos.y() / worldPos.w();
-                ndcX = Mth.clamp(ndcX, -2.0f, 2.0f);
-                ndcY = Mth.clamp(ndcY, -2.0f, 2.0f);
-                float anchorX = (ndcX * 0.5f + 0.5f) * screenW;
-                float anchorY = (1.0f - (ndcY * 0.5f + 0.5f)) * screenH;
+                    // NDC -> 屏幕坐标;不过度剔除屏幕外位置(clamp 保底)
+                    float ndcX = worldPos.x() / worldPos.w();
+                    float ndcY = worldPos.y() / worldPos.w();
+                    ndcX = Mth.clamp(ndcX, -2.0f, 2.0f);
+                    ndcY = Mth.clamp(ndcY, -2.0f, 2.0f);
+                    anchorX = (ndcX * 0.5f + 0.5f) * screenW;
+                    anchorY = (1.0f - (ndcY * 0.5f + 0.5f)) * screenH;
 
-                // Distance factor affects drift distance / text scale
-                float distW = Math.abs(worldPos.w());
-                float distFactor = Mth.clamp(5f / distW, 0.3f, 1.0f); // 0.3-1.0, small = far
+                    // Distance factor affects drift distance / text scale
+                    float distW = Math.abs(worldPos.w());
+                    distFactor = Mth.clamp(5f / distW, 0.3f, 1.0f); // 0.3-1.0, small = far
+                }
 
                 // Spawn around the crosshair hit point (anchored in world space),
                 // each indicator at its own random ring radius.

@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "伤害记录小数点位数",
   "option.damage-engine.showDamageIndicator": "伤害跳字",
   "option.damage-engine.indicator_merge": "合并跳字",
-  "hint.damage-engine.indicator_merge": "把同一目标短时间内受到的伤害合并成一个数字。\n若开启此功能，建议开启「追踪实体」。",
-  "option.damage-engine.indicator_track_entity": "追踪实体",
-  "hint.damage-engine.indicator_track_entity": "开启后，伤害跳字会跟随受害实体移动；实体消失后停在原地。",
+  "hint.damage-engine.indicator_merge": "把同一目标短时间内受到的伤害合并成一个数字。\n若开启此功能，建议把「追踪模式」设为「实体」。",
+  "option.damage-engine.indicator_track_mode": "追踪模式",
+  "hint.damage-engine.indicator_track_mode": "伤害跳字的跟随方式：\n关闭 = 停在命中点；实体 = 跟随受害实体移动；准心 = 跟随屏幕准心。",
+  "option.damage-engine.mode.entity": "实体",
+  "option.damage-engine.mode.crosshair": "准心",
   "option.damage-engine.indicatorDecimalPlaces": "伤害跳字小数点位数",
   "option.damage-engine.indicatorMode": "模式",
   "option.damage-engine.mode.enhanced": "增强模式",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "连杀",
   "text.damage-engine.bonus_help": "加分表达式说明",
   "hint.damage-engine.bonus_syntax": "变量：\n{combo} 连击数\n{combo_time} 连击重置时间（毫秒）\n{killstreak} 连杀数\n{crit} 暴击（0/1）\n{damage} 本次伤害\n{kill} 击杀（0/1）\n{kill_meter} 击杀距离（米）\n{unseen} 看不见目标（0/1）\n运算符：+ - * / ( ) > >= < <= == != ? :\n示例：{kill:25}\n示例：{combo} * 0.2\n示例：{kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "连击重置时间（秒）"
+  "option.damage-engine.comboResetTime": "连击重置时间（秒）",
+  "command.damage-engine.cleared": "已清除伤害与评分数据。"
 }

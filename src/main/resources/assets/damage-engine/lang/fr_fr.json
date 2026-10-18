@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "Décimales de l'historique",
   "option.damage-engine.showDamageIndicator": "Nombres de dégâts",
   "option.damage-engine.indicator_merge": "Fusionner les nombres de dégâts",
-  "hint.damage-engine.indicator_merge": "Fusionne les coups rapides sur la même cible en un seul nombre.\nIl est recommandé d'activer « Suivre l'entité » avec cette option.",
-  "option.damage-engine.indicator_track_entity": "Suivre l'entité",
-  "hint.damage-engine.indicator_track_entity": "Les nombres suivent l'entité quand elle bouge ; si elle disparaît, ils restent sur place.",
+  "hint.damage-engine.indicator_merge": "Fusionne les coups rapides sur la même cible en un seul nombre.\nIl est recommandé de régler « Mode de suivi » sur « Entité ».",
+  "option.damage-engine.indicator_track_mode": "Mode de suivi",
+  "hint.damage-engine.indicator_track_mode": "Comment les nombres de dégâts suivent :\nDésactivé = restent au point d'impact ; Entité = suivent l'entité touchée ; Réticule = suivent le réticule de l'écran.",
+  "option.damage-engine.mode.entity": "Entité",
+  "option.damage-engine.mode.crosshair": "Réticule",
   "option.damage-engine.indicatorDecimalPlaces": "Décimales des nombres",
   "option.damage-engine.indicatorMode": "Mode",
   "option.damage-engine.mode.enhanced": "Amélioré",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "Série d'éliminations",
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "Réinitialisation du combo (s)"
+  "option.damage-engine.comboResetTime": "Réinitialisation du combo (s)",
+  "command.damage-engine.cleared": "Données de dégâts et de score effacées."
 }
