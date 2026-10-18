@@ -197,7 +197,11 @@ public final class RatingRenderer {
         guiGraphics.pose().popMatrix();
     }
 
-    private record GainLine(String text, int alpha, float progress, float y) {}
+    /**
+     * 一条浮动加分提示。
+     * suffix（如距离 "12.3m"）单独绘制在固定位置，避免分值增长时被推着左右滑动。
+     */
+    private record GainLine(String text, String suffix, float suffixX, int alpha, float progress, float y) {}
 
     private static void drawScore(GuiGraphicsExtractor guiGraphics, Minecraft client, DamageEngineConfig config,
                                   RatingManager rm, boolean isPreview, int baseAlpha) {
@@ -219,7 +223,13 @@ public final class RatingRenderer {
         float scoreScale = 1f + pulse;
 
         // 持续项（如“伤害”）固定在分数下方；浮动提示排在持续项下面
-        int continuousCount = isPreview ? previewTotals().size() : rm.getContinuousTotals().size();
+        Map<String, Float> totals = isPreview ? previewTotals() : rm.getContinuousTotals();
+        Map<String, String> names = isPreview ? previewNames() : rm.getContinuousNames();
+        // 只统计真正会显示的持续项（四舍五入后至少 1 分），避免首击的 0.2 连击占一行
+        int continuousCount = 0;
+        for (float v : totals.values()) {
+            if (isPreview || Math.round(v) >= 1) continuousCount++;
+        }
         float feedBaseY = 13f + continuousCount * 10f;
 
         // 最新条目在最上方，旧条目依次向下排开；新条目出现时旧条目平滑下移让位
@@ -260,12 +270,17 @@ public final class RatingRenderer {
                 // 以各自的加入时间计算进度，新条目不会打断已有条目的动画
                 float grow = isPreview ? 1f
                     : easeOutCubic(Mth.clamp(age / (float) SCORE_ANIM_MS, 0f, 1f));
-                String text = "+" + formatPoints(gain.points() * grow);
-                if (config.showRatingScoreSource && gain.source() != null && !gain.source().isEmpty()) {
-                    text += " " + gain.source();
-                }
-                text += gain.suffix();
-                lines.add(new GainLine(text, (int) alphas[k], progresses[k], feedBaseY + shift));
+                String sourcePart = (config.showRatingScoreSource && gain.source() != null && !gain.source().isEmpty())
+                    ? " " + gain.source() : "";
+                String text = "+" + formatPoints(gain.points() * grow) + sourcePart;
+                // 距离击杀的米数与分值用同一条增长曲线：0 → 实际距离
+                String suffix = Float.isNaN(gain.distance())
+                    ? gain.suffix()
+                    : String.format(Locale.ROOT, " %.1fm", gain.distance() * grow);
+                // 后缀按“最终分值”的宽度定位：分值滚动增长时距离文本不会跟着平移
+                String finalText = "+" + formatPoints(gain.points()) + sourcePart;
+                lines.add(new GainLine(text, suffix, font.width(finalText),
+                    (int) alphas[k], progresses[k], feedBaseY + shift));
             }
             // 该条目出现后，所有更旧的条目在 ROW_SHIFT_MS 内向下让出一行
             if (isPreview) {
@@ -276,17 +291,21 @@ public final class RatingRenderer {
         }
 
         String scoreText = String.format(Locale.ROOT, "%,d", Math.round(displayedScore));
-        // 以分数主体自身的宽度定位左边缘：加分项目名称变长时主体不会左右移动
-        float leftX = -font.width(scoreText) / 2f;
+        // 分数主体居中；加分提示的左边缘固定在“最终分值宽度”对应的位置。
+        // 这样总分滚动增长时，加分提示（含距离后缀）不会被推着左右移动。
+        String anchorText = String.format(Locale.ROOT, "%,d",
+            Math.round(lastScoreTarget >= 0f ? lastScoreTarget : displayedScore));
+        float scoreX = -font.width(scoreText) / 2f;
+        float feedX = -font.width(anchorText) / 2f;
 
         // 记录本帧的包围盒，供 HUD 编辑器使用
-        float boundMinX = leftX;
-        float boundMaxX = leftX + font.width(scoreText) * scoreScale;
+        float boundMinX = Math.min(scoreX, feedX);
+        float boundMaxX = scoreX + font.width(scoreText) * scoreScale;
         float boundMinY = 0f;
         float boundMaxY = font.lineHeight * scoreScale;
 
         guiGraphics.pose().pushMatrix();
-        guiGraphics.pose().translate(leftX, 0f);
+        guiGraphics.pose().translate(scoreX, 0f);
         guiGraphics.pose().scale(scoreScale, scoreScale);
         guiGraphics.text(font, scoreText, 0, 0, withAlpha(config.ratingScoreColor, baseAlpha));
         guiGraphics.pose().popMatrix();
@@ -299,18 +318,21 @@ public final class RatingRenderer {
             float textScale = pop * 0.8f;
 
             guiGraphics.pose().pushMatrix();
-            guiGraphics.pose().translate(leftX, line.y());
+            guiGraphics.pose().translate(feedX, line.y());
             guiGraphics.pose().scale(textScale, textScale);
             guiGraphics.text(font, line.text(), 0, 0, withAlpha(GAIN_COLOR, line.alpha()));
+            float lineWidth = font.width(line.text());
+            if (line.suffix() != null && !line.suffix().isEmpty()) {
+                guiGraphics.text(font, line.suffix(), Math.round(line.suffixX()), 0, withAlpha(GAIN_COLOR, line.alpha()));
+                lineWidth = Math.max(lineWidth, line.suffixX() + font.width(line.suffix()));
+            }
             guiGraphics.pose().popMatrix();
 
-            boundMaxX = Math.max(boundMaxX, leftX + font.width(line.text()) * textScale);
+            boundMaxX = Math.max(boundMaxX, feedX + lineWidth * textScale);
             boundMaxY = Math.max(boundMaxY, line.y() + font.lineHeight * textScale);
         }
 
         // 持续项（如“伤害”）常驻显示在分数正下方，数值平滑变化
-        Map<String, Float> totals = isPreview ? previewTotals() : rm.getContinuousTotals();
-        Map<String, String> names = isPreview ? previewNames() : rm.getContinuousNames();
         if (totals.isEmpty()) {
             CONTINUOUS_SHOWN.clear();
             CONTINUOUS_APPEAR.clear();
@@ -328,26 +350,37 @@ public final class RatingRenderer {
         int killStreak = isPreview ? 3 : rm.getKillStreak();
         for (Map.Entry<String, Float> entry : totals.entrySet()) {
             float targetValue = entry.getValue();
-            float shown = CONTINUOUS_SHOWN.getOrDefault(entry.getKey(), 0f);
-            shown += (targetValue - shown) * 0.25f;
-            if (Math.abs(targetValue - shown) < 0.05f) shown = targetValue;
-            CONTINUOUS_SHOWN.put(entry.getKey(), shown);
+            String id = entry.getKey();
 
-            // 首次出现的持续项淡入，避免会话开始时整排直接冒出来
+            // 四舍五入后不足 1 分的持续项不显示（例如首击的 0.2 连击），
+            // 同时清空入场状态，避免它在真正出现前就把淡入/增长动画消耗掉。
+            if (!isPreview && Math.round(targetValue) < 1) {
+                CONTINUOUS_SHOWN.put(id, 0f);
+                CONTINUOUS_APPEAR.remove(id);
+                continue;
+            }
+
+            // 真正出现时才记录入场时间：从 0 开始增长 + 淡入
             long appearAt = isPreview ? 0L
-                : CONTINUOUS_APPEAR.computeIfAbsent(entry.getKey(), id -> now);
+                : CONTINUOUS_APPEAR.computeIfAbsent(id, k -> now);
             float appear = isPreview ? 1f
                 : Mth.clamp((now - appearAt) / (float) CONTINUOUS_FADE_MS, 0f, 1f);
 
-            String text = "+" + formatPoints(shown);
-            String name = names.get(entry.getKey());
+            float shown = CONTINUOUS_SHOWN.getOrDefault(id, 0f);
+            shown += (targetValue - shown) * 0.25f;
+            if (Math.abs(targetValue - shown) < 0.05f) shown = targetValue;
+            CONTINUOUS_SHOWN.put(id, shown);
+
+            int rounded = isPreview ? Math.round(shown) : Math.max(1, Math.round(shown));
+            String text = "+" + (isPreview ? formatPoints(shown) : String.valueOf(rounded));
+            String name = names.get(id);
             if (config.showRatingScoreSource && name != null && !name.isBlank()) {
                 text += " " + name;
             }
             int alpha = (int) (baseAlpha * 0.9f * appear);
             if (alpha >= MIN_ALPHA) {
                 guiGraphics.pose().pushMatrix();
-                guiGraphics.pose().translate(leftX, 13f + row * 10f);
+                guiGraphics.pose().translate(feedX, 13f + row * 10f);
                 guiGraphics.pose().scale(0.8f, 0.8f);
                 guiGraphics.text(font, text, 0, 0, withAlpha(GAIN_COLOR, alpha));
                 // 连击/连杀次数显示在名称后面；关闭“加分项目名称”时一起隐藏
@@ -368,7 +401,7 @@ public final class RatingRenderer {
                 }
                 guiGraphics.pose().popMatrix();
 
-                boundMaxX = Math.max(boundMaxX, leftX + textWidth * 0.8f);
+                boundMaxX = Math.max(boundMaxX, feedX + textWidth * 0.8f);
                 boundMaxY = Math.max(boundMaxY, 13f + row * 10f + font.lineHeight * 0.8f);
             }
             row++;

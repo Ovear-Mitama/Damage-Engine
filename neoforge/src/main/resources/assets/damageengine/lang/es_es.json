@@ -72,9 +72,11 @@
   "option.damage-engine.historyDecimalPlaces": "Decimales del historial",
   "option.damage-engine.showDamageIndicator": "Números de daño",
   "option.damage-engine.indicator_merge": "Combinar números de daño",
-  "hint.damage-engine.indicator_merge": "Combina los golpes rápidos al mismo objetivo en un solo número.\nSe recomienda activar «Seguir entidad» al usar esta opción.",
-  "option.damage-engine.indicator_track_entity": "Seguir entidad",
-  "hint.damage-engine.indicator_track_entity": "Los números siguen a la entidad al moverse; si la entidad desaparece, se quedan en su sitio.",
+  "hint.damage-engine.indicator_merge": "Combina los golpes rápidos al mismo objetivo en un solo número.\nSe recomienda poner «Modo de seguimiento» en «Entidad» al usar esta opción.",
+  "option.damage-engine.indicator_track_mode": "Modo de seguimiento",
+  "hint.damage-engine.indicator_track_mode": "Cómo siguen los números de daño:\nDesactivado = se quedan en el punto de impacto; Entidad = siguen a la entidad golpeada; Mira = siguen la mira de la pantalla.",
+  "option.damage-engine.mode.entity": "Entidad",
+  "option.damage-engine.mode.crosshair": "Mira",
   "option.damage-engine.indicatorDecimalPlaces": "Decimales del indicador",
   "option.damage-engine.indicatorMode": "Modo",
   "option.damage-engine.mode.enhanced": "Mejorado",
@@ -199,5 +201,6 @@
   "rating.bonus.killstreak": "Racha de bajas",
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
-  "option.damage-engine.comboResetTime": "Tiempo de reinicio del combo (s)"
+  "option.damage-engine.comboResetTime": "Tiempo de reinicio del combo (s)",
+  "command.damage-engine.cleared": "Datos de daño y puntuación borrados."
 }

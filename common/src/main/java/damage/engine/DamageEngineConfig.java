@@ -62,9 +62,11 @@ public class DamageEngineConfig {
     public int healIndicatorColor = 0xFFB1EAC2;
     public boolean indicatorPrefixSign = false;
     public boolean showGlobalDamageIndicator = false;
-    // 合并跳字:把同一目标短时间内受到的伤害合并成一个数字(默认关)
+    // 合并跳字:把同一目标短时间内受到的伤害合并成一个数字(默认关);建议配合追踪模式
     public boolean indicatorMerge = false;
-    // 追踪实体:伤害跳字跟随受害实体移动(默认关)
+    // 追踪模式:off = 停在命中点, entity = 跟随受害实体, crosshair = 跟随准心
+    public String indicatorTrackMode = "off";
+    // 旧版「追踪实体」开关:只用于读取旧配置,逻辑已改用 indicatorTrackMode
     public boolean indicatorTrackEntity = false;
     // 全局伤害跳字 - 玩家显示距离(0 = 无限制)
     public float globalIndicatorMaxDistance = 128.0f;
@@ -98,7 +100,7 @@ public class DamageEngineConfig {
     public int infoBarDamageColor = 0xFFF9867D;
     
     // ========== Rating ==========
-    public boolean showRating = false;
+    public boolean showRating = true;
     // 评分分数显示(类似 COD 的加分提示)
     public boolean showRatingScore = true;
     // 加分时是否显示加分项目名称(连击/暴击/伤害加成等)
@@ -125,12 +127,20 @@ public class DamageEngineConfig {
     public boolean hasShownWelcomeMessage = false;
     
     // ========== Module Configs ==========
-    public ModuleConfig totalDamageConfig = new ModuleConfig(0.8171875f, 0.38462415f, 0.95652175f, 2, 0, 117f, 83.71873f);
+    public ModuleConfig totalDamageConfig = new ModuleConfig(0.8171875f, 0.38462415f, 0.95652175f);
     public ModuleConfig comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
     public ModuleConfig historyConfig = new ModuleConfig(0.9359375f, 0.3305973f, 0.95652175f);
     public ModuleConfig infoConfig = new ModuleConfig(0.6359375f, 0.38017642f, 0.5539445f);
-    public ModuleConfig ratingConfig = new ModuleConfig(0.7867187f, 0.31508327f, 1.4066461f, 2, 0, 136.5f, 0f);
+    public ModuleConfig ratingConfig = new ModuleConfig(0.7867187f, 0.31508327f, 1.4066461f);
     public ModuleConfig ratingScoreConfig = new ModuleConfig(0.5953125f, 0.43195266f, 1.0f);
+
+    /**
+     * HUD 布局基准尺寸（GUI 像素），在 HUD 编辑器保存时记录。
+     * 窗口缩放时整套 HUD（位置 + 尺寸）按同一比例缩放，控件之间的相对位置保持不变。
+     * 0 = 尚未记录，按当前窗口 1:1 处理。
+     */
+    public float hudLayoutBaseWidth = 0f;
+    public float hudLayoutBaseHeight = 0f;
     
     public List<DamageThreshold> damageThresholds = new ArrayList<>();
 
@@ -141,86 +151,23 @@ public class DamageEngineConfig {
         public float y;
         public float scale;
         public boolean enabled;
-        /** 横向锚点：0 = 按屏幕比例，1 = 距左边固定像素，2 = 距右边固定像素。 */
-        public int anchorX = 0;
-        /** 纵向锚点：0 = 按屏幕比例，1 = 距顶部固定像素，2 = 距底部固定像素。 */
-        public int anchorY = 0;
-        public float marginX = 0f;
-        public float marginY = 0f;
 
         public ModuleConfig() {
             this.enabled = true;
         }
 
-        /** 屏幕横坐标：靠近边缘的模块保持固定像素边距，其余按比例定位。 */
+        /**
+         * 屏幕横坐标：始终按屏幕比例定位。
+         * 所有模块共用同一套比例坐标，窗口缩放时它们之间的相对位置不会漂移。
+         */
         public int resolveScreenX(int guiWidth) {
-            if (anchorX == 1) return Math.round(marginX);
-            if (anchorX == 2) return guiWidth - Math.round(marginX);
             if (x == -1.0f) return guiWidth / 2;
             return Math.round(x * guiWidth);
         }
 
         public int resolveScreenY(int guiHeight) {
-            if (anchorY == 1) return Math.round(marginY);
-            if (anchorY == 2) return guiHeight - Math.round(marginY);
             if (y == -1.0f) return guiHeight / 2;
             return Math.round(y * guiHeight);
-        }
-
-        /** 旧配置首次渲染时自动决定贴边锚点。 */
-        public void ensureAnchor(int guiWidth, int guiHeight) {
-            if (anchorX == 0 && x >= 0f && x <= 1f) {
-                float cx = x * guiWidth;
-                if (cx <= guiWidth * 0.25f) {
-                    anchorX = 1;
-                    marginX = cx;
-                } else if (cx >= guiWidth * 0.75f) {
-                    anchorX = 2;
-                    marginX = guiWidth - cx;
-                }
-            }
-            if (anchorY == 0 && y >= 0f && y <= 1f) {
-                float cy = y * guiHeight;
-                if (cy <= guiHeight * 0.25f) {
-                    anchorY = 1;
-                    marginY = cy;
-                } else if (cy >= guiHeight * 0.75f) {
-                    anchorY = 2;
-                    marginY = guiHeight - cy;
-                }
-            }
-        }
-
-        /** 拖动结束后更新锚点：靠近边缘的模块改为固定像素边距。 */
-        public void updateAnchor(int guiWidth, int guiHeight) {
-            if (x < 0f || x > 1f) {
-                anchorX = 0;
-            } else {
-                float cx = x * guiWidth;
-                if (cx <= guiWidth * 0.25f) {
-                    anchorX = 1;
-                    marginX = cx;
-                } else if (cx >= guiWidth * 0.75f) {
-                    anchorX = 2;
-                    marginX = guiWidth - cx;
-                } else {
-                    anchorX = 0;
-                }
-            }
-            if (y < 0f || y > 1f) {
-                anchorY = 0;
-            } else {
-                float cy = y * guiHeight;
-                if (cy <= guiHeight * 0.25f) {
-                    anchorY = 1;
-                    marginY = cy;
-                } else if (cy >= guiHeight * 0.75f) {
-                    anchorY = 2;
-                    marginY = guiHeight - cy;
-                } else {
-                    anchorY = 0;
-                }
-            }
         }
 
         public ModuleConfig(float x, float y, float scale) {
@@ -228,15 +175,6 @@ public class DamageEngineConfig {
             this.y = y;
             this.scale = scale;
             this.enabled = true;
-        }
-
-        public ModuleConfig(float x, float y, float scale,
-                            int anchorX, int anchorY, float marginX, float marginY) {
-            this(x, y, scale);
-            this.anchorX = anchorX;
-            this.anchorY = anchorY;
-            this.marginX = marginX;
-            this.marginY = marginY;
         }
     }
 
@@ -410,6 +348,32 @@ public class DamageEngineConfig {
 
     public static DamageEngineConfig getInstance() {
         return INSTANCE;
+    }
+
+    // ---- HUD 布局：基准尺寸 + 统一缩放，保证窗口变化时控件相对位置不变 ----
+
+    /** 当前窗口相对布局基准的整体缩放系数（以高度为准，避免窗口变宽时横向距离被拉伸）。 */
+    public float hudLayoutScale(int guiHeight) {
+        if (hudLayoutBaseHeight <= 0f) return 1f;
+        return guiHeight / hudLayoutBaseHeight;
+    }
+
+    /** 布局基准宽度；未记录时退回当前宽度（等价 1:1）。 */
+    public float hudBaseWidth(int guiWidth) {
+        return hudLayoutBaseWidth > 0f ? hudLayoutBaseWidth : guiWidth;
+    }
+
+    public int resolveHudX(ModuleConfig m, int guiWidth, int guiHeight) {
+        return Math.round(m.x * hudBaseWidth(guiWidth) * hudLayoutScale(guiHeight));
+    }
+
+    public int resolveHudY(ModuleConfig m, int guiHeight) {
+        return m.resolveScreenY(guiHeight);
+    }
+
+    /** 模块最终缩放：用户设定的缩放 × 整体布局缩放。 */
+    public float resolveHudScale(ModuleConfig m, int guiHeight) {
+        return m.scale * hudLayoutScale(guiHeight);
     }
 
     /**
@@ -586,7 +550,10 @@ public class DamageEngineConfig {
         this.indicatorPrefixSign = loaded.indicatorPrefixSign;
         this.showGlobalDamageIndicator = loaded.showGlobalDamageIndicator;
         this.indicatorMerge = loaded.indicatorMerge;
-        this.indicatorTrackEntity = loaded.indicatorTrackEntity;
+        // 旧配置只有布尔开关：true 迁移为「跟随实体」，false 为「关闭」
+        this.indicatorTrackMode = loaded.indicatorTrackMode != null && !loaded.indicatorTrackMode.isEmpty()
+            ? loaded.indicatorTrackMode
+            : (loaded.indicatorTrackEntity ? "entity" : "off");
         // 0 = 无限制,保留 0;负数视为无效回退默认
         this.globalIndicatorMaxDistance = loaded.globalIndicatorMaxDistance >= 0 ? loaded.globalIndicatorMaxDistance : 128.0f;
         this.globalIndicatorSmartHide = loaded.globalIndicatorSmartHide;
@@ -651,6 +618,9 @@ public class DamageEngineConfig {
         if (loaded.infoConfig != null) this.infoConfig = loaded.infoConfig;
         if (loaded.ratingConfig != null) this.ratingConfig = loaded.ratingConfig;
         if (loaded.ratingScoreConfig != null) this.ratingScoreConfig = loaded.ratingScoreConfig;
+
+        this.hudLayoutBaseWidth = loaded.hudLayoutBaseWidth;
+        this.hudLayoutBaseHeight = loaded.hudLayoutBaseHeight;
         
         if (loaded.damageThresholds != null) {
             this.damageThresholds = loaded.damageThresholds;
@@ -719,6 +689,7 @@ public class DamageEngineConfig {
         indicatorPrefixSign = false;
         showGlobalDamageIndicator = false;
         indicatorMerge = false;
+        indicatorTrackMode = "off";
         indicatorTrackEntity = false;
         globalIndicatorMaxDistance = 128.0f;
         globalIndicatorSmartHide = false;
@@ -747,7 +718,7 @@ public class DamageEngineConfig {
         infoBarDamageColor = 0xFFF9867D;
         
         // Rating
-        showRating = false;
+        showRating = true;
         showRatingScore = true;
         showRatingScoreSource = true;
         ratingScoreMaxGains = 5;
@@ -773,12 +744,14 @@ public class DamageEngineConfig {
         previewEnabled = false;
         
         // Module configs
-        totalDamageConfig = new ModuleConfig(0.8171875f, 0.38462415f, 0.95652175f, 2, 0, 117f, 83.71873f);
+        totalDamageConfig = new ModuleConfig(0.8171875f, 0.38462415f, 0.95652175f);
         comboConfig = new ModuleConfig(0.8828125f, 0.2611276f, 0.95652175f);
         historyConfig = new ModuleConfig(0.9359375f, 0.3305973f, 0.95652175f);
         infoConfig = new ModuleConfig(0.6359375f, 0.38017642f, 0.5539445f);
-        ratingConfig = new ModuleConfig(0.7867187f, 0.31508327f, 1.4066461f, 2, 0, 136.5f, 0f);
+        ratingConfig = new ModuleConfig(0.7867187f, 0.31508327f, 1.4066461f);
         ratingScoreConfig = new ModuleConfig(0.5953125f, 0.43195266f, 1.0f);
+        hudLayoutBaseWidth = 0f;
+        hudLayoutBaseHeight = 0f;
         
         damageThresholds.clear();
         damageThresholds.add(new DamageThreshold(0f, 0xFFFFFFFF));

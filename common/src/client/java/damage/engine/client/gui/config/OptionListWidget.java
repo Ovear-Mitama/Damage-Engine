@@ -1,5 +1,6 @@
 package damage.engine.client.gui.config;
 
+import damage.engine.client.gui.DamageConfigScreen;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ContainerObjectSelectionList;
@@ -102,6 +103,10 @@ public class OptionListWidget extends ContainerObjectSelectionList<OptionEntry> 
         int sx = this.getScrollbarX(), sy = this.getY(), sh = this.getHeight();
         int ch = this.maxScrollAmount() + this.getHeight();
         if (ch > this.getHeight()) {
+            // 滚动条：悬停或拖动时显示上下缩放光标
+            if (scrolling || (mx >= sx && mx <= sx + 6 && my >= sy && my <= sy + sh)) {
+                g.requestCursor(DamageConfigScreen.CURSOR_NS);
+            }
             int bh = Math.max(32, (int) ((float) (this.getHeight() * this.getHeight()) / (float) ch));
             if (bh > this.getHeight()) bh = this.getHeight();
             int bt = (int) this.scrollAmount() * (this.getHeight() - bh) / this.maxScrollAmount() + this.getY();
