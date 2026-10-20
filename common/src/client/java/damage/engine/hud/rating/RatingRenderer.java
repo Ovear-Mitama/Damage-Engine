@@ -3,6 +3,7 @@ package damage.engine.hud.rating;
 import com.mojang.blaze3d.platform.NativeImage;
 import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
+import damage.engine.hud.DamageHud;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -89,7 +90,7 @@ public final class RatingRenderer {
         float gradeAlpha = 0f;
         float sessionFade = 1f;
 
-        if (isPreview && previewGrade != null && !previewGrade.isEmpty()) {
+        if (isPreview && previewGrade != null && !previewGrade.isEmpty() && !rm.isVisible()) {
             long t = System.currentTimeMillis() % 1500;
             float progress = Mth.clamp(t / 1500f, 0f, 1f);
             gradeAlpha = progress < 0.15f ? progress / 0.15f
@@ -105,11 +106,18 @@ public final class RatingRenderer {
                     }
                 }
             }
-        } else if (!isPreview && rm.isVisible()) {
-            sessionFade = syncSession(rm, System.currentTimeMillis());
-            long elapsed = System.currentTimeMillis() - rm.getGradeShowTime();
-            float progress = Mth.clamp(elapsed / 2000f, 0f, 1f);
-            gradeAlpha = progress > 0.6f ? (1f - (progress - 0.6f) / 0.4f) : 1f;
+        } else if (rm.isVisible()) {
+            // 预览时如果存在实时评分会话，直接用实时数据，保证预览与实际内容一致
+            long nowMs = DamageHud.INSTANCE.hudTimeMs();
+            sessionFade = syncSession(rm, nowMs);
+            if (config.reduceAnimations) {
+                // 减少动画：等级直接完整显示
+                gradeAlpha = 1f;
+            } else {
+                long elapsed = nowMs - rm.getGradeShowTime();
+                float progress = Mth.clamp(elapsed / 2000f, 0f, 1f);
+                gradeAlpha = progress > 0.6f ? (1f - (progress - 0.6f) / 0.4f) : 1f;
+            }
             gradeText = rm.getGrade();
             gradeColor = rm.getGradeColor();
             imagePath = rm.getGradeImagePath();
@@ -140,12 +148,14 @@ public final class RatingRenderer {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         RatingManager rm = RatingManager.getInstance();
         int baseAlpha = (int) (255 * globalAlpha);
-        if (!isPreview) {
+        // 预览时若有实时评分会话，则走实时数据分支（与实际 HUD 完全一致）
+        boolean livePreview = isPreview && rm.isVisible();
+        if (!isPreview || livePreview) {
             if (baseAlpha < MIN_ALPHA) return;
-            baseAlpha = (int) (baseAlpha * syncSession(rm, System.currentTimeMillis()));
+            baseAlpha = (int) (baseAlpha * syncSession(rm, DamageHud.INSTANCE.hudTimeMs()));
             if (baseAlpha < MIN_ALPHA) return;
         }
-        drawScore(guiGraphics, client, config, rm, isPreview, baseAlpha);
+        drawScore(guiGraphics, client, config, rm, isPreview && !livePreview, baseAlpha);
     }
 
     /**
@@ -165,6 +175,8 @@ public final class RatingRenderer {
             CONTINUOUS_APPEAR.clear();
         }
         if (start <= 0) return 1f;
+        // 减少动画：跳过整块评分界面的淡入
+        if (DamageEngineConfig.getInstance().reduceAnimations) return 1f;
         return Mth.clamp((now - start) / (float) SESSION_FADE_MS, 0f, 1f);
     }
 
@@ -204,18 +216,20 @@ public final class RatingRenderer {
     private static void drawScore(GuiGraphics guiGraphics, Minecraft client, DamageEngineConfig config,
                                   RatingManager rm, boolean isPreview, int baseAlpha) {
         Font font = client.font;
-        long now = System.currentTimeMillis();
+        long now = DamageHud.INSTANCE.hudTimeMs();
+        boolean reduceAnimations = config.reduceAnimations;
         float target = isPreview ? 1250f : rm.getScore();
-        List<RatingManager.ScoreGain> gains = new ArrayList<>(isPreview ? previewGains() : rm.getRecentGains());
+        // getRecentGains() 已经返回快照，无需再复制一次
+        List<RatingManager.ScoreGain> gains = isPreview ? previewGains() : rm.getRecentGains();
         // 严格按加入时间升序：先出现的排在前面（上方）
         gains.sort(Comparator.comparingLong(RatingManager.ScoreGain::time));
         if (!isPreview && target <= 0 && gains.isEmpty()) return;
 
-        updateScoreAnimation(target, isPreview, now);
+        updateScoreAnimation(target, isPreview, now, reduceAnimations);
 
         // 加分时数字轻轻弹一下
         float pulseAge = (now - lastScoreGainTime) / (float) SCORE_PULSE_MS;
-        float pulse = (!isPreview && pulseAge >= 0f && pulseAge < 1f)
+        float pulse = (!isPreview && !reduceAnimations && pulseAge >= 0f && pulseAge < 1f)
             ? (float) Math.sin(pulseAge * Math.PI) * 0.10f
             : 0f;
         float scoreScale = 1f + pulse;
@@ -266,7 +280,7 @@ public final class RatingRenderer {
             if (alphas[k] > 0f) {
                 // 每项加分独立从 0 增长到自身分值，与总分相同的缓出节奏；
                 // 以各自的加入时间计算进度，新条目不会打断已有条目的动画
-                float grow = isPreview ? 1f
+                float grow = (isPreview || reduceAnimations) ? 1f
                     : easeOutCubic(Mth.clamp(age / (float) SCORE_ANIM_MS, 0f, 1f));
                 String sourcePart = (config.showRatingScoreSource && gain.source() != null && !gain.source().isEmpty())
                     ? " " + gain.source() : "";
@@ -281,7 +295,7 @@ public final class RatingRenderer {
                     (int) alphas[k], progresses[k], feedBaseY + shift));
             }
             // 该条目出现后，所有更旧的条目在 ROW_SHIFT_MS 内向下让出一行
-            if (isPreview) {
+            if (isPreview || reduceAnimations) {
                 shift += 10f;
             } else if (age >= 0) {
                 shift += 10f * easeOutCubic(Mth.clamp(age / (float) ROW_SHIFT_MS, 0f, 1f));
@@ -289,12 +303,11 @@ public final class RatingRenderer {
         }
 
         String scoreText = String.format(Locale.ROOT, "%,d", Math.round(displayedScore));
-        // 分数主体居中；加分提示的左边缘固定在“最终分值宽度”对应的位置。
-        // 这样总分滚动增长时，加分提示（含距离后缀）不会被推着左右移动。
-        String anchorText = String.format(Locale.ROOT, "%,d",
-            Math.round(lastScoreTarget >= 0f ? lastScoreTarget : displayedScore));
-        float scoreX = -font.width(scoreText) / 2f;
-        float feedX = -font.width(anchorText) / 2f;
+        // 分数与加分提示共用同一个固定左边缘：位数变化时不左右移动，
+        // 同时保证下方的加分/持续项始终和分数左对齐。
+        float anchorX = -font.width("00,000") / 2f;
+        float scoreX = anchorX;
+        float feedX = anchorX;
 
         // 记录本帧的包围盒，供 HUD 编辑器使用
         float boundMinX = Math.min(scoreX, feedX);
@@ -311,7 +324,7 @@ public final class RatingRenderer {
         // 固定行距，纵向位置由逐条下移动画给出；旧条目先画，最新条目覆盖在最上层
         for (int li = lines.size() - 1; li >= 0; li--) {
             GainLine line = lines.get(li);
-            float pop = 1f + 0.10f
+            float pop = reduceAnimations ? 1f : 1f + 0.10f
                 * (1f - easeOutCubic(Mth.clamp(line.progress() / 0.18f, 0f, 1f)));
             float textScale = pop * 0.8f;
 
@@ -359,14 +372,20 @@ public final class RatingRenderer {
             }
 
             // 真正出现时才记录入场时间：从 0 开始增长 + 淡入
-            long appearAt = isPreview ? 0L
+            long appearAt = (isPreview || reduceAnimations) ? 0L
                 : CONTINUOUS_APPEAR.computeIfAbsent(id, k -> now);
-            float appear = isPreview ? 1f
+            float appear = (isPreview || reduceAnimations) ? 1f
                 : Mth.clamp((now - appearAt) / (float) CONTINUOUS_FADE_MS, 0f, 1f);
 
-            float shown = CONTINUOUS_SHOWN.getOrDefault(id, 0f);
-            shown += (targetValue - shown) * 0.25f;
-            if (Math.abs(targetValue - shown) < 0.05f) shown = targetValue;
+            float shown;
+            if (reduceAnimations) {
+                // 减少动画：持续项直接显示最终值
+                shown = targetValue;
+            } else {
+                shown = CONTINUOUS_SHOWN.getOrDefault(id, 0f);
+                shown += (targetValue - shown) * 0.25f;
+                if (Math.abs(targetValue - shown) < 0.05f) shown = targetValue;
+            }
             CONTINUOUS_SHOWN.put(id, shown);
 
             int rounded = isPreview ? Math.round(shown) : Math.max(1, Math.round(shown));
@@ -412,8 +431,8 @@ public final class RatingRenderer {
     }
 
     /** 分数数字的平滑滚动：新分数在 350ms 内缓出追上，会话重置时直接归零。 */
-    private static void updateScoreAnimation(float target, boolean isPreview, long now) {
-        if (isPreview) {
+    private static void updateScoreAnimation(float target, boolean isPreview, long now, boolean reduceAnimations) {
+        if (isPreview || reduceAnimations) {
             displayedScore = target;
             scoreFrom = target;
             lastScoreTarget = target;
