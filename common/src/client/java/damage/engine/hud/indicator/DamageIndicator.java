@@ -13,6 +13,7 @@ import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
 import org.joml.Vector4f;
 
 import java.util.ArrayList;
@@ -88,6 +89,42 @@ public class DamageIndicator {
         // Random ring radius: distance from the crosshair center where this indicator spawns
         final float ringRadius;
 
+        // 跳字帧率上限：同一步进内复用动画计算结果（文字仍然每帧绘制）
+        int animStep = Integer.MIN_VALUE;
+        float cachedScale;
+        float cachedAlpha;
+        float cachedMoveOffsetX;
+        float cachedMoveOffsetY;
+        float cachedMergePop = 1f;
+        // 渲染文本缓存：伤害值或相关配置变化时才重新格式化
+        private String cachedText;
+        private float cachedDamage = Float.NaN;
+        private int cachedDecimalPlaces = Integer.MIN_VALUE;
+        private boolean cachedPrefixSign;
+        private String cachedKillText = "";
+
+        String text(DamageEngineConfig config) {
+            String killText = config.killText == null ? "" : config.killText;
+            if (cachedText == null
+                || cachedDamage != damage
+                || cachedDecimalPlaces != config.indicatorDecimalPlaces
+                || cachedPrefixSign != config.indicatorPrefixSign
+                || (isKill && !killText.equals(cachedKillText))) {
+                if (isKill) {
+                    cachedText = killText;
+                } else if (isHeal) {
+                    cachedText = (config.indicatorPrefixSign ? "+" : "") + formatDamage(damage, config.indicatorDecimalPlaces);
+                } else {
+                    cachedText = (config.indicatorPrefixSign ? "-" : "") + formatDamage(damage, config.indicatorDecimalPlaces);
+                }
+                cachedDamage = damage;
+                cachedDecimalPlaces = config.indicatorDecimalPlaces;
+                cachedPrefixSign = config.indicatorPrefixSign;
+                cachedKillText = isKill ? killText : "";
+            }
+            return cachedText;
+        }
+
         Indicator(Entity victim, double x, double y, double z, float damage, boolean isCrit, boolean isKill, boolean isHeal) {
             this.victimId = victim != null ? victim.getId() : -1;
             this.victimRef = victim;
@@ -150,6 +187,16 @@ public class DamageIndicator {
             }
             // No performance cap on indicator count
             indicators.add(new Indicator(victim, x, y, z, damage, isCrit, isKill, isHeal));
+            trimToLimit();
+        }
+    }
+
+    /** 跳字数量上限：0 = 无限制；超过上限时移除最旧的跳字。 */
+    private static void trimToLimit() {
+        int maxCount = DamageEngineConfig.getInstance().indicatorMaxCount;
+        if (maxCount <= 0) return;
+        while (indicators.size() > maxCount) {
+            indicators.remove(0);
         }
     }
 
@@ -190,6 +237,40 @@ public class DamageIndicator {
         synchronized (indicators) {
             // 淡出被推迟多少寿命就延长多少,持续合并的跳字不会被提前移除
             indicators.removeIf(ind -> !isAlive(ind, now));
+            // 配置里调小数量上限后，即使没有新命中也要把超出的旧跳字清掉
+            trimToLimit();
+        }
+    }
+
+    // ---- 性能叠加层：跳字渲染帧率统计 ----
+    private static long fpsWindowStartMs = 0L;
+    private static int fpsFrames = 0;
+    private static int currentFps = 0;
+
+    private static void measureFps() {
+        long now = System.currentTimeMillis();
+        if (fpsWindowStartMs == 0L) {
+            fpsWindowStartMs = now;
+            return;
+        }
+        fpsFrames++;
+        long elapsed = now - fpsWindowStartMs;
+        if (elapsed >= 1000L) {
+            currentFps = (int) Math.round(fpsFrames * 1000.0 / elapsed);
+            fpsFrames = 0;
+            fpsWindowStartMs = now;
+        }
+    }
+
+    /** 跳字渲染回调的实际帧率（供性能叠加层显示）。 */
+    public static int currentFps() {
+        return currentFps;
+    }
+
+    /** 当前存活的跳字数量。 */
+    public static int activeCount() {
+        synchronized (indicators) {
+            return indicators.size();
         }
     }
 
@@ -198,6 +279,7 @@ public class DamageIndicator {
         if (client.level == null || client.player == null) return;
         if (client.screen instanceof damage.engine.client.gui.DamageConfigScreen) return;
         if (client.screen instanceof damage.engine.client.gui.HudEditorScreen) return;
+        measureFps();
 
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         if (!config.showDamage) return;
@@ -243,8 +325,14 @@ public class DamageIndicator {
             Font font = client.font;
 
             boolean isEnhanced = "enhanced".equals(config.indicatorMode);
+            boolean reduceAnimations = config.reduceAnimations;
             float baseScale = config.indicatorScale;
             float opacity = config.indicatorOpacity / 100f;
+            // 跳字独立帧率上限：0 = 跟随游戏帧率；否则动画只在步进边界推进
+            int maxFps = Mth.clamp(config.indicatorMaxFps, 0, 480);
+            float stepMs = maxFps > 0 ? 1000f / maxFps : 0f;
+            // 相机朝向：用于剔除位于相机背后的跳字
+            Vector3f camLook = camera.getLookVector();
 
             List<RenderedIndicator> toRender = new ArrayList<>();
 
@@ -253,7 +341,14 @@ public class DamageIndicator {
                 if (ageMs < 0) continue;
                 // 淡出可能被合并时的命中往后推,寿命随之顺延;不再用固定的 TOTAL_DURATION 截断
                 if (!isAlive(ind, now)) continue;
-                float age = ageMs / 1000f;
+                // 帧率上限：把动画时间量化到步进边界，同一段内复用缓存结果
+                int animStep = -1;
+                float animMs = ageMs;
+                if (stepMs > 0f) {
+                    animStep = (int) (ageMs / stepMs);
+                    animMs = animStep * stepMs;
+                }
+                float age = animMs / 1000f;
                 // 淡出起点(秒):默认 = 入场 + 保持结束;合并过则用被重置的起点
                 float fadeStartSec = (ind.fadeStartOffsetMs >= 0f ? ind.fadeStartOffsetMs : FADE_START_MS) / 1000f;
 
@@ -280,6 +375,16 @@ public class DamageIndicator {
                         ind.x = tpos.x + ind.trackOff[0];
                         ind.y = tpos.y + ind.trackOff[1];
                         ind.z = tpos.z + ind.trackOff[2];
+                    }
+                }
+
+                // 相机背后的跳字直接跳过：不投影、不构建文本，省下无效绘制
+                if (!trackCrosshair) {
+                    double toX = ind.x - camPos.x;
+                    double toY = ind.y - camPos.y;
+                    double toZ = ind.z - camPos.z;
+                    if (toX * camLook.x + toY * camLook.y + toZ * camLook.z <= 0.0) {
+                        continue;
                     }
                 }
 
@@ -343,52 +448,82 @@ public class DamageIndicator {
                 // Animation phases
                 float scale;
                 float alpha;
-
-                if (age < SHRINK_DURATION) {
-                    // Phase 1: fade in + shrink from big to small
-                    float t = age / SHRINK_DURATION;
-                    // Fade in
-                    alpha = Mth.lerp(t, 0.0f, 1.0f);
-                    // Shrink from START_SCALE to END_SCALE
-                    scale = Mth.lerp(t, START_SCALE, END_SCALE);
-                } else if (age < fadeStartSec) {
-                    // Phase 2: hold at small size (保持到被重置的淡出起点)
-                    scale = END_SCALE;
-                    alpha = 1.0f;
+                float moveOffsetX;
+                float moveOffsetY;
+                float mergePop;
+                if (stepMs > 0f && ind.animStep == animStep) {
+                    // 同一步进内直接复用上次算好的结果
+                    scale = ind.cachedScale;
+                    alpha = ind.cachedAlpha;
+                    moveOffsetX = ind.cachedMoveOffsetX;
+                    moveOffsetY = ind.cachedMoveOffsetY;
+                    mergePop = ind.cachedMergePop;
                 } else {
-                    // Phase 3: fade out (淡出推迟到 fadeStartSec 之后,时长不变)
-                    float t = (age - fadeStartSec) / FADE_OUT_DURATION;
-                    scale = END_SCALE;
-                    alpha = Mth.lerp(t, 1.0f, 0.0f);
-                }
+                    if (age < SHRINK_DURATION) {
+                        // Phase 1: fade in + shrink from big to small
+                        float t = age / SHRINK_DURATION;
+                        // Fade in
+                        alpha = Mth.lerp(t, 0.0f, 1.0f);
+                        // Shrink from START_SCALE to END_SCALE
+                        scale = Mth.lerp(t, START_SCALE, END_SCALE);
+                    } else if (age < fadeStartSec) {
+                        // Phase 2: hold at small size (保持到被重置的淡出起点)
+                        scale = END_SCALE;
+                        alpha = 1.0f;
+                    } else {
+                        // Phase 3: fade out (淡出推迟到 fadeStartSec 之后,时长不变)
+                        float t = (age - fadeStartSec) / FADE_OUT_DURATION;
+                        scale = END_SCALE;
+                        alpha = Mth.lerp(t, 1.0f, 0.0f);
+                    }
 
-                alpha *= opacity;
+                    alpha *= opacity;
 
-                // Movement for enhanced mode - drift away, scaled by distance
-                float moveOffsetX = 0f;
-                float moveOffsetY = 0f;
-                if (isEnhanced && !ind.isKill) {
-                    float moveProgress = Math.min(age / (SHRINK_DURATION + HOLD_DURATION), 1.0f);
-                    float easedT = 1.0f - (1.0f - moveProgress) * (1.0f - moveProgress);
-                    float distance = ind.moveSpeed * easedT * distFactor;
-                    moveOffsetX = ind.moveDirX * distance;
-                    moveOffsetY = ind.moveDirY * distance;
+                    // Movement for enhanced mode - drift away, scaled by distance
+                    moveOffsetX = 0f;
+                    moveOffsetY = 0f;
+                    if (isEnhanced && !ind.isKill && !reduceAnimations) {
+                        float moveProgress = Math.min(age / (SHRINK_DURATION + HOLD_DURATION), 1.0f);
+                        float easedT = 1.0f - (1.0f - moveProgress) * (1.0f - moveProgress);
+                        float distance = ind.moveSpeed * easedT * distFactor;
+                        moveOffsetX = ind.moveDirX * distance;
+                        moveOffsetY = ind.moveDirY * distance;
+                    }
+
+                    // 合并跳字时的跳动:合并瞬间轻微放大再回落(1.18 → 1.0,360ms,easeOutQuad)。
+                    // 每次合并都会重置时钟,连续命中时不断跳动;动画结束后停用。
+                    mergePop = 1f;
+                    if (ind.mergePopStart >= 0) {
+                        float popMs = Math.max(0f, animMs - ind.mergePopStart);
+                        if (popMs < MERGE_POP_MS && !reduceAnimations) {
+                            float pt = popMs / MERGE_POP_MS;
+                            float pe = 1f - (1f - pt) * (1f - pt);
+                            mergePop = 1.18f - 0.18f * pe;
+                        } else if (popMs >= MERGE_POP_MS) {
+                            ind.mergePopStart = -1;
+                        }
+                    }
+
+                    if (stepMs > 0f) {
+                        ind.animStep = animStep;
+                        ind.cachedScale = scale;
+                        ind.cachedAlpha = alpha;
+                        ind.cachedMoveOffsetX = moveOffsetX;
+                        ind.cachedMoveOffsetY = moveOffsetY;
+                        ind.cachedMergePop = mergePop;
+                    }
                 }
 
                 // Kill text uses special handling
-                String text;
+                String text = ind.text(config);
                 int argbColor;
                 if (ind.isKill) {
-                    text = config.killText;
                     argbColor = config.killTextColor;
                 } else if (ind.isHeal) {
-                    text = (config.indicatorPrefixSign ? "+" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.healIndicatorColor;
                 } else if (ind.isCrit) {
-                    text = (config.indicatorPrefixSign ? "-" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.damageIndicatorCritColor;
                 } else {
-                    text = (config.indicatorPrefixSign ? "-" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.damageIndicatorNormalColor;
                 }
 
@@ -406,19 +541,7 @@ public class DamageIndicator {
                 // Subtle distance-based scale: far entities slightly smaller (10% reduction at max distance)
                 float distanceScaleFactor = 0.9f + distFactor * 0.1f;
                 finalScale *= distanceScaleFactor;
-
-                // 合并跳字时的跳动:合并瞬间轻微放大再回落(1.18 → 1.0,360ms,easeOutQuad)。
-                // 每次合并都会重置时钟,连续命中时不断跳动;动画结束后停用。
-                if (ind.mergePopStart >= 0) {
-                    float popMs = now - ind.mergePopStart;
-                    if (popMs < MERGE_POP_MS) {
-                        float pt = popMs / MERGE_POP_MS;
-                        float pe = 1f - (1f - pt) * (1f - pt);
-                        finalScale *= 1.18f - 0.18f * pe;
-                    } else {
-                        ind.mergePopStart = -1;
-                    }
-                }
+                finalScale *= mergePop;
 
                 toRender.add(new RenderedIndicator(text, finalX, finalY, finalScale, color, ind.isKill));
             }

@@ -1,8 +1,6 @@
 package damage.engine.client.gui.config;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.Tooltip;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
 import net.minecraft.network.chat.Component;
@@ -18,7 +16,6 @@ public class ModeSelectorEntry extends OptionEntry {
     private static final int COLOR_OFF = 0xFFFC887E;
 
     private final StyledButton button;
-    private final Component label;
     private String mode;
 
     private static Component modeText(String mode) {
@@ -34,11 +31,10 @@ public class ModeSelectorEntry extends OptionEntry {
 
     public ModeSelectorEntry(String key, String initial, String[] modes, Component tooltip,
                              Consumer<String> onChange) {
-        this.label = Component.translatable(key);
-        setSearchText(this.label);
+        setLabel(key);
         this.mode = initial;
         final StyledButton[] ref = new StyledButton[1];
-        ref[0] = new StyledButton(0, 0, 100, 20, modeText(mode), () -> {
+        ref[0] = new StyledButton(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, modeText(mode), () -> {
             int idx = 0;
             for (int i = 0; i < modes.length; i++) {
                 if (modes[i].equals(mode)) { idx = i; break; }
@@ -55,11 +51,10 @@ public class ModeSelectorEntry extends OptionEntry {
 
     /** 布尔模式选择（屏蔽/显示）。 */
     public ModeSelectorEntry(String key, boolean initial, Consumer<Boolean> onChange) {
-        this.label = Component.translatable(key);
-        setSearchText(this.label);
+        setLabel(key);
         this.mode = initial ? "block" : "show";
         final StyledButton[] ref = new StyledButton[1];
-        ref[0] = new StyledButton(0, 0, 100, 20,
+        ref[0] = new StyledButton(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT,
             Component.translatable("option.damage-engine.mode." + mode)
                 .withStyle(s -> s.withColor(net.minecraft.network.chat.TextColor.fromRgb(initial ? 0xFFFC887E : 0xFFB5F0C6 & 0xFFFFFF))), () -> {
             boolean v = "show".equals(mode);
@@ -74,11 +69,8 @@ public class ModeSelectorEntry extends OptionEntry {
     @Override
     public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh,
                               int mx, int my, boolean hovered, float dt) {
-        g.drawString(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
-        button.setX(x + ew - 110);
-        button.setY(y + 2);
-        button.setFocused(false);
-        button.render(g, mx, my, dt);
+        renderLabel(g, x, y);
+        renderButton(g, button, x, y, ew, mx, my, dt);
     }
 
     @Override public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }

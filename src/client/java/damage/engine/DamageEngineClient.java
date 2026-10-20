@@ -153,6 +153,11 @@ public class DamageEngineClient implements ClientModInitializer {
                             preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == entityId;
                         }
                     } catch (Exception ignored) {}
+                    // 远程命中通常超出准心拾取距离，准心命中的不是受害实体；
+                    // 这类伤害直接切换信息面板目标，否则第二箭会一直停留在第一个目标上。
+                    if (isProjectile) {
+                        preferSwitchTarget = true;
+                    }
 
                     net.minecraft.world.entity.Entity selfVictim = entityId > 0 && client.level != null
                         ? client.level.getEntity(entityId) : null;
@@ -172,17 +177,6 @@ public class DamageEngineClient implements ClientModInitializer {
                         }
                         if (config.showKillIndicator && killed) {
                             DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z, amount, false, true);
-                        }
-                    }
-
-                    if (config.debugShowRating && client.player != null) {
-                        RatingManager rm = RatingManager.getInstance();
-                        if (rm.isVisible()) {
-                            client.player.displayClientMessage(
-                                Component.literal("[DE Debug] ").withStyle(s -> s.withColor(TextColor.fromRgb(0xB3EDC4)))
-                                    .append(Component.literal("Rating: " + rm.getGrade() + " | Score: " + String.format("%.1f", rm.getScore())).withStyle(s -> s.withColor(TextColor.fromRgb(0xFFFFFF)))),
-                                true
-                            );
                         }
                     }
                 });

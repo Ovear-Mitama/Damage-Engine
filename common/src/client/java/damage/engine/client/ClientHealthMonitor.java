@@ -91,8 +91,16 @@ public final class ClientHealthMonitor {
     }
 
     /** Target dummies are handled by DummyDamageCompat, not by health diffs. */
+    private static final ClassValue<Boolean> TARGET_DUMMY = new ClassValue<>() {
+        @Override
+        protected Boolean computeValue(Class<?> type) {
+            return type.getName().startsWith("net.mehvahdjukaar.dummmmmmy.");
+        }
+    };
+
     private static boolean isTargetDummy(LivingEntity self) {
-        return self.getClass().getName().startsWith("net.mehvahdjukaar.dummmmmmy.");
+        // ClassValue 按类缓存：避免每 tick 对每个生物都调用 Class#getName() 生成字符串
+        return TARGET_DUMMY.get(self.getClass());
     }
 
     /** Drop state for entities no longer present in the client world. */

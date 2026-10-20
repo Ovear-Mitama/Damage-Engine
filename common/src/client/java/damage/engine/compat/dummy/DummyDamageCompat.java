@@ -39,8 +39,8 @@ public final class DummyDamageCompat {
             double maxDistance = config.globalIndicatorMaxDistance;
             if (maxDistance > 0 && dummy.distanceToSqr(client.player) > maxDistance * maxDistance) return;
 
-            boolean preferSwitchTarget = client.hitResult instanceof EntityHitResult hit
-                && hit.getEntity() != null && hit.getEntity().getId() == entityId;
+            boolean preferSwitchTarget = !(client.hitResult instanceof EntityHitResult hit)
+                || hit.getEntity() == null || hit.getEntity().getId() == entityId;
             DamageSessionManager.getInstance().addDamage(amount, crit, entityId, preferSwitchTarget);
 
             Vec3 pos = DamageEngineClient.blendIndicatorPos(

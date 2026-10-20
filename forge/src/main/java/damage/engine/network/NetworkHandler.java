@@ -174,6 +174,11 @@ public class NetworkHandler {
                         preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
                     }
                 } catch (Exception ignored) {}
+                // 远程命中通常超出准心拾取距离，准心命中的不是受害实体；
+                // 这类伤害直接切换信息面板目标，否则第二箭会一直停留在第一个目标上。
+                if (payload.isProjectile()) {
+                    preferSwitchTarget = true;
+                }
 
                 net.minecraft.world.entity.Entity selfVictim = payload.entityId() > 0 && mc.level != null
                     ? mc.level.getEntity(payload.entityId()) : null;
@@ -193,17 +198,6 @@ public class NetworkHandler {
                     }
                     if (config.showKillIndicator && payload.killed()) {
                         DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z, payload.amount(), false, true);
-                    }
-                }
-
-                if (config.debugShowRating && mc.player != null) {
-                    RatingManager rm = RatingManager.getInstance();
-                    if (rm.isVisible()) {
-                        mc.player.displayClientMessage(
-                            Component.literal("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
-                                .append(Component.literal("Rating: " + rm.getGrade() + " | Score: " + String.format("%.1f", rm.getScore())).withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFFFF)))),
-                            true
-                        );
                     }
                 }
             });
