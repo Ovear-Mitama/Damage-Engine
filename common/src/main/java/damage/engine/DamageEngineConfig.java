@@ -11,6 +11,8 @@ import java.util.ArrayList;
 import java.util.List;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 
 public class DamageEngineConfig {
     
@@ -22,6 +24,22 @@ public class DamageEngineConfig {
 
     // ========== General ==========
     public boolean showDamage = true;
+    /**
+     * 减少动画：关闭/简化纯装饰性的逐帧动画（HUD 惯性、伤害记录滑入、评分滚动、
+     * 血条平滑等），用于在低配机器或高负载战斗时换回帧率。
+     * 关闭时保持原有表现不变。
+     */
+    public boolean reduceAnimations = false;
+    /**
+     * 整个 DE HUD 的独立帧率上限（FPS）。0 = 跟随游戏帧率（不限制）；
+     * 大于 0 时 HUD 的动画/状态更新不超过该频率，HUD 本身仍然每帧绘制。
+     */
+    public int hudMaxFps = 60;
+    /**
+     * 伤害跳字的独立帧率上限（FPS）。0 = 跟随游戏帧率（不限制）；
+     * 大于 0 时跳字的动画/属性更新不超过该频率，文字本身仍然每帧绘制。
+     */
+    public int indicatorMaxFps = 0;
     public boolean hideOnF1 = true;
     /** HUD 惯性:off = 关闭, de_only = 只让 DE 自己的 HUD 让位, all = 整层 HUD 一起让位。 */
     public String hudInertiaMode = "de_only";
@@ -58,6 +76,8 @@ public class DamageEngineConfig {
     public float indicatorScale = 0.8f;
     public int indicatorOpacity = 100;
     public boolean indicatorBold = false;
+    /** 同时存在的跳字数量上限；0 = 无限制，超过时移除最旧的跳字。 */
+    public int indicatorMaxCount = 0;
     public boolean showHealIndicator = false;
     public int healIndicatorColor = 0xFFB1EAC2;
     public boolean indicatorPrefixSign = false;
@@ -92,6 +112,8 @@ public class DamageEngineConfig {
     public String entityRenderRotation = "custom";
     // 自定义朝向角度(0~360,0 = 正面朝向观察者,角度增大为顺时针)
     public int entityRenderRotationAngle = 30;
+    // 准心指向生物时在信息面板显示该生物(按原版实体交互距离)
+    public boolean crosshairEntityInfo = false;
     public boolean infoNoRoundedBorder = false;
     public int infoBackgroundColor = 0xFF000000;
     public int infoBackgroundOpacity = 25;
@@ -100,7 +122,8 @@ public class DamageEngineConfig {
     public int infoBarDamageColor = 0xFFF9867D;
     
     // ========== Rating ==========
-    public boolean showRating = true;
+    // 评分等级默认关闭（分数显示仍保持默认开启）
+    public boolean showRating = false;
     // 评分分数显示(类似 COD 的加分提示)
     public boolean showRatingScore = true;
     // 加分时是否显示加分项目名称(连击/暴击/伤害加成等)
@@ -120,7 +143,8 @@ public class DamageEngineConfig {
     // ========== Debug ==========
     public boolean debugMode = false;
     public boolean debugShowDamageInfo = false;
-    public boolean debugShowRating = false;
+    /** 屏幕左上角显示 DE 性能叠加层（HUD FPS / 跳字 FPS / 活跃数量等）。 */
+    public boolean debugShowPerformance = false;
     
     // ========== Preview ==========
     public boolean previewEnabled = false;
@@ -499,9 +523,14 @@ public class DamageEngineConfig {
             }
             
             try (Reader reader = Files.newBufferedReader(path)) {
-                DamageEngineConfig loaded = GSON.fromJson(reader, DamageEngineConfig.class);
+                JsonObject raw = JsonParser.parseReader(reader).getAsJsonObject();
+                DamageEngineConfig loaded = GSON.fromJson(raw, DamageEngineConfig.class);
                 if (loaded != null) {
                     copyFrom(loaded);
+                    // 旧配置没有该字段：迁移到新的默认值 60（显式写过 0 的保持不变）
+                    if (!raw.has("hudMaxFps")) {
+                        this.hudMaxFps = 60;
+                    }
                 }
             }
         } catch (Exception e) {
@@ -512,6 +541,9 @@ public class DamageEngineConfig {
     private void copyFrom(DamageEngineConfig loaded) {
         // General
         this.showDamage = loaded.showDamage;
+        this.reduceAnimations = loaded.reduceAnimations;
+        this.hudMaxFps = Math.max(0, loaded.hudMaxFps);
+        this.indicatorMaxFps = Math.max(0, loaded.indicatorMaxFps);
         this.hideOnF1 = loaded.hideOnF1;
         this.hudInertiaMode = loaded.hudInertiaMode != null ? loaded.hudInertiaMode : "de_only";
         this.hudInertiaStrength = loaded.hudInertiaStrength > 0 ? loaded.hudInertiaStrength : 100;
@@ -545,6 +577,7 @@ public class DamageEngineConfig {
         this.indicatorScale = loaded.indicatorScale > 0 ? loaded.indicatorScale : 1.5f;
         this.indicatorOpacity = loaded.indicatorOpacity;
         this.indicatorBold = loaded.indicatorBold;
+        this.indicatorMaxCount = Math.max(0, loaded.indicatorMaxCount);
         this.showHealIndicator = loaded.showHealIndicator;
         this.healIndicatorColor = loaded.healIndicatorColor;
         this.indicatorPrefixSign = loaded.indicatorPrefixSign;
@@ -575,6 +608,7 @@ public class DamageEngineConfig {
         // 旧版本写下的 "fixed" 与现在的 "custom" 同义(都是"不跟随、按固定角度")
         this.entityRenderRotation = ("custom".equals(loaded.entityRenderRotation) || "fixed".equals(loaded.entityRenderRotation)) ? "custom" : "follow";
         this.entityRenderRotationAngle = loaded.entityRenderRotationAngle;
+        this.crosshairEntityInfo = loaded.crosshairEntityInfo;
         this.infoNoRoundedBorder = loaded.infoNoRoundedBorder;
         this.infoBackgroundColor = loaded.infoBackgroundColor;
         this.infoBackgroundOpacity = loaded.infoBackgroundOpacity;
@@ -605,7 +639,7 @@ public class DamageEngineConfig {
         // Debug
         this.debugMode = loaded.debugMode;
         this.debugShowDamageInfo = loaded.debugShowDamageInfo;
-        this.debugShowRating = loaded.debugShowRating;
+        this.debugShowPerformance = loaded.debugShowPerformance;
         
         // Preview
         this.previewEnabled = loaded.previewEnabled;
@@ -651,6 +685,9 @@ public class DamageEngineConfig {
     private void applyHardcodedDefaults() {
         // General
         showDamage = true;
+        reduceAnimations = false;
+        hudMaxFps = 60;
+        indicatorMaxFps = 0;
         hideOnF1 = true;
         hudInertiaMode = "de_only";
         hudInertiaStrength = 100;
@@ -684,6 +721,7 @@ public class DamageEngineConfig {
         indicatorScale = 0.8f;
         indicatorOpacity = 100;
         indicatorBold = false;
+        indicatorMaxCount = 0;
         showHealIndicator = false;
         healIndicatorColor = 0xFFB1EAC2;
         indicatorPrefixSign = false;
@@ -710,6 +748,7 @@ public class DamageEngineConfig {
         entityRenderEnabled = true;
         entityRenderRotation = "custom";
         entityRenderRotationAngle = 30;
+        crosshairEntityInfo = false;
         infoNoRoundedBorder = false;
         infoBackgroundColor = 0xFF000000;
         infoBackgroundOpacity = 25;
@@ -718,7 +757,7 @@ public class DamageEngineConfig {
         infoBarDamageColor = 0xFFF9867D;
         
         // Rating
-        showRating = true;
+        showRating = false;
         showRatingScore = true;
         showRatingScoreSource = true;
         ratingScoreMaxGains = 5;
@@ -738,7 +777,7 @@ public class DamageEngineConfig {
         // Debug
         debugMode = false;
         debugShowDamageInfo = false;
-        debugShowRating = false;
+        debugShowPerformance = false;
         
         // Preview
         previewEnabled = false;

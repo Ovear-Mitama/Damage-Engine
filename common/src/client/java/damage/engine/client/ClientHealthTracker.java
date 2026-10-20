@@ -93,8 +93,12 @@ public class ClientHealthTracker {
             ? damage.engine.hud.rating.CombatContext.distance(client.player, entity) : 0f;
         boolean unseen = killed && client.player != null
             && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(entity, client.player);
+        // 没有准心实体（远程/爆炸等）时直接切换到本次受伤的目标；
+        // 近战横扫仍以准心目标优先
+        boolean preferSwitchTarget = crosshair == null
+            || DamageSessionManager.isSameVictim(crosshair, entity.getId());
         DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(),
-            crosshair, killed, distance, unseen);
+            preferSwitchTarget, killed, distance, unseen);
 
         // Blend indicator position toward crosshair hit point
         Vec3 pos = DamageEngineClient.blendIndicatorPos(

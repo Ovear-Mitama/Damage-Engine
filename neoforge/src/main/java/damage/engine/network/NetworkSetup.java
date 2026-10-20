@@ -5,7 +5,6 @@ import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.indicator.DamageIndicator;
 import damage.engine.hud.session.DamageSessionManager;
-import damage.engine.hud.rating.RatingManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.EntityHitResult;
@@ -104,13 +103,18 @@ public class NetworkSetup {
                         return;
                     }
 
-                    // 准星正命中该生物时,信息面板优先切换目标(与 Fabric 侧保持一致)
-                    boolean preferSwitchTarget = false;
+                    // 远程命中通常超出准心拾取距离，准心命中的不是受害实体；
+                    // 这类伤害直接切换信息面板目标。近战横扫仍以准心目标优先。
+                    boolean preferSwitchTarget = true;
                     try {
                         if (mc.hitResult instanceof EntityHitResult ehr) {
-                            preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
+                            preferSwitchTarget = ehr.getEntity() == null
+                                || ehr.getEntity().getId() == payload.entityId();
                         }
                     } catch (Exception ignored) {}
+                    if (payload.isProjectile()) {
+                        preferSwitchTarget = true;
+                    }
 
                     net.minecraft.world.entity.Entity selfVictim = payload.entityId() > 0 && mc.level != null
                         ? mc.level.getEntity(payload.entityId()) : null;
@@ -132,16 +136,6 @@ public class NetworkSetup {
                         if (config.showKillIndicator && payload.killed()) {
                             DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z,
                                 payload.amount(), false, true);
-                        }
-                    }
-
-                    if (config.debugShowRating && mc.player != null) {
-                        RatingManager rm = RatingManager.getInstance();
-                        if (rm.isVisible()) {
-                            mc.player.sendOverlayMessage(
-                                Component.literal("[DE Debug] ").withColor(0xB3EDC4)
-                                    .append(Component.literal("当前评分: " + rm.getGrade() + " | 分数: " + String.format("%.1f", rm.getScore())).withColor(0xFFFFFF))
-                            );
                         }
                     }
                 });

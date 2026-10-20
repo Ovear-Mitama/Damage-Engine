@@ -133,8 +133,14 @@ public class DamageEngineClient implements ClientModInitializer {
                 boolean unseen = dp.killed() && selfVictim != null && mc.player != null
                     && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(selfVictim, mc.player);
 
+                // 远程命中通常超出准心拾取距离，准心命中的不是受害实体；
+                // 这类伤害直接切换信息面板目标。近战横扫仍以准心目标优先。
+                boolean preferSwitchTarget = !(mc.hitResult instanceof EntityHitResult)
+                    || DamageSessionManager.isSameVictim(crosshair, dp.entityId())
+                    || dp.isProjectile();
+
                 DamageSessionManager.getInstance().addDamage(dp.amount(), dp.isCrit(), dp.entityId(),
-                    crosshair, dp.killed(), distance, unseen);
+                    preferSwitchTarget, dp.killed(), distance, unseen);
                 
                 Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                 double maxDist = config.globalIndicatorMaxDistance;
@@ -146,16 +152,6 @@ public class DamageEngineClient implements ClientModInitializer {
                     if (config.showKillIndicator && dp.killed()) {
                         DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z,
                             dp.amount(), false, true);
-                    }
-                }
-                
-                if (config.debugShowRating && mc.player != null) {
-                    RatingManager rm = RatingManager.getInstance();
-                    if (rm.isVisible()) {
-                        mc.player.sendOverlayMessage(
-                            Component.literal("[DE Debug] ").withColor(0xB3EDC4)
-                                .append(Component.literal("当前评分: " + rm.getGrade() + " | 分数: " + String.format("%.1f", rm.getScore())).withColor(0xFFFFFF))
-                        );
                     }
                 }
             });
