@@ -1,6 +1,7 @@
 package damage.engine.hud;
 
 import damage.engine.hud.format.DamageNumberFormat;
+import damage.engine.hud.indicator.DamageIndicator;
 import damage.engine.hud.info.EntityIconRenderer;
 import damage.engine.hud.session.DamageSessionManager;
 
@@ -87,6 +88,89 @@ public class DamageHud {
     private String previewGrade = "";
     private int previewGradeColor = 0xFFFFFFFF;
 
+    // ---- HUD 独立帧率上限：所有 HUD 动画/状态更新共用一个量化时钟 ----
+    private static long hudTimeMs = 0L;
+    private static long hudTimeStep = Long.MIN_VALUE;
+
+    /** 当前 HUD 量化时钟（毫秒）。受通用设置里的 HUD 帧率上限约束。 */
+    public long hudTimeMs() {
+        return hudTimeMs;
+    }
+
+    // ---- 性能叠加层：各子系统的实际渲染帧率 ----
+    private static long hudFpsWindowStartMs = 0L;
+    private static int hudFpsFrames = 0;
+    private static int hudFpsValue = 0;
+
+    private static void measureHudFps(long now) {
+        if (hudFpsWindowStartMs == 0L) {
+            hudFpsWindowStartMs = now;
+            return;
+        }
+        hudFpsFrames++;
+        long elapsed = now - hudFpsWindowStartMs;
+        if (elapsed >= 1000L) {
+            hudFpsValue = (int) Math.round(hudFpsFrames * 1000.0 / elapsed);
+            hudFpsFrames = 0;
+            hudFpsWindowStartMs = now;
+        }
+    }
+
+    private void renderPerformanceOverlay(GuiGraphicsExtractor guiGraphics, Minecraft client, DamageEngineConfig config) {
+        if (!config.debugShowPerformance) return;
+        Font font = client.font;
+        DamageSessionManager session = DamageSessionManager.getInstance();
+        String title = "DE Perf";
+        String hudLine = "HUD render: " + hudFpsValue + " fps" + fpsCapSuffix(config.hudMaxFps);
+        String numberLine = "Numbers render: " + DamageIndicator.currentFps() + " fps"
+            + fpsCapSuffix(config.indicatorMaxFps) + "  Active: " + DamageIndicator.activeCount();
+        String sessionLine;
+        boolean active = session.isActive();
+        if (active) {
+            float idleSec = (System.currentTimeMillis() - session.getLastHitTime()) / 1000f;
+            sessionLine = "Session: on  idle " + (Math.round(idleSec * 10) / 10f) + "s";
+        } else {
+            sessionLine = "Session: off";
+        }
+
+        int x = 4;
+        int y = 4;
+        int width = Math.max(Math.max(font.width(title), font.width(hudLine)),
+            Math.max(font.width(numberLine), font.width(sessionLine))) + 8;
+        int height = font.lineHeight * 4 + 6;
+        guiGraphics.fill(x, y, x + width, y + height, 0x90000000);
+        int tx = x + 4;
+        int ty = y + 3;
+        guiGraphics.text(font, title, tx, ty, 0xFFB1EAC2, false);
+        guiGraphics.text(font, hudLine, tx, ty + font.lineHeight, 0xFFFFFFFF, false);
+        guiGraphics.text(font, numberLine, tx, ty + font.lineHeight * 2, 0xFFFFFFFF, false);
+        guiGraphics.text(font, sessionLine, tx, ty + font.lineHeight * 3, 0xFFA0A0A0, false);
+    }
+
+    private static String fpsCapSuffix(int cap) {
+        return cap > 0 ? " (cap " + cap + ")" : "";
+    }
+
+    /**
+     * 每帧刷新 HUD 时钟。达到上限时返回同一个时间戳，动画便只在步进边界推进；
+     * HUD 的绘制本身仍每帧执行，不会闪烁。0 = 跟随游戏帧率。
+     */
+    private static long updateHudTime() {
+        long now = System.currentTimeMillis();
+        int maxFps = DamageEngineConfig.getInstance().hudMaxFps;
+        if (maxFps <= 0) {
+            hudTimeMs = now;
+            return now;
+        }
+        long stepMs = Math.max(1L, 1000L / maxFps);
+        long step = now / stepMs;
+        if (step != hudTimeStep) {
+            hudTimeStep = step;
+            hudTimeMs = step * stepMs;
+        }
+        return hudTimeMs;
+    }
+
     public void cyclePreviewGrades() {
         List<DamageEngineConfig.RatingGrade> grades = DamageEngineConfig.getInstance().ratingGrades;
         if (grades != null && !grades.isEmpty()) {
@@ -103,60 +187,90 @@ public class DamageHud {
             if (client.screen instanceof damage.engine.client.gui.HudEditorScreen) return;
 
             DamageEngineConfig config = DamageEngineConfig.getInstance();
+            updateHudTime();
+            measureHudFps(System.currentTimeMillis());
 
             if (config.hideOnF1 && client.options.hideGui) return;
 
             DamageSessionManager session = DamageSessionManager.getInstance();
 
-            updateInfoAnimation(session, client);
-            if (config.showInfo && infoAlpha > 0.01f) {
-                float a = infoAlpha;
-                renderModule(guiGraphics, config.infoConfig, client, a, () -> {
-                    renderInfo(guiGraphics, session, false, a, client);
-                });
-            }
+            renderSection(() -> updateInfoAnimation(session, client));
+            // 各模块独立兜底：单个模块异常时只丢失该模块，不再让整套 HUD 消失
+            renderSection(() -> {
+                if (config.showInfo && infoAlpha > 0.01f) {
+                    float a = infoAlpha;
+                    renderModule(guiGraphics, config.infoConfig, client, a, () -> {
+                        renderInfo(guiGraphics, session, false, a, client);
+                    });
+                }
+            });
 
-            if (config.showDamage && config.showDamageDisplay) {
-                if (session.isActive()) {
-                    float globalAlpha = 1.0f;
-                    if (config.resetEnabled) {
-                        long now = System.currentTimeMillis();
-                        long timeSinceLast = now - session.getLastHitTime();
-                        long resetTimeMs = (long) (config.resetTime * 1000);
-                        if (timeSinceLast > resetTimeMs) {
-                            float fadeProgress = (timeSinceLast - resetTimeMs) / 1000.0f;
-                            globalAlpha = 1.0f - fadeProgress;
-                            if (globalAlpha < 0) globalAlpha = 0;
+            renderSection(() -> {
+                if (config.showDamage && config.showDamageDisplay) {
+                    if (session.isActive()) {
+                        float globalAlpha = 1.0f;
+                        if (config.resetEnabled) {
+                            long now = hudTimeMs;
+                            long timeSinceLast = now - session.getLastHitTime();
+                            long resetTimeMs = (long) (config.resetTime * 1000);
+                            if (timeSinceLast > resetTimeMs) {
+                                float fadeProgress = (timeSinceLast - resetTimeMs) / 1000.0f;
+                                globalAlpha = 1.0f - fadeProgress;
+                                if (globalAlpha < 0) globalAlpha = 0;
+                            }
+                            globalAlpha = Mth.clamp(globalAlpha, 0.0f, 1.0f);
                         }
-                        globalAlpha = Mth.clamp(globalAlpha, 0.0f, 1.0f);
-                    }
-                    if (globalAlpha > 0.01f) {
-                        renderDamageContent(guiGraphics, session.getTotalDamage(), session.getComboCount(),
-                            session.getRemainingTimeProgress(), session.getDamageHistory(), false, globalAlpha);
+                        if (globalAlpha > 0.01f) {
+                            renderDamageContent(guiGraphics, session.getTotalDamage(), session.getComboCount(),
+                                session.getRemainingTimeProgress(), session.getDamageHistory(), false, globalAlpha);
+                        }
+                    } else {
+                        lastComboCount = 0;
                     }
                 } else {
                     lastComboCount = 0;
                 }
-            } else {
-                lastComboCount = 0;
-            }
+            });
 
-            // 评分模块最后绘制：保证在伤害 HUD 之上，淡出时不会被遮挡后“重新出现”
-            RatingManager rating = RatingManager.getInstance();
-            float ratingAlpha = rating.getFadeAlpha();
-            // 极低透明度下文字容易出现残影/闪烁，低于 5/255 直接不画
-            if (ratingAlpha > 5f / 255f) {
-                if (config.showRating) {
-                    renderModule(guiGraphics, config.ratingConfig, client, ratingAlpha, () -> {
-                        renderRatingGrade(guiGraphics, false, ratingAlpha, client);
-                    });
+            renderSection(() -> {
+                // 评分模块最后绘制：保证在伤害 HUD 之上，淡出时不会被遮挡后“重新出现”
+                RatingManager rating = RatingManager.getInstance();
+                float ratingAlpha = rating.getFadeAlpha();
+                // 极低透明度下文字容易出现残影/闪烁，低于 5/255 直接不画
+                if (ratingAlpha > 5f / 255f) {
+                    if (config.showRating) {
+                        renderModule(guiGraphics, config.ratingConfig, client, ratingAlpha, () -> {
+                            renderRatingGrade(guiGraphics, false, ratingAlpha, client);
+                        });
+                    }
+                    if (config.showRatingScore) {
+                        renderModule(guiGraphics, config.ratingScoreConfig, client, ratingAlpha, () -> {
+                            renderRatingScore(guiGraphics, false, ratingAlpha, client);
+                        });
+                    }
                 }
-                if (config.showRatingScore) {
-                    renderModule(guiGraphics, config.ratingScoreConfig, client, ratingAlpha, () -> {
-                        renderRatingScore(guiGraphics, false, ratingAlpha, client);
-                    });
+            });
+
+            // 性能叠加层固定在左上角，不参与整层 HUD 惯性偏移
+            renderSection(() -> {
+                if (config.debugShowPerformance) {
+                    suspendGlobalShift(guiGraphics);
+                    try {
+                        renderPerformanceOverlay(guiGraphics, client, config);
+                    } finally {
+                        resumeGlobalShift(guiGraphics);
+                    }
                 }
-            }
+            });
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    /** 模块级兜底：单个模块渲染异常不应导致整套 HUD 消失。 */
+    private static void renderSection(Runnable action) {
+        try {
+            action.run();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -165,18 +279,34 @@ public class DamageHud {
     public void renderPreview(GuiGraphicsExtractor guiGraphics, int centerX, int centerY) {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         Minecraft client = Minecraft.getInstance();
+        updateHudTime();
 
-        float total = 0;
+        // 有正在进行的伤害会话时直接用实时数据预览：内容宽度与实际完全一致，
+        // 避免示例数字与真实数字宽度不同造成的细微位置偏差。
+        DamageSessionManager session = DamageSessionManager.getInstance();
+        boolean live = session.isActive();
         int previewLimit = config.historyLimit;
-        List<DamageSessionManager.DamageEntry> history = new ArrayList<>();
-        for (int i = 0; i < previewLimit; i++) {
-            boolean isCrit = i >= previewLimit - 3;
-            float dmg = 1.5f + i * 0.3f;
-            total += dmg;
-            history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0, -1));
+        float total;
+        int combo;
+        float progress;
+        List<DamageSessionManager.DamageEntry> history;
+        if (live) {
+            total = session.getTotalDamage();
+            combo = session.getComboCount();
+            progress = session.getRemainingTimeProgress();
+            history = session.getDamageHistory();
+        } else {
+            total = 0;
+            history = new ArrayList<>();
+            for (int i = 0; i < previewLimit; i++) {
+                boolean isCrit = i >= previewLimit - 3;
+                float dmg = 1.5f + i * 0.3f;
+                total += dmg;
+                history.add(new DamageSessionManager.DamageEntry(dmg, isCrit, 0, -1));
+            }
+            combo = previewLimit;
+            progress = 0.7f;
         }
-        int combo = previewLimit;
-        float progress = 0.7f;
 
         List<DamageEngineConfig.RatingGrade> grades = config.ratingGrades;
         if (grades != null && !grades.isEmpty()) {
@@ -258,12 +388,15 @@ public class DamageHud {
         float inertiaOffY = applyOwnInertiaOffset() ? inertiaY : 0f;
 
         guiGraphics.pose().pushMatrix();
-        guiGraphics.pose().translate(x + inertiaOffX, y + inertiaOffY);
-        guiGraphics.pose().scale(moduleScale, moduleScale);
+        try {
+            guiGraphics.pose().translate(x + inertiaOffX, y + inertiaOffY);
+            guiGraphics.pose().scale(moduleScale, moduleScale);
 
-        renderAction.run();
-
-        guiGraphics.pose().popMatrix();
+            renderAction.run();
+        } finally {
+            // 即使模块渲染抛异常也要把矩阵栈还原，避免后续模块/HUD 被整体带偏
+            guiGraphics.pose().popMatrix();
+        }
     }
 
     // ---- HUD 惯性:视角转动/移动时整层 HUD 先朝反方向让一点,再靠临界阻尼弹簧平滑回正 ----
@@ -276,6 +409,19 @@ public class DamageHud {
     private static final float INERTIA_STIFFNESS = 220f;
     /** 最大让位距离(像素)。 */
     private static final float INERTIA_MAX_OFFSET = 6f;
+
+    /**
+     * HUD 惯性要求的最低 HUD 帧率。低于该值时惯性会以很粗的步进推进，
+     * 看起来是整层 HUD 在一跳一跳地抖，所以直接停用。
+     */
+    private static final int HUD_INERTIA_MIN_FPS = 30;
+
+    private static boolean isInertiaAllowed() {
+        DamageEngineConfig config = DamageEngineConfig.getInstance();
+        if (config.reduceAnimations) return false;
+        int cap = config.hudMaxFps;
+        return cap <= 0 || cap >= HUD_INERTIA_MIN_FPS;
+    }
 
     private float inertiaX = 0f;
     private float inertiaY = 0f;
@@ -321,7 +467,17 @@ public class DamageHud {
      */
     public void updateHudInertia() {
         Minecraft client = Minecraft.getInstance();
+        // 惯性用真实帧时间更新（不跟随 HUD 帧率上限），保证位移连续；低帧率时直接停用
         long now = System.currentTimeMillis();
+        if (!isInertiaAllowed()) {
+            inertiaX = 0f;
+            inertiaY = 0f;
+            inertiaVelX = 0f;
+            inertiaVelY = 0f;
+            inertiaPrevInit = false;
+            inertiaLastMs = now;
+            return;
+        }
         float rawDt = inertiaLastMs == 0L ? 0.016f : (now - inertiaLastMs) / 1000.0f;
         inertiaLastMs = now;
         // 上一帧隔太久说明 HUD 这段时间没渲染(F1 隐藏/切界面),当作重新开始,免得一开就甩一下
@@ -395,6 +551,7 @@ public class DamageHud {
         globalShiftX = 0f;
         globalShiftY = 0f;
         if (!"all".equals(DamageEngineConfig.getInstance().hudInertiaMode)) return;
+        if (!isInertiaAllowed()) return;
         if (inertiaX == 0f && inertiaY == 0f) return;
         guiGraphics.pose().pushMatrix();
         guiGraphics.pose().translate(inertiaX, inertiaY);
@@ -435,6 +592,7 @@ public class DamageHud {
     }
 
     public void renderTotalDamage(GuiGraphicsExtractor guiGraphics, float total, float targetProgress, boolean isPreview, float globalAlpha, int combo, Minecraft client) {
+        updateHudTime();
         Font font = client.font;
         int baseAlpha = (int)(255 * globalAlpha);
 
@@ -464,41 +622,35 @@ public class DamageHud {
         int labelColor = (0xFFFFFF) | (labelAlpha << 24);
 
         String damageLabel = "damage";
-        String fullLabel;
-        if (showCombo && combo > 0) {
-            fullLabel = damageLabel + "  x" + combo;
-        } else {
-            fullLabel = damageLabel;
-        }
-
-        guiGraphics.pose().pushMatrix();
-        guiGraphics.pose().scale(labelScale, labelScale);
-        int fullLabelWidth = font.width(fullLabel);
-        guiGraphics.pose().popMatrix();
-
-        float contentHalfWidth = (fullLabelWidth * labelScale) / 2.0f;
+        // 固定参考块：为连击预留 "x99" 的空间。
+        // 锚点宽度固定，连击位数变化时总伤害数字 / 进度条 / 记录不会左右移动；
+        // 同时整个块仍以模块原点居中，数字右边缘与进度条右端、连击右边缘对齐。
+        String anchorLabel = showCombo ? "damage  x99" : damageLabel;
+        int anchorW = font.width(anchorLabel);
+        float contentHalfWidth = (anchorW * labelScale) / 2.0f;
         contentRightX = contentHalfWidth;
 
         guiGraphics.pose().pushMatrix();
         guiGraphics.pose().scale(labelScale, labelScale);
-        int lblW = font.width(damageLabel);
         // Label shifts down when progress bar is hidden
         boolean hasProgressBar = DamageEngineConfig.getInstance().showProgressBar && DamageEngineConfig.getInstance().resetEnabled;
         int labelY = hasProgressBar ? -15 : -12;
+        guiGraphics.text(font, damageLabel, -anchorW / 2, labelY, labelColor);
         if (showCombo && combo > 0) {
-            guiGraphics.text(font, damageLabel, -fullLabelWidth / 2, labelY, labelColor);
             String comboText = "x" + combo;
             int comboColorCfg = DamageEngineConfig.getInstance().comboColor;
             int comboColor = (comboColorCfg & 0x00FFFFFF) | (labelAlpha << 24);
-            guiGraphics.text(font, comboText, fullLabelWidth / 2 - font.width(comboText), labelY, comboColor);
-        } else {
-            guiGraphics.text(font, damageLabel, -fullLabelWidth / 2 + (fullLabelWidth - lblW), labelY, labelColor);
+            // 连击右对齐到固定锚点右端，与进度条 / 总伤害数字的右边缘一致
+            guiGraphics.text(font, comboText, anchorW / 2 - font.width(comboText), labelY, comboColor);
         }
         guiGraphics.pose().popMatrix();
 
         if (DamageEngineConfig.getInstance().showProgressBar && DamageEngineConfig.getInstance().resetEnabled) {
-            if (isPreview) {
+            if (isPreview || DamageEngineConfig.getInstance().reduceAnimations) {
+                // 预览 / 减少动画：进度条不做平滑回填，直接跟随真实进度
                 smoothProgress = targetProgress;
+                lastComboCount = combo;
+                isRefilling = false;
             } else {
                 float delta = 1.0f;
 
@@ -525,7 +677,7 @@ public class DamageHud {
                         long timeSinceLast = 0;
                          if (!isPreview) {
                             DamageSessionManager session = DamageSessionManager.getInstance();
-                            timeSinceLast = System.currentTimeMillis() - session.getLastHitTime();
+                            timeSinceLast = hudTimeMs - session.getLastHitTime();
                         }
                         float realProgress = 1.0f - (float)timeSinceLast / (float)resetTimeMs;
                         smoothProgress = Mth.clamp(realProgress, 0.0f, 1.0f);
@@ -564,15 +716,25 @@ public class DamageHud {
     }
 
     public void renderHistory(GuiGraphicsExtractor guiGraphics, List<DamageSessionManager.DamageEntry> history, boolean isPreview, float globalAlpha, Minecraft client) {
+        updateHudTime();
+        DamageEngineConfig config = DamageEngineConfig.getInstance();
         Font font = client.font;
-        int limit = DamageEngineConfig.getInstance().historyLimit;
-        int decimalPlaces = DamageEngineConfig.getInstance().historyDecimalPlaces;
-        boolean recordOtherPlayers = DamageEngineConfig.getInstance().recordOtherPlayers;
+        int limit = config.historyLimit;
+        int decimalPlaces = config.historyDecimalPlaces;
+        boolean recordOtherPlayers = config.recordOtherPlayers;
+        // 减少动画：跳过滑入 / 淡入，条目直接出现在最终位置
+        boolean reduceAnimations = config.reduceAnimations;
+        long disappearTimeMs = (long)(config.historyDisappearanceTime * 1000);
+        long fadeStartMs = Math.max(0, disappearTimeMs - 1000);
+        int critColorCfg = config.critColor;
+        int normalColorCfg = config.normalColor;
+        boolean alignLeft = isAlignLeft();
 
         int renderIndex = 0;
-        List<DamageSessionManager.DamageEntry> renderList = (history != null) ? new java.util.ArrayList<>(history) : java.util.Collections.emptyList();
+        // 直接遍历现有列表，避免每帧复制一份历史记录
+        List<DamageSessionManager.DamageEntry> renderList = (history != null) ? history : java.util.Collections.emptyList();
 
-        long now = System.currentTimeMillis();
+        long now = hudTimeMs;
 
         // 与最新条目同一时间刻到达的算一批:它们作为一整组自上而下滑入,
         // 整列老条目也一次整体下移对应的格数(而不是每来一条就各自动一下)。
@@ -583,7 +745,7 @@ public class DamageHud {
             batchCount++;
         }
         if (batchCount < 1) batchCount = 1;
-        float settleProgress = isPreview ? 1.0f
+        float settleProgress = (isPreview || reduceAnimations) ? 1.0f
             : Mth.clamp((now - newestTs) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
 
         int baseY = 15;
@@ -606,11 +768,6 @@ public class DamageHud {
             float finalItemAlpha = 1.0f;
 
             if (!isPreview) {
-                float disappearTime = DamageEngineConfig.getInstance().historyDisappearanceTime;
-                long disappearTimeMs = (long)(disappearTime * 1000);
-                long fadeStartMs = disappearTimeMs - 1000;
-                if (fadeStartMs < 0) fadeStartMs = 0;
-
                 if (timeAlive > fadeStartMs) {
                     finalItemAlpha = (disappearTimeMs - timeAlive) / 1000f;
                 }
@@ -620,7 +777,7 @@ public class DamageHud {
             // 按条目自己的年龄算而不是按整批的进度算,否则一条已经在淡入的条目
             // 会因为随后又来了一条而把进度重置,表现为"闪一下又消失"。
             float entryAlphaMul = 1.0f;
-            if (!isPreview) {
+            if (!isPreview && !reduceAnimations) {
                 float ownProgress = Mth.clamp((now - entry.timestamp()) / (float)HISTORY_ANIM_MS, 0.0f, 1.0f);
                 if (ownProgress < 1.0f) entryAlphaMul = ownProgress;
             }
@@ -631,8 +788,6 @@ public class DamageHud {
             int itemAlpha = (int)(255 * finalItemAlpha);
             if (itemAlpha < 5) continue;
 
-            int critColorCfg = DamageEngineConfig.getInstance().critColor;
-            int normalColorCfg = DamageEngineConfig.getInstance().normalColor;
             int entryColor = entry.isCrit() ? critColorCfg : normalColorCfg;
             int itemColorWithAlpha = (entryColor & 0x00FFFFFF) | (itemAlpha << 24);
 
@@ -648,7 +803,6 @@ public class DamageHud {
                 : Mth.lerp(settleProgress, targetY - batchCount * HISTORY_SLOT_H, targetY);
 
             // 靠右:每行的右边缘对齐;靠左:左边缘对齐
-            boolean alignLeft = isAlignLeft();
             float xPos = alignLeft ? -contentRightX : (contentRightX - textWidth);
             // 头像始终挂在数字外侧(靠右时在左、靠左时在右),别压到数字上
             int avatarX = alignLeft ? (int)(xPos + textWidth + 2) : (int)(xPos - 11);
@@ -678,15 +832,25 @@ public class DamageHud {
     }
 
     private void updateInfoAnimation(DamageSessionManager session, Minecraft client) {
-        long now = System.currentTimeMillis();
+        long now = hudTimeMs;
         float dt = infoLastUpdateMs == 0 ? 0.016f : (now - infoLastUpdateMs) / 1000.0f;
         dt = Mth.clamp(dt, 0.0f, 0.1f);
         infoLastUpdateMs = now;
 
-        int candidateTargetId = session.isInfoActive() ? session.getLastTargetEntityId() : infoLastTargetId;
+        // 准心指向生物时优先显示该生物（原版 crosshairPickEntity 已按实体交互距离拾取）
+        LivingEntity crosshairTarget = null;
+        if (DamageEngineConfig.getInstance().crosshairEntityInfo
+            && client.crosshairPickEntity instanceof LivingEntity le
+            && le != client.player && le.isAlive()) {
+            crosshairTarget = le;
+        }
+        boolean crosshairActive = crosshairTarget != null;
+        int candidateTargetId = crosshairActive
+            ? crosshairTarget.getId()
+            : (session.isInfoActive() ? session.getLastTargetEntityId() : infoLastTargetId);
 
-        LivingEntity target = null;
-        if (candidateTargetId != -1 && client.level != null) {
+        LivingEntity target = crosshairTarget;
+        if (target == null && candidateTargetId != -1 && client.level != null) {
             Entity e = client.level.getEntity(candidateTargetId);
             if (e instanceof net.minecraft.world.entity.boss.enderdragon.EnderDragonPart part) {
                 // 末影龙的碰撞箱由部件实体组成,统一映射到本体
@@ -697,13 +861,13 @@ public class DamageHud {
             }
         }
 
-        boolean shouldBeActive = session.isInfoActive() && target != null && target.isAlive();
+        boolean shouldBeActive = (crosshairActive || session.isInfoActive()) && target != null && target.isAlive();
 
         if (shouldBeActive) {
             boolean wasInactive = !infoHasSnapshot || infoAlpha <= 0.01f;
             boolean targetAvatar = target instanceof AbstractClientPlayer;
 
-            int targetId = session.getLastTargetEntityId();
+            int targetId = candidateTargetId;
             if (targetId != infoLastTargetId) {
                 if (!wasInactive && infoSmoothRatio >= 0) {
                     infoPrevSmoothRatio = infoSmoothRatio;
@@ -854,6 +1018,7 @@ public class DamageHud {
     }
 
     public void renderInfo(GuiGraphicsExtractor guiGraphics, DamageSessionManager session, boolean isPreview, float globalAlpha, Minecraft client) {
+        updateHudTime();
         float health;
         float maxHealth;
         float absorption;
@@ -887,21 +1052,28 @@ public class DamageHud {
         int baseAlpha = (int)(255 * globalAlpha);
         if (baseAlpha < 5) return;
 
-        long now = System.currentTimeMillis();
+        long now = hudTimeMs;
         float layoutDt = infoLayoutLastUpdateMs == 0 ? 0.016f : (now - infoLayoutLastUpdateMs) / 1000.0f;
         layoutDt = Mth.clamp(layoutDt, 0.0f, 0.1f);
         infoLayoutLastUpdateMs = now;
 
         // 玩家恒有头像(皮肤脸);非玩家实体在开启实体渲染且有目标时展开头像槽
         boolean entityRenderEnabled = DamageEngineConfig.getInstance().entityRenderEnabled;
+        boolean reduceAnimations = DamageEngineConfig.getInstance().reduceAnimations;
         float targetAvatar = (isPlayer || (entityRenderEnabled && infoAvatarEntity != null)) ? 1.0f : 0.0f;
-        float avatarSmoothing = 1.0f - (float)Math.pow(0.0001, layoutDt);
-        infoAvatarFactor += (targetAvatar - infoAvatarFactor) * avatarSmoothing;
-        infoAvatarFactor = Mth.clamp(infoAvatarFactor, 0.0f, 1.0f);
+        if (reduceAnimations) {
+            // 减少动画：头像槽直接展开到最终宽度
+            infoAvatarFactor = targetAvatar;
+            infoAvatarAlpha = targetAvatar;
+        } else {
+            float avatarSmoothing = 1.0f - (float)Math.pow(0.0001, layoutDt);
+            infoAvatarFactor += (targetAvatar - infoAvatarFactor) * avatarSmoothing;
+            infoAvatarFactor = Mth.clamp(infoAvatarFactor, 0.0f, 1.0f);
 
-        float targetAvatarAlpha = targetAvatar;
-        infoAvatarAlpha += (targetAvatarAlpha - infoAvatarAlpha) * avatarSmoothing;
-        infoAvatarAlpha = Mth.clamp(infoAvatarAlpha, 0.0f, 1.0f);
+            float targetAvatarAlpha = targetAvatar;
+            infoAvatarAlpha += (targetAvatarAlpha - infoAvatarAlpha) * avatarSmoothing;
+            infoAvatarAlpha = Mth.clamp(infoAvatarAlpha, 0.0f, 1.0f);
+        }
 
         int panelH = 30;
 
@@ -951,13 +1123,19 @@ public class DamageHud {
 
         float switchT = 1.0f;
         if (infoSwitching) {
-            switchT = (System.currentTimeMillis() - infoSwitchStartMs) / (float)INFO_SWITCH_MS;
-            if (switchT >= 1.0f) {
-                switchT = 1.0f;
+            if (reduceAnimations) {
+                // 减少动画：切换目标时不做过场，直接显示新目标
                 infoSwitching = false;
                 infoPrevPlayerSkin = null;
-            } else if (switchT < 0.0f) {
-                switchT = 0.0f;
+            } else {
+                switchT = (hudTimeMs - infoSwitchStartMs) / (float)INFO_SWITCH_MS;
+                if (switchT >= 1.0f) {
+                    switchT = 1.0f;
+                    infoSwitching = false;
+                    infoPrevPlayerSkin = null;
+                } else if (switchT < 0.0f) {
+                    switchT = 0.0f;
+                }
             }
         } else {
             switchT = 1.0f;
@@ -1049,7 +1227,16 @@ public class DamageHud {
         infoHealthLastUpdateMs = now;
         dt = Mth.clamp(dt, 0.0f, 0.1f);
 
-        if (infoSmoothRatio < 0) {
+        if (reduceAnimations) {
+            // 减少动画：血条不做平滑追赶 / 滞后残影，直接反映当前血量
+            infoSmoothRatio = ratio;
+            infoLagRatio = ratio;
+            infoHealRatio = ratio;
+            infoLagHold = false;
+            infoHealHold = false;
+            infoDamageTailActive = false;
+            infoDamageTailPending = false;
+        } else if (infoSmoothRatio < 0) {
             infoSmoothRatio = ratio;
             infoLagRatio = ratio;
             infoHealRatio = ratio;
@@ -1186,14 +1373,14 @@ public class DamageHud {
 
     private float oldAlphaMul() {
         if (infoSwitching) {
-            return 1.0f - Mth.clamp((System.currentTimeMillis() - infoSwitchStartMs) / (float)INFO_SWITCH_MS, 0.0f, 1.0f);
+            return 1.0f - Mth.clamp((hudTimeMs - infoSwitchStartMs) / (float)INFO_SWITCH_MS, 0.0f, 1.0f);
         }
         return 0.0f;
     }
 
     private float newAlphaMul() {
         if (infoSwitching) {
-            return Mth.clamp((System.currentTimeMillis() - infoSwitchStartMs) / (float)INFO_SWITCH_MS, 0.0f, 1.0f);
+            return Mth.clamp((hudTimeMs - infoSwitchStartMs) / (float)INFO_SWITCH_MS, 0.0f, 1.0f);
         }
         return 1.0f;
     }

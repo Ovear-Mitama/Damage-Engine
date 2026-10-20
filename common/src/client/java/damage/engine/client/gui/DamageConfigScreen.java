@@ -230,6 +230,13 @@ public class DamageConfigScreen extends Screen {
 
     private void initGeneralTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamage", config.showDamage, v -> { config.showDamage = v; markChanged(); }));
+        addOption(new BooleanOptionEntry("option.damage-engine.reduceAnimations", config.reduceAnimations,
+            v -> { config.reduceAnimations = v; markChanged(); },
+            Component.translatable("hint.damage-engine.reduceAnimations")));
+        // 整个 HUD 的独立帧率上限：输入框，0 = 跟随游戏帧率
+        addOption(new NumericEntry("option.damage-engine.hudMaxFps", config.hudMaxFps,
+            v -> { config.hudMaxFps = Mth.clamp(Math.round(v), 0, 480); markChanged(); },
+            Component.translatable("hint.damage-engine.hudMaxFps")));
         addOption(new ButtonActionEntry("option.damage-engine.edit_pos_label", "button.damage-engine.adjust", () -> {
             playClickSound();
             this.minecraft.setScreen(new HudEditorScreen(this));
@@ -298,6 +305,14 @@ public class DamageConfigScreen extends Screen {
 
     private void initDamageNumbersTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamageIndicator", config.showDamageIndicator, v -> { config.showDamageIndicator = v; markChanged(); }));
+        // 跳字的独立帧率上限：输入框，0 = 跟随游戏帧率
+        addOption(new NumericEntry("option.damage-engine.indicatorMaxFps", config.indicatorMaxFps,
+            v -> { config.indicatorMaxFps = Mth.clamp(Math.round(v), 0, 480); markChanged(); },
+            Component.translatable("hint.damage-engine.indicatorMaxFps")));
+        // 跳字数量上限：输入框，0 = 无限制
+        addOption(new NumericEntry("option.damage-engine.indicatorMaxCount", config.indicatorMaxCount,
+            v -> { config.indicatorMaxCount = Mth.clamp(Math.round(v), 0, 1000); markChanged(); },
+            Component.translatable("hint.damage-engine.indicatorMaxCount")));
         // 合并跳字（默认关，悬停提示建议配合追踪模式：实体）；追踪模式：关闭/实体/准心
         addOption(new BooleanOptionEntry("option.damage-engine.indicator_merge", config.indicatorMerge,
             v -> { config.indicatorMerge = v; markChanged(); },
@@ -394,6 +409,9 @@ public class DamageConfigScreen extends Screen {
             addOption(new IntegerSliderEntry("option.damage-engine.entity_render_rotation_angle", config.entityRenderRotationAngle,
                 0, 360, v -> { config.entityRenderRotationAngle = v; markChanged(); }, true));
         }
+        addOption(new BooleanOptionEntry("option.damage-engine.crosshair_entity_info", config.crosshairEntityInfo,
+            v -> { config.crosshairEntityInfo = v; markChanged(); },
+            Component.translatable("hint.damage-engine.crosshair_entity_info")));
         addOption(new BooleanOptionEntry("option.damage-engine.infoNoRoundedBorder", config.infoNoRoundedBorder, v -> { config.infoNoRoundedBorder = v; markChanged(); }));
         addOption(new HexColorEntry("option.damage-engine.infoBackgroundColor", config.infoBackgroundColor, v -> { config.infoBackgroundColor = v; markChanged(); }));
         addOption(new IntegerSliderEntry("option.damage-engine.infoBackgroundOpacity", config.infoBackgroundOpacity, 0, 100, v -> { config.infoBackgroundOpacity = v; markChanged(); }, true));
@@ -477,7 +495,8 @@ public class DamageConfigScreen extends Screen {
         addOption(new ExpandableHeaderEntry("option.damage-engine.debugMode", "debugMode", v -> refreshOptions()));
         if (isExpanded("debugMode")) {
             addOption(new BooleanOptionEntry("option.damage-engine.debugShowDamageInfo", config.debugShowDamageInfo, v -> { config.debugShowDamageInfo = v; markChanged(); }));
-            addOption(new BooleanOptionEntry("option.damage-engine.debugShowRating", config.debugShowRating, v -> { config.debugShowRating = v; markChanged(); }));
+            addOption(new BooleanOptionEntry("option.damage-engine.debugShowPerformance", config.debugShowPerformance,
+                v -> { config.debugShowPerformance = v; markChanged(); }));
         }
         
         addOption(new ResetButtonEntry("option.damage-engine.reset", () -> {

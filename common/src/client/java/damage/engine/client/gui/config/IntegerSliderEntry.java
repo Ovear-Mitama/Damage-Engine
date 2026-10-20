@@ -1,6 +1,5 @@
 package damage.engine.client.gui.config;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
@@ -13,7 +12,6 @@ import java.util.function.Consumer;
 /** 整数滑条行。 */
 public class IntegerSliderEntry extends OptionEntry {
     private final StyledSliderWidget slider;
-    private final Component label;
 
     public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange,
                               boolean soundOnRelease) {
@@ -22,10 +20,9 @@ public class IntegerSliderEntry extends OptionEntry {
 
     public IntegerSliderEntry(String key, int cur, int min, int max, Consumer<Integer> onChange,
                               boolean soundOnRelease, String suffix) {
-        this.label = Component.translatable(key);
-        setSearchText(this.label);
+        setLabel(key);
         float minF = min, maxF = max;
-        this.slider = new StyledSliderWidget(0, 0, 100, 20, Component.literal(cur + suffix),
+        this.slider = new StyledSliderWidget(0, 0, CONTROL_WIDTH, CONTROL_HEIGHT, Component.literal(cur + suffix),
             (cur - minF) / (maxF - minF), true, !soundOnRelease, soundOnRelease) {
             @Override
             protected void updateMessage() {
@@ -42,10 +39,8 @@ public class IntegerSliderEntry extends OptionEntry {
     @Override
     public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh,
                               int mx, int my, boolean hovered, float dt) {
-        g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
-        slider.setX(x + ew - 110);
-        slider.setY(y + 2);
-        slider.extractRenderState(g, mx, my, dt);
+        renderLabel(g, x, y);
+        renderControl(g, slider, x, y, ew, mx, my, dt);
     }
 
     @Override public List<? extends GuiEventListener> children() { return Collections.singletonList(slider); }

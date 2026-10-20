@@ -128,6 +128,12 @@ public class DamageEngineClient implements ClientModInitializer {
                 // 准星命中的实体交给会话判断(末影龙需从部件映射到本体),命中时强制切换信息面板目标
                 net.minecraft.world.entity.Entity crosshair = mc.hitResult instanceof EntityHitResult ehr
                     ? ehr.getEntity() : null;
+                boolean preferSwitchTarget = DamageSessionManager.isSameVictim(crosshair, dp.entityId());
+                // 远程命中通常超出准心拾取距离，准心命中的不是受害实体；
+                // 这类伤害直接切换信息面板目标，否则第二箭会一直停留在第一个目标上。
+                if (dp.isProjectile()) {
+                    preferSwitchTarget = true;
+                }
 
                 net.minecraft.world.entity.Entity selfVictim = dp.entityId() > 0 && mc.level != null
                     ? mc.level.getEntity(dp.entityId()) : null;
@@ -137,7 +143,7 @@ public class DamageEngineClient implements ClientModInitializer {
                     && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(selfVictim, mc.player);
 
                 DamageSessionManager.getInstance().addDamage(dp.amount(), dp.isCrit(), dp.entityId(),
-                    crosshair, dp.killed(), distance, unseen);
+                    preferSwitchTarget, dp.killed(), distance, unseen);
                 
                 Vec3 pos = blendIndicatorPos(dp.posX(), dp.posY(), dp.posZ(), dp.entityId());
                 double maxDist = config.globalIndicatorMaxDistance;
@@ -149,16 +155,6 @@ public class DamageEngineClient implements ClientModInitializer {
                     if (config.showKillIndicator && dp.killed()) {
                         DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z,
                             dp.amount(), false, true);
-                    }
-                }
-                
-                if (config.debugShowRating && mc.player != null) {
-                    RatingManager rm = RatingManager.getInstance();
-                    if (rm.isVisible()) {
-                        mc.player.sendOverlayMessage(
-                            Component.literal("[DE Debug] ").withColor(0xB3EDC4)
-                                .append(Component.literal("当前评分: " + rm.getGrade() + " | 分数: " + String.format("%.1f", rm.getScore())).withColor(0xFFFFFF))
-                        );
                     }
                 }
             });

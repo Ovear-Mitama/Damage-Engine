@@ -24,6 +24,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.util.Mth;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
+import org.joml.Vector3f;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -170,20 +171,95 @@ public class DamageIndicator {
     private static String textPropsCacheKey = null;
     private static JsonObject textPropsCache = null;
 
+    /** 无关键帧文本属性的求值结果缓存（避免每帧为每个跳字重复解析 JSON / 分配数组）。 */
+    private static final float[] DEFAULT_TEXT_PROPS = {0f, 0f, 0f, 1f, 1f};
+    private static String staticTextPropsKey = null;
+    private static float[] staticTextProps = DEFAULT_TEXT_PROPS;
+
+    /**
+     * 求值文本属性。属性里没有关键帧（或开启了「减少动画」）时结果是静态的，
+     * 直接复用缓存数组，不必每帧解析 JSON。
+     */
+    private static float[] evalTextProps(JsonObject props, float timeMs, boolean reduceAnimations) {
+        if (props == null) {
+            return DEFAULT_TEXT_PROPS;
+        }
+        if (reduceAnimations || !props.has("keys") || !props.get("keys").isJsonArray()) {
+            String key = textPropsCacheKey == null ? "" : textPropsCacheKey;
+            if (!key.equals(staticTextPropsKey)) {
+                staticTextPropsKey = key;
+                // 取对象自身的基础属性（x/y/z/scale/alpha），忽略关键帧动画
+                staticTextProps = new float[]{
+                    props.has("x") ? props.get("x").getAsFloat() : 0f,
+                    props.has("y") ? props.get("y").getAsFloat() : 0f,
+                    props.has("z") ? props.get("z").getAsFloat() : 0f,
+                    props.has("scale") ? props.get("scale").getAsFloat() : 1f,
+                    props.has("alpha") ? props.get("alpha").getAsFloat() : 1f
+                };
+            }
+            return staticTextProps;
+        }
+        return AnimaApi.evalTextProps(props, timeMs);
+    }
+
     /** 跳字存活时长（秒）：由逐字剪辑与文本时长自己决定（取两者较晚的结束时间）。 */
+    private static String lifetimeClipsKey = null;
+    private static String lifetimePropsKey = null;
+    private static float lifetimeCache = FALLBACK_LIFETIME;
+
     private static float lifetimeSeconds() {
-        float endMs = 0f;
-        for (CharClips.Clip c : charClips()) {
-            endMs = Math.max(endMs, c.startMs() + c.durationMs());
+        DamageEngineConfig config = DamageEngineConfig.getInstance();
+        String clipsRaw = rawCharClips();
+        String propsRaw = config.indicatorTextProps == null ? "" : config.indicatorTextProps;
+        if (!clipsRaw.equals(lifetimeClipsKey) || !propsRaw.equals(lifetimePropsKey)) {
+            lifetimeClipsKey = clipsRaw;
+            lifetimePropsKey = propsRaw;
+            float endMs = 0f;
+            for (CharClips.Clip c : charClips()) {
+                endMs = Math.max(endMs, c.startMs() + c.durationMs());
+            }
+            JsonObject props = textPropsJson();
+            if (props != null && props.has("durationMs")) {
+                endMs = Math.max(endMs, props.get("durationMs").getAsFloat());
+            }
+            lifetimeCache = endMs > 0f ? endMs / 1000f : FALLBACK_LIFETIME;
         }
-        JsonObject props = textPropsJson();
-        if (props != null && props.has("durationMs")) {
-            endMs = Math.max(endMs, props.get("durationMs").getAsFloat());
-        }
-        return endMs > 0f ? endMs / 1000f : FALLBACK_LIFETIME;
+        return lifetimeCache;
     }
 
     private static long lastCleanupTime = 0;
+
+    // ---- 性能叠加层：跳字渲染帧率统计 ----
+    private static long fpsWindowStartMs = 0L;
+    private static int fpsFrames = 0;
+    private static int currentFps = 0;
+
+    private static void measureFps() {
+        long now = System.currentTimeMillis();
+        if (fpsWindowStartMs == 0L) {
+            fpsWindowStartMs = now;
+            return;
+        }
+        fpsFrames++;
+        long elapsed = now - fpsWindowStartMs;
+        if (elapsed >= 1000L) {
+            currentFps = (int) Math.round(fpsFrames * 1000.0 / elapsed);
+            fpsFrames = 0;
+            fpsWindowStartMs = now;
+        }
+    }
+
+    /** 跳字渲染回调的实际帧率（供性能叠加层显示）。 */
+    public static int currentFps() {
+        return currentFps;
+    }
+
+    /** 当前存活的跳字数量。 */
+    public static int activeCount() {
+        synchronized (indicators) {
+            return indicators.size();
+        }
+    }
 
     public static class Indicator {
         double x, y, z;
@@ -209,6 +285,26 @@ public class DamageIndicator {
         float exitOffsetMs = -1f;
         /** 按 {@link #exitOffsetMs} 平移过出场剪辑的剪辑表（合并时置空，渲染时懒重建）。 */
         List<CharClips.Clip> adjustedClips;
+        // 渲染文本 / Component 缓存：伤害值或相关配置变化时才重建，避免每帧格式化与分配
+        private String cachedText;
+        private Component cachedLabel;
+        private float cachedDamage = Float.NaN;
+        private boolean cachedCrit;
+        private boolean cachedKill;
+        private boolean cachedHeal;
+        private int cachedDecimalPlaces = Integer.MIN_VALUE;
+        private boolean cachedPrefixSign;
+        private boolean cachedBold;
+        private String cachedKillText = "";
+        // 独立帧率上限的步进缓存：同一个动画步进内复用偏移 / 文本属性 / 逐字变换
+        private int offsetStep = Integer.MIN_VALUE;
+        private float cachedOffsetX;
+        private float cachedOffsetY;
+        private int propsStep = Integer.MIN_VALUE;
+        private float[] cachedProps;
+        private int glyphStep = Integer.MIN_VALUE;
+        private WorldText3D.Glyph[] cachedGlyphs;
+        private int particleStep = Integer.MIN_VALUE;
         /** 这个跳字自己的粒子播放器（按配置里的粒子剪辑发射真实 3D 粒子），实例间互不影响。 */
         final ClipParticles.Player particles = particleClips().newPlayer();
         // Drift direction (consistent with ring spawn angle)
@@ -263,6 +359,47 @@ public class DamageIndicator {
             }
             return adjustedClips;
         }
+
+        /** 渲染用文本：伤害 / 类型 / 数字格式不变时复用上一次的结果。 */
+        Component label(DamageEngineConfig config) {
+            boolean bold = config.indicatorBold;
+            String killText = config.killText == null ? "" : config.killText;
+            boolean killTextChanged = isKill && !killText.equals(cachedKillText);
+            if (cachedLabel == null
+                || cachedDamage != damage
+                || cachedCrit != isCrit
+                || cachedKill != isKill
+                || cachedHeal != isHeal
+                || cachedDecimalPlaces != config.indicatorDecimalPlaces
+                || cachedPrefixSign != config.indicatorPrefixSign
+                || cachedBold != bold
+                || killTextChanged) {
+                String text;
+                if (isKill) {
+                    text = killText;
+                } else if (isHeal) {
+                    text = (config.indicatorPrefixSign ? "+" : "") + formatDamage(damage, config.indicatorDecimalPlaces);
+                } else {
+                    text = (config.indicatorPrefixSign ? "-" : "") + formatDamage(damage, config.indicatorDecimalPlaces);
+                }
+                cachedText = text;
+                cachedLabel = bold ? Component.literal(text).withStyle(ChatFormatting.BOLD) : Component.literal(text);
+                cachedDamage = damage;
+                cachedCrit = isCrit;
+                cachedKill = isKill;
+                cachedHeal = isHeal;
+                cachedDecimalPlaces = config.indicatorDecimalPlaces;
+                cachedPrefixSign = config.indicatorPrefixSign;
+                cachedBold = bold;
+                cachedKillText = isKill ? killText : "";
+            }
+            return cachedLabel;
+        }
+
+        /** 当前渲染文本（与 {@link #label(DamageEngineConfig)} 同步缓存），逐字动画用它取长度。 */
+        String rawText() {
+            return cachedText == null ? "" : cachedText;
+        }
     }
 
     public static void addIndicator(double x, double y, double z, float damage, boolean isCrit, boolean isKill) {
@@ -305,6 +442,16 @@ public class DamageIndicator {
                 }
             }
             indicators.add(new Indicator(victim, x, y, z, damage, isCrit, isKill, isHeal));
+            trimToLimit();
+        }
+    }
+
+    /** 跳字数量上限：0 = 无限制；超过上限时移除最旧的跳字。 */
+    private static void trimToLimit() {
+        int maxCount = DamageEngineConfig.getInstance().indicatorMaxCount;
+        if (maxCount <= 0) return;
+        while (indicators.size() > maxCount) {
+            indicators.remove(0);
         }
     }
 
@@ -349,6 +496,8 @@ public class DamageIndicator {
         synchronized (indicators) {
             // 暂停时长计入寿命，持续合并的跳字不会被提前移除
             indicators.removeIf(ind -> !isAlive(ind, now));
+            // 配置里调小数量上限后，即使没有新命中也要把超出的旧跳字清掉
+            trimToLimit();
         }
     }
 
@@ -366,6 +515,7 @@ public class DamageIndicator {
         if (!config.showDamage) return;
         if (config.hideOnF1 && client.options.hideGui) return;
         if (!config.showDamageIndicator) return;
+        measureFps();
 
         synchronized (indicators) {
             if (indicators.isEmpty()) return;
@@ -376,8 +526,16 @@ public class DamageIndicator {
             long now = System.currentTimeMillis();
 
             boolean isEnhanced = "enhanced".equals(config.indicatorMode);
+            boolean reduceAnimations = config.reduceAnimations;
+            boolean trackEntity = "entity".equals(config.indicatorTrackMode);
+            boolean trackCrosshair = "crosshair".equals(config.indicatorTrackMode);
+            // 跳字独立帧率上限：0 = 跟随游戏帧率；否则动画只在步进边界推进
+            int maxFps = Mth.clamp(config.indicatorMaxFps, 0, 480);
+            float stepMs = maxFps > 0 ? 1000f / maxFps : 0f;
             float lifetimeSec = lifetimeSeconds();
             float durationMs = lifetimeSec * 1000f;
+            // 相机朝向：用于剔除位于相机背后的跳字（整块文字都在锚点平面之后，不可能可见）
+            Vector3f camLook = camera.rotation().transform(new Vector3f(0f, 0f, -1f));
 
             // 兜底：库的 onWorldRender 回调在某些版本会固定传 0（未插值），拿不到帧间插值时
             // 自己取渲染插值，避免追踪实体时位置按 tick 步进（一卡一卡）。
@@ -391,14 +549,19 @@ public class DamageIndicator {
                 // 本体年龄：位置 / 漂移 / 文本属性 / 粒子 / 入场动画都用它。
                 // 出场被每次攻击重置时只平移出场剪辑（见 Indicator#renderClips），其余不动。
                 float trueMs = now - ind.spawnTime;
+                // 帧率上限：把动画时间量化到步进边界，同一段内复用缓存结果
+                int animStep = -1;
+                float animMs = trueMs;
+                if (stepMs > 0f) {
+                    animStep = (int) (trueMs / stepMs);
+                    animMs = animStep * stepMs;
+                }
 
                 // 追踪模式：
                 // - 实体：跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的偏移，
                 //   之后每帧按目标的插值位置重算世界坐标；实体消失后停在最后位置。
                 // - 准心：跳字固定锚在视线前方，随视角一起移动，始终围绕屏幕准心。
                 double px = ind.x, py = ind.y, pz = ind.z;
-                boolean trackEntity = "entity".equals(config.indicatorTrackMode);
-                boolean trackCrosshair = "crosshair".equals(config.indicatorTrackMode);
                 if (trackEntity && ind.victimId >= 0) {
                     Entity target = client.level != null ? client.level.getEntity(ind.victimId) : null;
                     if (target != null) {
@@ -427,8 +590,17 @@ public class DamageIndicator {
                     pz = camPos.z + look.z * CROSSHAIR_TRACK_DISTANCE;
                 }
 
+                // 相机背后的跳字直接跳过：不投影、不构建文本，纯粹省下无效绘制
+                double toX = px - camPos.x;
+                double toY = py - camPos.y;
+                double toZ = pz - camPos.z;
+                if (toX * camLook.x + toY * camLook.y + toZ * camLook.z <= 0.0) {
+                    continue;
+                }
+                float camDist = (float) Math.sqrt(toX * toX + toY * toY + toZ * toZ);
+
                 // 距离系数：远处目标的漂移更小（字号由 3D 透视自然缩放，不再补偿）
-                float distFactor = Mth.clamp(5f / Math.max((float) camPos.distanceTo(new Vec3(px, py, pz)), 0.01f),
+                float distFactor = Mth.clamp(5f / Math.max(camDist, 0.01f),
                     0.3f, 1.0f);
 
                 // 屏幕像素偏移：随机环半径 + 增强模式漂移——DE 只提供随机值，曲线由库求值。
@@ -438,38 +610,56 @@ public class DamageIndicator {
                 if (ind.isKill) {
                     offsetX = 0f;
                     offsetY = -KILL_TEXT_OFFSET;
+                } else if (stepMs > 0f && ind.offsetStep == animStep) {
+                    // 帧率上限内：直接复用该步进算好的偏移
+                    offsetX = ind.cachedOffsetX;
+                    offsetY = ind.cachedOffsetY;
                 } else {
-                    float drift = isEnhanced ? ind.moveSpeed * distFactor : 0f;
-                    TextSpread.Offset off = AnimaApi.spreadOffset(ind.moveDirX, ind.moveDirY,
-                        ind.ringRadius, drift, trueMs, DRIFT_DURATION * 1000f);
-                    offsetX = off.x();
-                    offsetY = off.y();
+                    // 减少动画：保留随机散布的起始位置，但不再做逐帧漂移
+                    if (reduceAnimations) {
+                        offsetX = ind.moveDirX * ind.ringRadius;
+                        offsetY = ind.moveDirY * ind.ringRadius;
+                    } else {
+                        float drift = isEnhanced ? ind.moveSpeed * distFactor : 0f;
+                        TextSpread.Offset off = AnimaApi.spreadOffset(ind.moveDirX, ind.moveDirY,
+                            ind.ringRadius, drift, animMs, DRIFT_DURATION * 1000f);
+                        offsetX = off.x();
+                        offsetY = off.y();
+                    }
+                    ind.offsetStep = animStep;
+                    ind.cachedOffsetX = offsetX;
+                    ind.cachedOffsetY = offsetY;
                 }
 
-                // Kill text uses special handling
-                String text;
+                // 文本 / Component 按需重建（伤害或格式变化时），平时直接复用
                 int argbColor;
                 if (ind.isKill) {
-                    text = config.killText;
                     argbColor = config.killTextColor;
                 } else if (ind.isHeal) {
-                    text = (config.indicatorPrefixSign ? "+" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.healIndicatorColor;
                 } else if (ind.isCrit) {
-                    text = (config.indicatorPrefixSign ? "-" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.damageIndicatorCritColor;
                 } else {
-                    text = (config.indicatorPrefixSign ? "-" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.damageIndicatorNormalColor;
                 }
-
-                Component label = config.indicatorBold
-                    ? Component.literal(text).withStyle(ChatFormatting.BOLD)
-                    : Component.literal(text);
+                Component label = ind.label(config);
 
                 // 字号：伤害越大略大；再乘上编辑器里调的文本属性（缩放 / 透明度 / 位置偏移 / 距离缩放）
                 JsonObject textProps = textPropsJson();
-                float[] tp = AnimaApi.evalTextProps(textProps, trueMs);
+                boolean animatedProps = !reduceAnimations && textProps != null
+                    && textProps.has("keys") && textProps.get("keys").isJsonArray();
+                float[] tp;
+                if (animatedProps) {
+                    if (stepMs > 0f && ind.propsStep == animStep && ind.cachedProps != null) {
+                        tp = ind.cachedProps;
+                    } else {
+                        tp = AnimaApi.evalTextProps(textProps, animMs);
+                        ind.cachedProps = tp;
+                        ind.propsStep = animStep;
+                    }
+                } else {
+                    tp = evalTextProps(textProps, animMs, reduceAnimations);
+                }
                 double tx = px + tp[0];
                 double ty = py + tp[1];
                 double tz = pz + tp[2];
@@ -480,36 +670,60 @@ public class DamageIndicator {
                     && textProps.get("distanceScale").getAsBoolean();
                 if (!distScale) {
                     // 与编辑器一致，基准 6 格
-                    scaleMul *= (float) Math.max(0.05, camPos.distanceTo(new Vec3(px, py, pz)) / 6.0);
+                    scaleMul *= (float) Math.max(0.05, camDist / 6.0);
                 }
 
                 // 合并跳字时的跳动：汇总数字更新瞬间撑大再回落（缩放由库的 ScaleEffect 求值）。
                 // 每次合并都会重置时钟，连续命中时不断跳动。
                 if (ind.mergePopStart >= 0) {
-                    float popMs = now - ind.mergePopStart;
+                    float popMs = Math.max(0f, animMs - ind.mergePopStart);
                     if (popMs < MERGE_POP_MS) {
-                        RenderModifier pop = MERGE_POP_SPEC.computeModifier(popMs, MERGE_POP_MS);
-                        scaleMul *= pop.sx;
+                        if (!reduceAnimations) {
+                            RenderModifier pop = MERGE_POP_SPEC.computeModifier(popMs, MERGE_POP_MS);
+                            scaleMul *= pop.sx;
+                        }
                     } else {
                         ind.mergePopStart = -1; // 动画结束，停用
                     }
                 }
 
-                // 逐字动画（默认飘入入场 + 打字机出场）：剪辑由 DE 给出，逐字求值由库完成
-                WorldText3D.Glyph[] glyphs = AnimaApi.charGlyphs(text, ind.renderClips(), trueMs);
+                // 逐字动画（默认飘入入场 + 打字机出场）：剪辑由 DE 给出，逐字求值由库完成。
+                // 帧率上限内同一动画步进复用上一次的逐字变换，避免每帧重复求值与分配。
+                WorldText3D.Glyph[] glyphs;
+                if (reduceAnimations) {
+                    glyphs = null;
+                } else if (stepMs > 0f) {
+                    if (ind.glyphStep != animStep) {
+                        ind.cachedGlyphs = AnimaApi.charGlyphs(ind.rawText(), ind.renderClips(), animMs);
+                        ind.glyphStep = animStep;
+                    }
+                    glyphs = ind.cachedGlyphs;
+                } else {
+                    glyphs = AnimaApi.charGlyphs(ind.rawText(), ind.renderClips(), trueMs);
+                }
 
                 // 粒子剪辑：编辑器里拖进来的粒子同样要按剪辑时间发射，否则只会在编辑器预览里出现
-                ind.particles.emit(tx, ty, tz, trueMs);
+                if (!reduceAnimations) {
+                    if (stepMs <= 0f) {
+                        ind.particles.emit(tx, ty, tz, trueMs);
+                    } else if (ind.particleStep != animStep) {
+                        ind.particles.emit(tx, ty, tz, animMs);
+                        ind.particleStep = animStep;
+                    }
+                }
 
                 // 双绘（同原版名字牌）：先 see-through 一遍（不做深度测试 → 不被方块 / 实体遮挡），
-                // 再常规画一遍（有遮挡）——这样即使穿透那遍在某些渲染阶段没生效，跳字也一定可见
+                // 再常规画一遍（有遮挡）——这样即使穿透那遍在某些渲染阶段没生效，跳字也一定可见。
+                // 减少动画模式下只保留穿透那遍：文字仍然完整可见，但每帧提交的几何量减半。
                 int color = 0xFF000000 | (argbColor & 0x00FFFFFF);
                 AnimaApi.drawWorldText3D(buffers, camera, label, tx, ty, tz,
                     offsetX, offsetY, color, null,
                     trueMs, durationMs, WorldText3D.DEFAULT_SCALE, scaleMul, alphaMul, glyphs, true);
-                AnimaApi.drawWorldText3D(buffers, camera, label, tx, ty, tz,
-                    offsetX, offsetY, color, null,
-                    trueMs, durationMs, WorldText3D.DEFAULT_SCALE, scaleMul, alphaMul, glyphs, false);
+                if (!reduceAnimations) {
+                    AnimaApi.drawWorldText3D(buffers, camera, label, tx, ty, tz,
+                        offsetX, offsetY, color, null,
+                        trueMs, durationMs, WorldText3D.DEFAULT_SCALE, scaleMul, alphaMul, glyphs, false);
+                }
             }
         }
     }

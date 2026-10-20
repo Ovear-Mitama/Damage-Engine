@@ -88,13 +88,16 @@ public class ClientHealthTracker {
         // 准星命中的实体交给会话判断(末影龙需从部件映射到本体),命中时强制切换信息面板目标
         Minecraft client = Minecraft.getInstance();
         Entity crosshair = client.hitResult instanceof EntityHitResult ehr ? ehr.getEntity() : null;
+        // 没有准心实体（远程/爆炸等）：直接切换到本次受伤的目标
+        boolean preferSwitchTarget = crosshair == null
+            || DamageSessionManager.isSameVictim(crosshair, entity.getId());
 
         float distance = client.player != null
             ? damage.engine.hud.rating.CombatContext.distance(client.player, entity) : 0f;
         boolean unseen = killed && client.player != null
             && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(entity, client.player);
         DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(),
-            crosshair, killed, distance, unseen);
+            preferSwitchTarget, killed, distance, unseen);
 
         // Blend indicator position toward crosshair hit point
         Vec3 pos = DamageEngineClient.blendIndicatorPos(
