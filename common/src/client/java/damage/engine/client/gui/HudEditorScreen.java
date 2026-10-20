@@ -68,6 +68,10 @@ public class HudEditorScreen extends Screen {
     
     @Override
     protected void init() {
+        // 预览与关闭后的实际渲染共用同一布局基准：否则编辑器里看到的是按旧基准缩放的位置，
+        // 关闭时基准被改成当前窗口，实际位置就会和预览对不上。
+        this.config.hudLayoutBaseWidth = this.width;
+        this.config.hudLayoutBaseHeight = this.height;
 
         int btnY = 10;
         int btnX = 10;

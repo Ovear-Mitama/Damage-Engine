@@ -85,10 +85,13 @@ public class ClientHealthTracker {
         }
 
         // Check if entity is in crosshair for info panel switching
-        boolean preferSwitchTarget = false;
+        boolean preferSwitchTarget;
         Minecraft client = Minecraft.getInstance();
         if (client.hitResult instanceof EntityHitResult ehr && ehr.getEntity() != null) {
             preferSwitchTarget = ehr.getEntity().getId() == entity.getId();
+        } else {
+            // 没有准心实体（远程/爆炸等）：直接切换到本次受伤的目标
+            preferSwitchTarget = true;
         }
 
         float distance = client.player != null

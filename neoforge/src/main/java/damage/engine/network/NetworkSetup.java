@@ -5,7 +5,6 @@ import damage.engine.DamageEngineClient;
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.indicator.DamageIndicator;
 import damage.engine.hud.session.DamageSessionManager;
-import damage.engine.hud.rating.RatingManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.phys.EntityHitResult;
@@ -111,6 +110,11 @@ public class NetworkSetup {
                             preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
                         }
                     } catch (Exception ignored) {}
+                    // 远程命中通常超出准心拾取距离，准心命中的不是受害实体；
+                    // 这类伤害直接切换信息面板目标，否则第二箭会一直停留在第一个目标上。
+                    if (payload.isProjectile()) {
+                        preferSwitchTarget = true;
+                    }
 
                     net.minecraft.world.entity.Entity selfVictim = payload.entityId() > 0 && mc.level != null
                         ? mc.level.getEntity(payload.entityId()) : null;
@@ -135,15 +139,6 @@ public class NetworkSetup {
                         }
                     }
 
-                    if (config.debugShowRating && mc.player != null) {
-                        RatingManager rm = RatingManager.getInstance();
-                        if (rm.isVisible()) {
-                            mc.player.sendOverlayMessage(
-                                Component.literal("[DE Debug] ").withColor(0xB3EDC4)
-                                    .append(Component.literal("当前评分: " + rm.getGrade() + " | 分数: " + String.format("%.1f", rm.getScore())).withColor(0xFFFFFF))
-                            );
-                        }
-                    }
                 });
             }
         );

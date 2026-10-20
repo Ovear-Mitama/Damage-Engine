@@ -41,6 +41,38 @@ public class DamageIndicator {
 
     private static long lastCleanupTime = 0;
 
+    // ---- 性能叠加层：跳字渲染帧率统计 ----
+    private static long fpsWindowStartMs = 0L;
+    private static int fpsFrames = 0;
+    private static int currentFps = 0;
+
+    private static void measureFps() {
+        long now = System.currentTimeMillis();
+        if (fpsWindowStartMs == 0L) {
+            fpsWindowStartMs = now;
+            return;
+        }
+        fpsFrames++;
+        long elapsed = now - fpsWindowStartMs;
+        if (elapsed >= 1000L) {
+            currentFps = (int) Math.round(fpsFrames * 1000.0 / elapsed);
+            fpsFrames = 0;
+            fpsWindowStartMs = now;
+        }
+    }
+
+    /** 跳字渲染回调的实际帧率（供性能叠加层显示）。 */
+    public static int currentFps() {
+        return currentFps;
+    }
+
+    /** 当前存活的跳字数量。 */
+    public static int activeCount() {
+        synchronized (indicators) {
+            return indicators.size();
+        }
+    }
+
     /** 未发生合并时，淡出在出生后的第几毫秒开始（入场 + 保持）。 */
     private static float naturalFadeStartMs() {
         return (SHRINK_DURATION + HOLD_DURATION) * 1000f;
@@ -101,6 +133,10 @@ public class DamageIndicator {
          * 入场仍按出生时间求值，所以不会重播入场动画。
          */
         float fadeStartOffsetMs = -1f;
+        /** 独立帧率上限的步进缓存：同一个动画步进内复用时间量化结果。 */
+        int animStep = Integer.MIN_VALUE;
+        float cachedStepMs = -1f;
+        float cachedAnimMs = -1f;
         // Drift direction (consistent with ring spawn angle)
         final float moveDirX;
         final float moveDirY;
@@ -170,6 +206,16 @@ public class DamageIndicator {
                 }
             }
             indicators.add(new Indicator(victim, x, y, z, damage, isCrit, isKill, isHeal));
+            trimToLimit();
+        }
+    }
+
+    /** 跳字数量上限：0 = 无限制；超过上限时移除最旧的跳字。 */
+    private static void trimToLimit() {
+        int maxCount = DamageEngineConfig.getInstance().indicatorMaxCount;
+        if (maxCount <= 0) return;
+        while (indicators.size() > maxCount) {
+            indicators.remove(0);
         }
     }
 
@@ -181,6 +227,8 @@ public class DamageIndicator {
         synchronized (indicators) {
             // 淡出被推迟多少，寿命就延长多少：持续合并的跳字不会被提前移除
             indicators.removeIf(ind -> !isAlive(ind, now));
+            // 配置里调小数量上限后，即使没有新命中也要把超出的旧跳字清掉
+            trimToLimit();
         }
     }
 
@@ -189,6 +237,7 @@ public class DamageIndicator {
         if (client.level == null || client.player == null) return;
         if (client.gui.screen() instanceof damage.engine.client.gui.DamageConfigScreen) return;
         if (client.gui.screen() instanceof damage.engine.client.gui.HudEditorScreen) return;
+        measureFps();
 
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         if (!config.showDamage) return;
@@ -215,12 +264,27 @@ public class DamageIndicator {
             boolean isEnhanced = "enhanced".equals(config.indicatorMode);
             float baseScale = config.indicatorScale;
             float opacity = config.indicatorOpacity / 100f;
+            // 跳字独立帧率上限：0 = 跟随游戏帧率；否则动画只在步进边界推进
+            int maxFps = Mth.clamp(config.indicatorMaxFps, 0, 480);
+            float stepMs = maxFps > 0 ? 1000f / maxFps : 0f;
 
             List<RenderedIndicator> toRender = new ArrayList<>();
 
             for (Indicator ind : indicators) {
                 if (!isAlive(ind, now)) continue; // 淡出被合并推迟时，寿命随之顺延
-                float age = (now - ind.spawnTime) / 1000f;
+                float trueMs = now - ind.spawnTime;
+                // 帧率上限：把动画时间量化到步进边界，同一步进内复用计算结果
+                float animMs = trueMs;
+                if (stepMs > 0f) {
+                    int animStep = (int) (trueMs / stepMs);
+                    if (ind.animStep != animStep || ind.cachedStepMs != stepMs) {
+                        ind.animStep = animStep;
+                        ind.cachedStepMs = stepMs;
+                        ind.cachedAnimMs = animStep * stepMs;
+                    }
+                    animMs = ind.cachedAnimMs;
+                }
+                float age = animMs / 1000f;
                 if (age < 0) continue;
                 // 追踪模式：
                 // - 实体：跳字跟随目标移动。首帧记录「命中点相对实体脚底中心」的偏移，
@@ -364,7 +428,7 @@ public class DamageIndicator {
                 // 合并跳字时的跳动：汇总数字更新瞬间撑大再回落（1.18 → 1.0，360ms 缓出）。
                 // 每次合并都会重置时钟，连续命中时不断跳动。
                 if (ind.mergePopStart >= 0) {
-                    float popMs = now - ind.mergePopStart;
+                    float popMs = Math.max(0f, animMs - ind.mergePopStart);
                     if (popMs < MERGE_POP_MS) {
                         float pt = popMs / MERGE_POP_MS;
                         float eased = 1f - (1f - pt) * (1f - pt);
