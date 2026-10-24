@@ -1,14 +1,12 @@
 pluginManagement {
-	repositories {
-		maven {
-			name = 'Fabric'
-			url = 'https://maven.fabricmc.net/'
-		}
-		mavenCentral()
-		gradlePluginPortal()
-	}
+    repositories {
+        gradlePluginPortal()
+        maven { name = 'GTNH'; url = 'https://nexus.gtnewhorizons.com/repository/releases' }
+    }
 }
 
-if (JavaVersion.current() < JavaVersion.VERSION_17) {
-	throw new GradleException("Damage-Engine 1.20.1 requires Java 17+. Current JVM: ${JavaVersion.current()}. Configure JAVA_HOME to a JDK 17 and re-run ./gradlew.")
+plugins {
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.8.0'
 }
+
+rootProject.name = 'Damage-Engine'

@@ -1,0 +1,13 @@
+[
+  {
+    "modid": "damageengine",
+    "name": "Damage Engine",
+    "description": "Combat damage HUD and rating.",
+    "version": "${version}",
+    "mcversion": "${mcversion}",
+    "authorList": ["mitama"],
+    "credits": "",
+    "url": "https://github.com/Ovear-Mitama/Damage-Engine",
+    "logoFile": "/assets/damageengine/logo.png"
+  }
+]
