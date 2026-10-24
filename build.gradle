@@ -145,9 +145,11 @@ tasks.named('jar') {
 
 processResources {
 	inputs.property "version", project.version
+	inputs.property "anima_version", project.anima_version
 
 	filesMatching("fabric.mod.json") {
-		expand "version": inputs.properties.version
+		expand "version": inputs.properties.version,
+		       "anima_version": inputs.properties.anima_version
 	}
 }
 
