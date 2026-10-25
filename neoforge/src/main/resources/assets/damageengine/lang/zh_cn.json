@@ -202,5 +202,13 @@
   "text.damage-engine.bonus_help": "加分表达式说明",
   "hint.damage-engine.bonus_syntax": "变量：\n{combo} 连击数\n{combo_time} 连击重置时间（毫秒）\n{killstreak} 连杀数\n{crit} 暴击（0/1）\n{damage} 本次伤害\n{kill} 击杀（0/1）\n{kill_meter} 击杀距离（米）\n{unseen} 看不见目标（0/1）\n运算符：+ - * / ( ) > >= < <= == != ? :\n示例：{kill:25}\n示例：{combo} * 0.2\n示例：{kill_meter} > 5 ? {kill_meter} * 2 : 0",
   "option.damage-engine.comboResetTime": "连击重置时间（秒）",
-  "command.damage-engine.cleared": "已清除伤害与评分数据。"
+  "command.damage-engine.cleared": "已清除伤害与评分数据。",
+  "hint.damage-engine.kill_texts": "可添加多条击杀文本，按权重随机抽取。权重越高越容易抽到；权重 0 或文本为空时不参与抽取。",
+  "hint.damage-engine.kill_text_weight": "抽取权重（默认 1）；权重越高越容易抽到，0 = 不出现。",
+  "text.damage-engine.kill_text_content": "文本",
+  "text.damage-engine.weight": "权重",
+  "option.damage-engine.client_downgrade_warning": "客户端降级警告",
+  "hint.damage-engine.client_downgrade_warning": "进入多人世界时若检测到服务端未安装本模组，在左上角显示警告。",
+  "text.damage-engine.client_downgrade_title": "Damage Engine警告",
+  "text.damage-engine.client_downgrade_lines": "未检测到服务端安装Damage Engine\n已降级为客户端模式，部分功能受到影响"
 }

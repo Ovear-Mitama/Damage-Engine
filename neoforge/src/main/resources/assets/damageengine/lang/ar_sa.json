@@ -202,5 +202,13 @@
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
   "option.damage-engine.comboResetTime": "إعادة تعيين الكومبو (ث)",
-  "command.damage-engine.cleared": "تم مسح بيانات الضرر والتقييم."
+  "command.damage-engine.cleared": "تم مسح بيانات الضرر والتقييم.",
+  "hint.damage-engine.kill_texts": "أضف عدة نصوص للقتل؛ يتم اختيار أحدها عشوائيًا حسب الوزن. وزن أعلى = احتمال أكبر؛ الوزن 0 أو النص الفارغ لا يُختار.",
+  "hint.damage-engine.kill_text_weight": "وزن الاختيار (الافتراضي 1). الأعلى = احتمال أكبر؛ 0 = لا يظهر أبدًا.",
+  "text.damage-engine.kill_text_content": "النص",
+  "text.damage-engine.weight": "الوزن",
+  "option.damage-engine.client_downgrade_warning": "تحذير تخفيض وضع العميل",
+  "hint.damage-engine.client_downgrade_warning": "عند دخول عالم متعدد اللاعبين، يُعرض تحذير في أعلى اليسار إذا لم يكن هذا المود مثبتًا على الخادم.",
+  "text.damage-engine.client_downgrade_title": "تحذير Damage Engine",
+  "text.damage-engine.client_downgrade_lines": "لم يتم العثور على Damage Engine على الخادم\nتم التحويل إلى وضع العميل؛ بعض الميزات متأثرة"
 }
