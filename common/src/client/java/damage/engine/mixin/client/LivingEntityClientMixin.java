@@ -56,11 +56,17 @@ public class LivingEntityClientMixin {
             // Deduplication: skip if damage was detected within the last 50ms for the same entity.
             // This prevents duplicate indicators from rapid health syncs.
             long now = System.currentTimeMillis();
-            if (now - tracker$lastDamageTime > 50) {
+            if (killed || now - tracker$lastDamageTime > 50) {
                 float reportedDamage = killed ? Math.max(actualDamage, 0) : actualDamage;
                 ClientHealthTracker.onEntityDamaged(self, reportedDamage, killed);
                 tracker$lastDamageTime = now;
+                // 只有真正处理完才推进基线；50ms 内的掉血保留旧基线，
+                // 下一 tick 把累计差值一起结算，避免连续命中被永久丢弃。
+                tracker$lastHealth = h;
+                tracker$lastAbsorption = a;
+                return;
             }
+            return;
         }
         
         // Detect healing (health increase) - show globally for all entities

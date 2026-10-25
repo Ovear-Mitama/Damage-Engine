@@ -262,6 +262,16 @@ public class DamageHud {
                     }
                 }
             });
+
+            // 客户端降级警告同样固定在左上角（10 秒后自动消失）
+            renderSection(() -> {
+                suspendGlobalShift(guiGraphics);
+                try {
+                    damage.engine.client.ClientDowngradeOverlay.render(guiGraphics);
+                } finally {
+                    resumeGlobalShift(guiGraphics);
+                }
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }

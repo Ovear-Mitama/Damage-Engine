@@ -202,5 +202,13 @@
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
   "option.damage-engine.comboResetTime": "コンボリセット時間（秒）",
-  "command.damage-engine.cleared": "ダメージと評価データをクリアしました。"
+  "command.damage-engine.cleared": "ダメージと評価データをクリアしました。",
+  "hint.damage-engine.kill_texts": "複数のキルテキストを追加できます。重みに応じてランダムに選ばれます。重みが高いほど出やすく、0 または空文字は選ばれません。",
+  "hint.damage-engine.kill_text_weight": "抽選の重み（既定 1）。高いほど出やすい。0 = 表示しない。",
+  "text.damage-engine.kill_text_content": "テキスト",
+  "text.damage-engine.weight": "重み",
+  "option.damage-engine.client_downgrade_warning": "クライアント降格警告",
+  "hint.damage-engine.client_downgrade_warning": "マルチプレイのワールドに入ったとき、サーバーにこの Mod がインストールされていなければ左上に警告を表示します。",
+  "text.damage-engine.client_downgrade_title": "Damage Engine 警告",
+  "text.damage-engine.client_downgrade_lines": "サーバーに Damage Engine がインストールされていません\nクライアントモードに降格しました。一部の機能が制限されます"
 }

@@ -11,6 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 
@@ -24,6 +25,8 @@ public class DamageEngineConfig {
 
     // ========== General ==========
     public boolean showDamage = true;
+    /** 进入世界时检测到服务端未安装本模组，在左上角显示客户端降级警告叠加层。 */
+    public boolean showClientDowngradeWarning = true;
     /**
      * 减少动画：关闭/简化纯装饰性的逐帧动画（HUD 惯性、伤害记录滑入、评分滚动、
      * 血条平滑、跳字逐字动画与漂移等），用于在低配机器或高负载战斗时换回帧率。
@@ -97,6 +100,11 @@ public class DamageEngineConfig {
     // 全局伤害跳字 - 非玩家实体规则(注册名 All 表示全体,与具体注册名互斥)
     public List<GlobalEntityRule> globalEntityRules = new ArrayList<>();
     public String killText = "Kill!";
+    /**
+     * 击杀文本列表：每次击杀按权重随机抽一条，避免长期只看到同一句话。
+     * 权重 ≤ 0 或文本为空表示不参与抽取。
+     */
+    public List<KillText> killTexts = new ArrayList<>();
     public int killTextColor = 0xFFF9867D;
     public boolean showKillIndicator = true;
     public int damageIndicatorNormalColor = 0xFFFFFFFF;
@@ -332,6 +340,96 @@ public class DamageEngineConfig {
         }
     }
     
+    /**
+     * 一条击杀文本。weight 为抽取权重（默认 1）；weight ≤ 0 或 text 为空时不参与抽取。
+     * color 为该条文本的颜色；0 = 回退到旧的全局 {@link DamageEngineConfig#killTextColor}。
+     */
+    public static class KillText {
+        public String text = "Kill!";
+        public float weight = 1f;
+        public int color = 0;
+
+        public KillText() {
+        }
+
+        public KillText(String text, float weight) {
+            this(text, weight, 0);
+        }
+
+        public KillText(String text, float weight, int color) {
+            this.text = text;
+            this.weight = weight;
+            this.color = color;
+        }
+
+        /** 该条是否可用于抽取。 */
+        public boolean isSelectable() {
+            return text != null && !text.isEmpty() && weight > 0f;
+        }
+
+        /** 实际渲染颜色：未单独设置时使用全局击杀文本颜色。 */
+        public int resolveColor(int fallback) {
+            return color != 0 ? color : fallback;
+        }
+    }
+
+    /** 按权重随机抽一条击杀文本条目；没有可用条目时返回 null。 */
+    public KillText pickKillTextEntry() {
+        float total = 0f;
+        if (killTexts != null) {
+            for (KillText k : killTexts) {
+                if (k != null && k.isSelectable()) total += k.weight;
+            }
+        }
+        if (total > 0f) {
+            float roll = java.util.concurrent.ThreadLocalRandom.current().nextFloat() * total;
+            for (KillText k : killTexts) {
+                if (k == null || !k.isSelectable()) continue;
+                roll -= k.weight;
+                if (roll < 0f) return k;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 按权重随机抽一条击杀文本；没有可用条目时回退到旧字段 {@link #killText}。
+     */
+    public String pickKillText() {
+        KillText picked = pickKillTextEntry();
+        if (picked != null && picked.text != null) return picked.text;
+        // 全部为空/权重为 0：优先取第一条非空文本，否则回到旧字段
+        if (killTexts != null) {
+            for (KillText k : killTexts) {
+                if (k != null && k.text != null && !k.text.isEmpty()) return k.text;
+            }
+        }
+        return killText == null || killText.isEmpty() ? "Kill!" : killText;
+    }
+
+    /**
+     * 解析击杀文本 JSON：支持字符串、[字符串/对象...] 数组；对象字段为 text / weight / color。
+     * 返回 null 表示不是数组形态（交给旧字段处理）。
+     */
+    private static List<KillText> parseKillTextArray(JsonElement el) {
+        if (el == null || !el.isJsonArray()) return null;
+        List<KillText> list = new ArrayList<>();
+        for (JsonElement item : el.getAsJsonArray()) {
+            if (item == null || item.isJsonNull()) continue;
+            if (item.isJsonPrimitive()) {
+                String text = item.getAsString();
+                if (!text.isEmpty()) list.add(new KillText(text, 1f));
+            } else if (item.isJsonObject()) {
+                JsonObject o = item.getAsJsonObject();
+                String text = o.has("text") && !o.get("text").isJsonNull() ? o.get("text").getAsString() : "";
+                float weight = o.has("weight") && !o.get("weight").isJsonNull() ? o.get("weight").getAsFloat() : 1f;
+                int color = o.has("color") && !o.get("color").isJsonNull() ? o.get("color").getAsInt() : 0;
+                if (!text.isEmpty()) list.add(new KillText(text, weight, color));
+            }
+        }
+        return list;
+    }
+
     public static class RatingGrade {
         public float minScore;
         public String text;
@@ -371,6 +469,8 @@ public class DamageEngineConfig {
 
         // 全局伤害跳字 - 非玩家实体默认包含一项 All(全体实体,距离 0 = 无限制)
         globalEntityRules.add(new GlobalEntityRule("All", 0f));
+
+        killTexts.add(new KillText("Kill!", 1f, killTextColor));
     }
 
     public static DamageEngineConfig getInstance() {
@@ -527,8 +627,21 @@ public class DamageEngineConfig {
             
             try (Reader reader = Files.newBufferedReader(path)) {
                 JsonObject raw = JsonParser.parseReader(reader).getAsJsonObject();
+                // 旧字段 killText 也接受数组形态（元素为字符串或 {text, weight, color}），
+                // 先摘出来单独解析，避免 Gson 把 String 字段当数组时报错。
+                List<KillText> killTextArray = parseKillTextArray(raw.get("killText"));
+                if (killTextArray != null) {
+                    raw.remove("killText");
+                }
                 DamageEngineConfig loaded = GSON.fromJson(raw, DamageEngineConfig.class);
                 if (loaded != null) {
+                    if (killTextArray != null && (loaded.killTexts == null || loaded.killTexts.isEmpty())) {
+                        loaded.killTexts = killTextArray;
+                    }
+                    // 旧配置没有该字段：默认开启客户端降级警告
+                    if (!raw.has("showClientDowngradeWarning")) {
+                        loaded.showClientDowngradeWarning = true;
+                    }
                     copyFrom(loaded);
                     // 旧配置没有该字段：迁移到新的默认值 60（显式写过 0 的保持不变）
                     if (!raw.has("hudMaxFps")) {
@@ -544,6 +657,7 @@ public class DamageEngineConfig {
     private void copyFrom(DamageEngineConfig loaded) {
         // General
         this.showDamage = loaded.showDamage;
+        this.showClientDowngradeWarning = loaded.showClientDowngradeWarning;
         this.reduceAnimations = loaded.reduceAnimations;
         this.hudMaxFps = Math.max(0, loaded.hudMaxFps);
         this.indicatorMaxFps = Math.max(0, loaded.indicatorMaxFps);
@@ -605,6 +719,18 @@ public class DamageEngineConfig {
         // silently reset to the default on reload.
         this.globalIndicatorMaxDistance = loaded.globalIndicatorMaxDistance;
         this.killText = loaded.killText != null ? loaded.killText : "Kill!";
+        // 击杀文本列表：新配置优先；旧配置只有单字符串时迁移成一条权重 1 的条目
+        if (loaded.killTexts != null && !loaded.killTexts.isEmpty()) {
+            this.killTexts = loaded.killTexts;
+            // 旧条目没有单独颜色（0）：用全局击杀文本颜色补齐
+            for (KillText k : this.killTexts) {
+                if (k != null && k.color == 0) k.color = loaded.killTextColor;
+            }
+            syncLegacyKillText();
+        } else {
+            this.killTexts = new ArrayList<>();
+            this.killTexts.add(new KillText(this.killText, 1f, loaded.killTextColor));
+        }
         this.killTextColor = loaded.killTextColor;
         this.showKillIndicator = loaded.showKillIndicator;
         this.damageIndicatorNormalColor = loaded.damageIndicatorNormalColor;
@@ -674,8 +800,22 @@ public class DamageEngineConfig {
         }
     }
 
+    /** 把列表里第一条非空文本同步回旧字段 killText，保证旧版本读配置时仍能拿到文本。 */
+    private void syncLegacyKillText() {
+        if (killTexts != null) {
+            for (KillText k : killTexts) {
+                if (k != null && k.text != null && !k.text.isEmpty()) {
+                    killText = k.text;
+                    return;
+                }
+            }
+        }
+        if (killText == null || killText.isEmpty()) killText = "Kill!";
+    }
+
     public void save() {
         try {
+            syncLegacyKillText();
             if (!Files.exists(CONFIG_DIR)) {
                 Files.createDirectories(CONFIG_DIR);
             }
@@ -698,6 +838,7 @@ public class DamageEngineConfig {
     private void applyHardcodedDefaults() {
         // General
         showDamage = true;
+        showClientDowngradeWarning = true;
         reduceAnimations = false;
         hudMaxFps = 60;
         indicatorMaxFps = 0;
@@ -750,6 +891,8 @@ public class DamageEngineConfig {
         globalEntityRules.add(new GlobalEntityRule("All", 0f));
         killText = "Kill!";
         killTextColor = 0xFFF9867D;
+        killTexts.clear();
+        killTexts.add(new KillText("Kill!", 1f, killTextColor));
         showKillIndicator = true;
         damageIndicatorNormalColor = 0xFFFFFFFF;
         damageIndicatorCritColor = 0xFFD700;
