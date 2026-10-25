@@ -67,6 +67,15 @@ public class DamageSessionManager {
 
     public void addDamage(float amount, boolean isCrit, int targetEntityId, boolean preferSwitchTarget,
                           boolean killed, float distance, boolean unseen) {
+        addDamage(amount, isCrit, targetEntityId, preferSwitchTarget, killed, distance, unseen, true);
+    }
+
+    /**
+     * @param trackInfo 是否允许本次伤害切换实体信息面板的目标。
+     *                  客户端降级模式下只有玩家自己攻击过的实体才应为 true。
+     */
+    public void addDamage(float amount, boolean isCrit, int targetEntityId, boolean preferSwitchTarget,
+                          boolean killed, float distance, boolean unseen, boolean trackInfo) {
         long now = System.currentTimeMillis();
         if (DamageEngineConfig.getInstance().resetEnabled && isActive && (now - lastHitTime) > DamageEngineConfig.getInstance().resetTime * 1000) {
             RatingManager.getInstance().endSession();
@@ -80,7 +89,7 @@ public class DamageSessionManager {
 
         RatingManager.getInstance().addHit(amount, isCrit, killed, distance, unseen);
 
-        if (targetEntityId != -1) {
+        if (trackInfo && targetEntityId != -1) {
             if (!isInfoActive() || targetEntityId == lastTargetEntityId || preferSwitchTarget) {
                 lastTargetEntityId = targetEntityId;
                 infoExpireAt = now + (long)(DamageEngineConfig.getInstance().infoTrackTime * 1000);

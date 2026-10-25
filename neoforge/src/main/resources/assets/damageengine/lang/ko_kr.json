@@ -202,5 +202,13 @@
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
   "option.damage-engine.comboResetTime": "콤보 초기화 시간 (초)",
-  "command.damage-engine.cleared": "피해 및 평가 데이터를 지웠습니다."
+  "command.damage-engine.cleared": "피해 및 평가 데이터를 지웠습니다.",
+  "hint.damage-engine.kill_texts": "여러 개의 킬 텍스트를 추가할 수 있습니다. 가중치에 따라 무작위로 선택됩니다. 가중치가 높을수록 잘 나오며, 0이거나 빈 텍스트는 선택되지 않습니다.",
+  "hint.damage-engine.kill_text_weight": "선택 가중치(기본 1). 높을수록 잘 나오며 0 = 표시 안 함.",
+  "text.damage-engine.kill_text_content": "텍스트",
+  "text.damage-engine.weight": "가중치",
+  "option.damage-engine.client_downgrade_warning": "클라이언트 강등 경고",
+  "hint.damage-engine.client_downgrade_warning": "멀티플레이 월드에 들어갈 때 서버에 이 모드가 설치되어 있지 않으면 왼쪽 위에 경고를 표시합니다.",
+  "text.damage-engine.client_downgrade_title": "Damage Engine 경고",
+  "text.damage-engine.client_downgrade_lines": "서버에 Damage Engine이 설치되어 있지 않습니다\n클라이언트 모드로 강등되었으며 일부 기능이 제한됩니다"
 }

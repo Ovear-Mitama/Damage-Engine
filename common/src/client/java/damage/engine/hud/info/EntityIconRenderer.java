@@ -99,6 +99,7 @@ public final class EntityIconRenderer {
 
             float bbW = state.boundingBoxWidth;
             float bbH = state.boundingBoxHeight;
+            float renderedBodyRot = 0f;
             if (state instanceof LivingEntityRenderState livingState) {
                 // 只改渲染状态里的朝向,不改世界中的实体:
                 // 跟随模式以玩家视角为基准(生物正对你时显示正面,背对时显示背面);
@@ -106,6 +107,7 @@ public final class EntityIconRenderer {
                 // 注:这里用减号——渲染状态的 yaw 与旧版管线(1.20/1.21 直接设 entity yaw)手性相反,
                 // 用减号才能让"角度增大"在两个管线家族里呈现同一方向。
                 livingState.bodyRot = followRotation ? (livingState.bodyRot - mc.player.getYRot()) : (180.0f - customAngle);
+                renderedBodyRot = livingState.bodyRot;
             }
             // 注意:既不再把实体缩放归一化,也不再按"填满头像槽"反推缩放。
             // 体型差异(史莱姆大小、幼年体缩放、模组自定义缩放)交给渲染管线按实体状态自己应用,
@@ -126,6 +128,16 @@ public final class EntityIconRenderer {
                 ? (MODEL_VERTICAL_PIVOT - model.centerY()) * bodyScale
                 : (bbH / 2.0f + CENTER_OFFSET_Y);
 
+            // 水平居中同样按"模型自身的水平中点"算(与 1.21.1 分支的取景一致):
+            // 该管线把模型原点摆在画布中心,但不少生物(尤其是带自定义朝向时)的几何中心并不在原点,
+            // 只按原点居中会让实体整体偏向一侧。这里把几何中心按渲染时的身体朝向旋转后抵消掉。
+            float translateX = 0.0f;
+            if (model != null) {
+                Vector3f center = new Vector3f(model.centerX(), 0.0f, model.centerZ())
+                    .rotate(new Quaternionf().rotateY((float) Math.toRadians(180.0f - renderedBodyRot)));
+                translateX = -center.x() * bodyScale;
+            }
+
             // 渲染框按实体实际尺寸放大:它只是画布与裁剪边界,放大只为留出溢出的余地、不切边,
             // 实体本身的像素大小只由上面那个固定比例决定。
             float spanBlocks = model != null
@@ -138,7 +150,7 @@ public final class EntityIconRenderer {
 
             // 亚像素微调换算到模型位移(格):画布坐标只能整数,不足 1 像素的位移放在这里才不会跳。
             // 该管线里模型位移 +x 向右、+y 向下(与屏幕坐标同向),故两项都取正。
-            Vector3f translate = new Vector3f(subPixelX / pixelsPerBlock,
+            Vector3f translate = new Vector3f(translateX + subPixelX / pixelsPerBlock,
                 translateY + subPixelY / pixelsPerBlock, 0.0f);
 
             // 与原版 InventoryScreen 一致:绕 Z 轴 180°(GUI 坐标翻转)
@@ -232,7 +244,8 @@ public final class EntityIconRenderer {
             float spanY = max[1] - min[1];
             float spanZ = max[2] - min[2];
             if (spanX <= 0.01f && spanY <= 0.01f && spanZ <= 0.01f) return null;
-            return new ModelExtents(spanX, spanY, spanZ, (min[1] + max[1]) / 2.0f);
+            return new ModelExtents(spanX, spanY, spanZ,
+                (min[0] + max[0]) / 2.0f, (min[1] + max[1]) / 2.0f, (min[2] + max[2]) / 2.0f);
         } catch (Throwable t) {
             return null;
         }
@@ -265,7 +278,7 @@ public final class EntityIconRenderer {
         return null;
     }
 
-    /** 模型几何包围盒尺寸(单位:格);centerY 为垂直中点。 */
-    private record ModelExtents(float spanX, float spanY, float spanZ, float centerY) {
+    /** 模型几何包围盒尺寸(单位:格);centerX/centerY/centerZ 为几何中心。 */
+    private record ModelExtents(float spanX, float spanY, float spanZ, float centerX, float centerY, float centerZ) {
     }
 }

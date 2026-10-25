@@ -55,7 +55,12 @@ public class DamageEngineClient implements ClientModInitializer {
             serverHasMod = false;
             serverModChecked = false;
             joinCheckTicks = 40;
+            damage.engine.client.ClientDowngradeOverlay.reset();
         });
+
+        // 离开世界时清掉降级警告，避免残留到下一次进入
+        ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+            damage.engine.client.ClientDowngradeOverlay.reset());
 
         // 标准 Fabric API 接收 S2C 伤害包
         ClientPlayNetworking.registerGlobalReceiver(DamagePayload.TYPE, (payload, context) -> {

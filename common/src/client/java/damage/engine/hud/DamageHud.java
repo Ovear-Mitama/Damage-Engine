@@ -262,6 +262,16 @@ public class DamageHud {
                     }
                 }
             });
+
+            // 客户端降级警告同样固定在左上角（10 秒后自动消失）
+            renderSection(() -> {
+                suspendGlobalShift(guiGraphics);
+                try {
+                    damage.engine.client.ClientDowngradeOverlay.render(guiGraphics);
+                } finally {
+                    resumeGlobalShift(guiGraphics);
+                }
+            });
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -379,9 +389,11 @@ public class DamageHud {
 
         // 屏幕坐标系里的子项(实体头像走 GUI 实体管线,不吃 pose)必须自己带上偏移;
         // 用浮点不用取整,否则位移会被量化成一格一格,看着不平滑。
+        // 缩放必须用 resolveHudScale 的结果(含窗口布局缩放),不能只用模块自身的 scale:
+        // 否则窗口尺寸/界面缩放变化后头像仍按旧比例绘制,会偏右并压到血条上。
         this.moduleScreenX = x + inertiaX;
         this.moduleScreenY = y + inertiaY;
-        this.moduleScreenScale = moduleConfig.scale;
+        this.moduleScreenScale = moduleScale;
 
         // "整层 HUD"模式已由外层统一偏移,这里不再叠加。用浮点不用取整,否则位移会被量化成一格一格。
         float inertiaOffX = applyOwnInertiaOffset() ? inertiaX : 0f;

@@ -202,5 +202,13 @@
   "text.damage-engine.bonus_help": "Bonus Expression Guide",
   "hint.damage-engine.bonus_syntax": "Variables:\n{combo} combo count\n{combo_time} combo reset time (ms)\n{killstreak} killstreak count\n{crit} crit (0/1)\n{damage} damage\n{kill} kill (0/1)\n{kill_meter} kill distance (m)\n{unseen} target hidden (0/1)\nOperators: + - * / ( ) > >= < <= == != ? :\nExample: {kill:25}\nExample: {combo} * 0.2\nExample: {kill_meter} > 5 ? {kill_meter} * 2 : 0",
   "option.damage-engine.comboResetTime": "Réinitialisation du combo (s)",
-  "command.damage-engine.cleared": "Données de dégâts et de score effacées."
+  "command.damage-engine.cleared": "Données de dégâts et de score effacées.",
+  "hint.damage-engine.kill_texts": "Ajoutez plusieurs textes de mise à mort ; un est tiré au hasard selon le poids. Poids plus élevé = plus probable ; poids 0 ou texte vide ignoré.",
+  "hint.damage-engine.kill_text_weight": "Poids de sélection (1 par défaut). Plus élevé = plus probable ; 0 = jamais affiché.",
+  "text.damage-engine.kill_text_content": "Texte",
+  "text.damage-engine.weight": "Poids",
+  "option.damage-engine.client_downgrade_warning": "Avertissement de dégradation client",
+  "hint.damage-engine.client_downgrade_warning": "En entrant dans un monde multijoueur, affiche un avertissement en haut à gauche si le serveur n'a pas ce mod installé.",
+  "text.damage-engine.client_downgrade_title": "Avertissement Damage Engine",
+  "text.damage-engine.client_downgrade_lines": "Damage Engine n'est pas installé sur le serveur\nMode client activé ; certaines fonctions sont limitées"
 }
