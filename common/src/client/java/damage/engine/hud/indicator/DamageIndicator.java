@@ -121,6 +121,10 @@ public class DamageIndicator {
         boolean isCrit;
         final boolean isKill;
         final boolean isHeal;
+        /** 本次击杀随机抽到的文本：在出生时定型，之后不再变化。 */
+        final String killText;
+        /** 本次击杀文本的颜色：与文本一起在出生时定型。 */
+        final int killColor;
         final long spawnTime;
         /** 受害实体 id（-1 = 无/不可知；追踪实体与合并跳字依赖它）。 */
         final int victimId;
@@ -160,6 +164,21 @@ public class DamageIndicator {
             this.isCrit = isCrit;
             this.isKill = isKill;
             this.isHeal = isHeal;
+            // 击杀文本与颜色按权重随机抽取一次：每条跳字各自固定，不会在显示过程中变脸
+            if (isKill) {
+                DamageEngineConfig killConfig = DamageEngineConfig.getInstance();
+                DamageEngineConfig.KillText entry = killConfig.pickKillTextEntry();
+                if (entry != null && entry.text != null) {
+                    this.killText = entry.text;
+                    this.killColor = entry.resolveColor(killConfig.killTextColor);
+                } else {
+                    this.killText = killConfig.pickKillText();
+                    this.killColor = killConfig.killTextColor;
+                }
+            } else {
+                this.killText = "";
+                this.killColor = 0;
+            }
             this.spawnTime = System.currentTimeMillis();
             // Random angle for both ring spawn and drift direction
             this.spawnAngle = RANDOM.nextFloat() * (float) (Math.PI * 2);
@@ -430,8 +449,8 @@ public class DamageIndicator {
                 String text;
                 int argbColor;
                 if (ind.isKill) {
-                    text = config.killText;
-                    argbColor = config.killTextColor;
+                    text = ind.killText;
+                    argbColor = ind.killColor != 0 ? ind.killColor : config.killTextColor;
                 } else if (ind.isHeal) {
                     text = (config.indicatorPrefixSign ? "+" : "") + formatDamage(ind.damage, config.indicatorDecimalPlaces);
                     argbColor = config.healIndicatorColor;
