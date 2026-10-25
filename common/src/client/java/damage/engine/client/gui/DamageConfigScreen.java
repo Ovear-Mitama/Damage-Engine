@@ -203,6 +203,11 @@ public class DamageConfigScreen extends Screen {
 
     private void initGeneralTab() {
         addOption(new BooleanOptionEntry("option.damage-engine.showDamage", config.showDamage, v -> { config.showDamage = v; markChanged(); }));
+        // 进入多人世界时检测到服务端未安装本模组：左上角显示降级警告
+        addOption(new BooleanOptionEntry("option.damage-engine.client_downgrade_warning",
+            config.showClientDowngradeWarning,
+            v -> { config.showClientDowngradeWarning = v; markChanged(); },
+            Component.translatable("hint.damage-engine.client_downgrade_warning")));
         addOption(new BooleanOptionEntry("option.damage-engine.reduceAnimations", config.reduceAnimations,
             v -> { config.reduceAnimations = v; markChanged(); },
             Component.translatable("hint.damage-engine.reduceAnimations")));
@@ -344,8 +349,28 @@ public class DamageConfigScreen extends Screen {
         }
         addOption(new BooleanOptionEntry("option.damage-engine.indicatorPrefixSign", config.indicatorPrefixSign, v -> { config.indicatorPrefixSign = v; markChanged(); }));
         addOption(new BooleanOptionEntry("option.damage-engine.showKillIndicator", config.showKillIndicator, v -> { config.showKillIndicator = v; markChanged(); }));
-        addOption(new TextEntry("option.damage-engine.killText", config.killText, v -> { config.killText = v; markChanged(); }));
-        addOption(new HexColorEntry("option.damage-engine.killTextColor", config.killTextColor, v -> { config.killTextColor = v; markChanged(); }));
+        // 击杀文本：可展开的列表，每条文本带权重，按权重随机抽取
+        addOption(new ExpandableHeaderEntry("option.damage-engine.killText", "kill_texts", v -> refreshOptions(),
+            Component.translatable("hint.damage-engine.kill_texts")));
+        if (isExpanded("kill_texts")) {
+            if (config.killTexts == null) config.killTexts = new ArrayList<>();
+            if (config.killTexts.isEmpty()) {
+                addOption(new InfoEntry("text.damage-engine.empty_list"));
+            }
+            for (DamageEngineConfig.KillText kt : new ArrayList<>(config.killTexts)) {
+                if (kt == null) continue;
+                addOption(new KillTextEntry(kt, () -> {
+                    config.killTexts.remove(kt);
+                    markChanged();
+                    refreshOptions();
+                }));
+            }
+            addOption(new AddButtonEntry(() -> {
+                config.killTexts.add(new DamageEngineConfig.KillText("Kill!", 1f, config.killTextColor));
+                markChanged();
+                refreshOptions();
+            }));
+        }
     }
 
     private void initEntityInfoTab() {
@@ -693,16 +718,6 @@ public class DamageConfigScreen extends Screen {
         int footerY = this.height - 35;
         guiGraphics.fill(0, footerY - 1, this.width, footerY, 0xFF555555);
         
-        // Client mode hint
-        if (DamageEngineClient.serverModChecked && !DamageEngineClient.serverHasMod) {
-            String[] lines = Component.translatable("text.damage-engine.client_mode_hint").getString().split("\n");
-            int hintX = 5;
-            int hintY = footerY - 30;
-            for (int i = 0; i < lines.length; i++) {
-                guiGraphics.drawString(this.font, Component.literal(lines[i]).withStyle(s -> s.withColor(net.minecraft.network.chat.TextColor.fromRgb(0xFFFC887E & 0xFFFFFF))), hintX, hintY + i * 12, 0xFFFC887E);
-            }
-        }
-        
         // Preview
         if (config.previewEnabled) {
             new DamageHud().renderPreview(guiGraphics, 30, this.height - 30);
@@ -1018,6 +1033,163 @@ public class DamageConfigScreen extends Screen {
         }
         public List<? extends GuiEventListener> children() { return Arrays.asList(nameField, distField, delBtn); }
         public List<? extends NarratableEntry> narratables() { return Arrays.asList(nameField, distField, delBtn); }
+    }
+
+    /** 击杀文本列表中的一条：文本 + 权重 + 颜色 + 删除。 */
+    private class KillTextEntry extends OptionEntry {
+        private final DamageEngineConfig.KillText entry;
+        private final EditBox textField;
+        private final EditBox weightField;
+        /** 颜色十六进制输入框（RRGGBB），与色块联动。 */
+        private final EditBox colorField;
+        private final PlainTextButton delBtn;
+        private int currentColor;
+        private int swatchX, swatchY, swatchSize;
+
+        public KillTextEntry(DamageEngineConfig.KillText entry, Runnable onDelete) {
+            this.entry = entry;
+            this.currentColor = entry.resolveColor(config.killTextColor);
+            this.textField = new EditBox(Minecraft.getInstance().font, 0, 0, 130, 20, Component.empty());
+            this.textField.setBordered(false);
+            this.textField.setMaxLength(200);
+            this.textField.setValue(entry.text != null ? entry.text : "");
+            this.textField.setResponder(s -> {
+                entry.text = s;
+                markChanged();
+            });
+            this.weightField = new EditBox(Minecraft.getInstance().font, 0, 0, 45, 20, Component.empty());
+            this.weightField.setBordered(false);
+            this.weightField.setMaxLength(7);
+            this.weightField.setValue(formatWeight(entry.weight));
+            this.weightField.setResponder(s -> {
+                String filtered = s.replaceAll("[^0-9.]", "");
+                if (!filtered.equals(s)) {
+                    this.weightField.setValue(filtered);
+                    return;
+                }
+                try {
+                    entry.weight = Mth.clamp(Float.parseFloat(s), 0f, 10000f);
+                    markChanged();
+                } catch (Exception ignored) {
+                }
+            });
+            this.delBtn = new PlainTextButton(0, 0, 20, 20, Component.literal("-"), onDelete, 0xFFFFFFFF, 0xFFFBFB54);
+            this.colorField = new EditBox(Minecraft.getInstance().font, 0, 0, 44, 20, Component.empty());
+            this.colorField.setBordered(false);
+            this.colorField.setMaxLength(7);
+            this.colorField.setValue(String.format("%06X", currentColor & 0xFFFFFF));
+            this.colorField.setResponder(s -> {
+                String filtered = s.replaceAll("[^0-9a-fA-F]", "");
+                if (!filtered.equals(s)) {
+                    this.colorField.setValue(filtered);
+                    return;
+                }
+                try {
+                    String hex = filtered.startsWith("#") ? filtered.substring(1) : filtered;
+                    currentColor = (int) Long.parseLong(hex, 16) | 0xFF000000;
+                    entry.color = currentColor;
+                    markChanged();
+                } catch (Exception ignored) {
+                }
+            });
+        }
+
+        private String formatWeight(float weight) {
+            return weight == (int) weight ? String.valueOf((int) weight) : String.valueOf(weight);
+        }
+
+        @Override
+        public void renderContent(GuiGraphics g, int idx, int y, int x, int ew, int eh,
+                                  int mx, int my, boolean hovered, float dt) {
+            int rx = x + ew;
+            delBtn.setX(rx - 25);
+            delBtn.setY(y + 2);
+            delBtn.setWidth(20);
+            delBtn.setForceHover(hovered);
+            int ps = 18;
+            int bh = 20, by = y + (eh - bh) / 2;
+            Component textLabel = Component.translatable("text.damage-engine.kill_text_content");
+            Component weightLabel = Component.translatable("text.damage-engine.weight");
+            int textLblW = Minecraft.getInstance().font.width(textLabel);
+            int weightLblW = Minecraft.getInstance().font.width(weightLabel);
+            // 三个输入框统一宽度：按可用宽度动态分配，窄窗口下也不会溢出
+            int available = (rx - 25 - 5) - (x + 10);
+            int fixed = textLblW + 4 + 10 + weightLblW + 4 + 8 + 4 + ps + 5;
+            int inputW = Mth.clamp((available - fixed) / 3, 40, 90);
+            int tx = x + 10 + textLblW + 4;
+            int wlx = tx + inputW + 10;
+            int wx = wlx + weightLblW + 4;
+            int cbx = wx + inputW + 8;
+            int px = cbx + inputW + 4;
+            int py = y + 3;
+            swatchX = px - 1;
+            swatchY = py - 1;
+            swatchSize = ps + 2;
+            boolean overSwatch = mx >= swatchX && mx <= swatchX + swatchSize
+                && my >= swatchY && my <= swatchY + swatchSize;
+            g.drawString(Minecraft.getInstance().font, textLabel, x + 10, y + 8, 0xFFFFFFFF);
+            g.drawString(Minecraft.getInstance().font, weightLabel, wlx, y + 8, 0xFFFFFFFF);
+            textField.setX(tx + 4); textField.setY(by + 6); textField.setWidth(inputW - 8);
+            weightField.setX(wx + 4); weightField.setY(by + 6); weightField.setWidth(inputW - 8);
+            colorField.setX(cbx + 4); colorField.setY(by + 6); colorField.setWidth(inputW - 8);
+            drawBox(g, tx, by, inputW, bh, textField, mx, my);
+            drawBox(g, wx, by, inputW, bh, weightField, mx, my);
+            drawBox(g, cbx, by, inputW, bh, colorField, mx, my);
+            textField.render(g, mx, my, dt);
+            weightField.render(g, mx, my, dt);
+            colorField.render(g, mx, my, dt);
+            delBtn.render(g, mx, my, dt);
+            g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize,
+                overSwatch ? 0xFFB5F0C6 : 0xFFFFFFFF);
+            g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
+        }
+
+        private void drawBox(GuiGraphics g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
+            g.fill(bx, by, bx + bw, by + bh, 0x20000000);
+            int bc = (f.isFocused() || f.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
+            g.fill(bx, by, bx + bw, by + 1, bc);
+            g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
+            g.fill(bx, by, bx + 1, by + bh, bc);
+            g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
+        }
+
+        @Override
+        public boolean mouseClicked(double mx, double my, int btn) {
+            if (btn == 0 && swatchSize > 0
+                && mx >= swatchX && mx <= swatchX + swatchSize
+                && my >= swatchY && my <= swatchY + swatchSize) {
+                if (Minecraft.getInstance().screen instanceof DamageConfigScreen s) {
+                    s.playClickSound();
+                    Minecraft mc = Minecraft.getInstance();
+                    mc.setScreen(new ColorPickerScreen(s, currentColor, c -> {
+                        currentColor = c | 0xFF000000;
+                        entry.color = currentColor;
+                        colorField.setValue(String.format("%06X", currentColor & 0xFFFFFF));
+                        markChanged();
+                    }));
+                }
+                return true;
+            }
+            return super.mouseClicked(mx, my, btn);
+        }
+
+        @Override
+        public Component getTooltipAt(int mx, int my) {
+            if (weightField.isMouseOver(mx, my)) {
+                return Component.translatable("hint.damage-engine.kill_text_weight");
+            }
+            if (colorField.isMouseOver(mx, my)) {
+                return Component.translatable("option.damage-engine.killTextColor");
+            }
+            if (swatchSize > 0 && mx >= swatchX && mx <= swatchX + swatchSize
+                && my >= swatchY && my <= swatchY + swatchSize) {
+                return Component.translatable("option.damage-engine.killTextColor");
+            }
+            return null;
+        }
+
+        @Override public List<? extends GuiEventListener> children() { return Arrays.asList(textField, weightField, colorField, delBtn); }
+        @Override public List<? extends NarratableEntry> narratables() { return Arrays.asList(textField, weightField, colorField, delBtn); }
     }
 
     private static class AddButtonEntry extends OptionEntry {

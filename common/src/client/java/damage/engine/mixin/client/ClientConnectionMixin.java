@@ -1,6 +1,7 @@
 package damage.engine.mixin.client;
 
 import damage.engine.DamageEngineClient;
+import damage.engine.client.ClientDowngradeOverlay;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -14,6 +15,7 @@ public class ClientConnectionMixin {
     private void damageEngine$onGameJoin(CallbackInfo ci) {
         DamageEngineClient.serverHasMod = false;
         DamageEngineClient.serverModChecked = false;
+        ClientDowngradeOverlay.reset();
         // 单机世界服务端一定有 mod，直接标记
         if (net.minecraft.client.Minecraft.getInstance().getSingleplayerServer() != null) {
             DamageEngineClient.serverHasMod = true;

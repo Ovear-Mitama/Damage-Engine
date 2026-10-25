@@ -140,6 +140,28 @@ public class DamageEngineClient {
                 damage.engine.client.ClientHealthMonitor.onTick(ev.getEntity());
             });
 
+        // 进入/离开世界：重置服务端模组检测状态（等价于 Fabric 的 ClientConnectionMixin）
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingIn ev) -> {
+                DamageEngineClient.serverHasMod = false;
+                DamageEngineClient.serverModChecked = false;
+                damage.engine.client.ClientDowngradeOverlay.reset();
+                if (Minecraft.getInstance().getSingleplayerServer() != null) {
+                    DamageEngineClient.serverHasMod = true;
+                    DamageEngineClient.serverModChecked = true;
+                    DamageEngineClient.joinCheckTicks = -1;
+                } else {
+                    DamageEngineClient.joinCheckTicks = 40;
+                }
+            });
+        net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
+            (net.minecraftforge.client.event.ClientPlayerNetworkEvent.LoggingOut ev) -> {
+                DamageEngineClient.serverHasMod = false;
+                DamageEngineClient.serverModChecked = false;
+                DamageEngineClient.joinCheckTicks = -1;
+                damage.engine.client.ClientDowngradeOverlay.reset();
+            });
+
         // Client tick (replaces ClientTickMixin): server-mod check + keybinds + cleanup
         net.minecraftforge.common.MinecraftForge.EVENT_BUS.addListener(
             (net.minecraftforge.event.TickEvent.ClientTickEvent ev) -> {                if (ev.phase != net.minecraftforge.event.TickEvent.Phase.END) return;
@@ -159,6 +181,13 @@ public class DamageEngineClient {
                                 }
                             }
                             DamageEngineClient.serverModChecked = true;
+                            // 服务端未安装本模组：进入世界后显示客户端降级警告
+                            if (!DamageEngineClient.serverHasMod
+                                && damage.engine.DamageEngineConfig.getInstance().showClientDowngradeWarning) {
+                                damage.engine.client.ClientDowngradeOverlay.trigger();
+                            } else {
+                                damage.engine.client.ClientDowngradeOverlay.reset();
+                            }
                         }
                     }
                 }
@@ -187,6 +216,7 @@ public class DamageEngineClient {
                     damage.engine.hud.indicator.DamageIndicator.tickAndCleanup();
                     damage.engine.client.ClientAttackTracker.getInstance().cleanup();
                     damage.engine.client.ClientHealthMonitor.cleanup();
+                    damage.engine.client.ClientDowngradeOverlay.tick();
                 }
             });
     }

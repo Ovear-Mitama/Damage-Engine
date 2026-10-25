@@ -85,6 +85,13 @@ public class OptionListWidget extends AbstractSelectionList<OptionEntry> {
     @Override public int getRowLeft() { return this.x0 + 10; }
     public int getScrollbarX() { return this.x0 + this.width - 6; }
 
+    /**
+     * 1.20.1 的 AbstractSelectionList#getEntryAtPosition 会把本方法返回值当作
+     * 行命中检测的右边界（x 必须小于它），原版默认返回 width / 2 + 124。
+     * 不重写的话，列表右侧（含右侧控件）会整片点不到，且窗口越宽丢得越多。
+     */
+    @Override protected int getScrollbarPosition() { return getScrollbarX(); }
+
     @Override
     public boolean mouseDragged(double mx, double my, int btn, double dx, double dy) {
         if (dragScrolling) {

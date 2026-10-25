@@ -4,6 +4,7 @@ import damage.engine.ClientKeybindings;
 import damage.engine.DamageEngineConfig;
 import damage.engine.DamageEngineClient;
 import damage.engine.client.ClientAttackTracker;
+import damage.engine.client.ClientDowngradeOverlay;
 import damage.engine.client.gui.HomeScreen;
 import damage.engine.hud.session.DamageSessionManager;
 import damage.engine.hud.indicator.DamageIndicator;
@@ -40,6 +41,13 @@ public class ClientTickMixin {
                             }
                         }
                         DamageEngineClient.serverModChecked = true;
+                        // 服务端未安装本模组：进入世界后显示客户端降级警告
+                        if (!DamageEngineClient.serverHasMod
+                            && DamageEngineConfig.getInstance().showClientDowngradeWarning) {
+                            ClientDowngradeOverlay.trigger();
+                        } else {
+                            ClientDowngradeOverlay.reset();
+                        }
                     }
                 }
             }
@@ -87,6 +95,7 @@ public class ClientTickMixin {
             DamageIndicator.tickAndCleanup();
             ClientAttackTracker.getInstance().cleanup();
             damage.engine.client.ClientHealthMonitor.cleanup();
+            ClientDowngradeOverlay.tick();
         }
     }
 }

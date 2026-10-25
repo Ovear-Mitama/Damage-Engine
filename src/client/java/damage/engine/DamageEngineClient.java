@@ -86,6 +86,8 @@ public class DamageEngineClient implements ClientModInitializer {
                 if (!serverHasMod) {
                     serverHasMod = true;
                     serverModChecked = true;
+                    // 服务端确实装了本模组：撤掉可能已显示的降级警告
+                    damage.engine.client.ClientDowngradeOverlay.reset();
                 }
 
                 client.execute(() -> {
