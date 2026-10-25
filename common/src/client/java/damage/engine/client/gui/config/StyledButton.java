@@ -35,7 +35,7 @@ public class StyledButton extends AbstractWidget {
     }
 
     @Override
-    protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float d) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor g) {
         if (isHovered()) g.requestCursor(DamageConfigScreen.CURSOR_HAND);
         g.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), 0x20000000);
         int bc = isHovered() ? 0xFFFFFFFF : 0xFFA0A0A0;

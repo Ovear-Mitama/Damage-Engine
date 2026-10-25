@@ -46,11 +46,11 @@ public class ConfirmExitScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics) {
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.extractPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics);
         }
 
         String msg = Component.translatable("text.damage-engine.unsaved_changes").getString();
@@ -59,7 +59,7 @@ public class ConfirmExitScreen extends Screen {
         // Render widgets manually (avoid super.render() blur)
         for (var child : this.children()) {
             if (child instanceof net.minecraft.client.gui.components.Renderable r) {
-                r.extractRenderState(guiGraphics, mouseX, mouseY, delta);
+                r.extractRenderState(guiGraphics);
             }
         }
     }

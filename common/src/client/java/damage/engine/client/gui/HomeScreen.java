@@ -184,12 +184,12 @@ public class HomeScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics) {
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
         // On the main menu (no world) draw the panorama background without blur.
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.extractPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics);
         }
 
         int centerX = this.width / 2;
@@ -240,7 +240,7 @@ public class HomeScreen extends Screen {
         // Render widgets + tooltips manually (avoid super.render() blur)
         for (var child : this.children()) {
             if (child instanceof AbstractWidget w) {
-                w.extractRenderState(guiGraphics, mouseX, mouseY, delta);
+                w.extractRenderState(guiGraphics);
                 // Tooltip is rendered automatically by the widget system in 1.21.11
             }
         }
@@ -272,7 +272,7 @@ public class HomeScreen extends Screen {
         }
 
         @Override
-        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics) {
             if (this.active && isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
             int bgColor = this.active ? 0x20000000 : 0x10000000;
             guiGraphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), bgColor);

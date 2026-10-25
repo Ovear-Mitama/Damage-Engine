@@ -190,11 +190,13 @@ public class HudEditorScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics) {
+        int mouseX = guiGraphics.mouseX();
+        int mouseY = guiGraphics.mouseY();
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.extractPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics);
         }
 
         // 1.21.11 cursor styles:
@@ -222,7 +224,7 @@ public class HudEditorScreen extends Screen {
         
         for (net.minecraft.client.gui.components.events.GuiEventListener element : this.children()) {
             if (element instanceof net.minecraft.client.gui.components.Renderable) {
-                ((net.minecraft.client.gui.components.Renderable) element).extractRenderState(guiGraphics, mouseX, mouseY, delta);
+                ((net.minecraft.client.gui.components.Renderable) element).extractRenderState(guiGraphics);
             }
         }
 

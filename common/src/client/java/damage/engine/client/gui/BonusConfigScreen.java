@@ -175,18 +175,20 @@ public class BonusConfigScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics) {
+        int mouseX = guiGraphics.mouseX();
+        int mouseY = guiGraphics.mouseY();
         // 游戏内背景模糊由渲染管线统一处理，这里只处理主菜单的全景背景
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.extractPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics);
         }
         // 标题左上角，搜索框紧跟其后；布局与设置界面一致
         guiGraphics.text(this.font, this.title, 10, 7, 0xFFFFFFFF, false);
         guiGraphics.fill(0, TOP_BAR_HEIGHT, this.width, TOP_BAR_HEIGHT + 1, 0xFF555555);
 
         if (optionList != null) {
-            optionList.extractWidgetRenderState(guiGraphics, mouseX, mouseY, delta);
-            optionList.updateSmoothScroll(delta);
+            optionList.extractRenderState(guiGraphics);
+            optionList.updateSmoothScroll(guiGraphics.partialTicks());
             net.minecraft.network.chat.Component tip = optionList.getTooltipAt(mouseX, mouseY);
             if (tip != null) {
                 damage.engine.client.gui.config.ConfigTooltips.draw(
@@ -198,7 +200,7 @@ public class BonusConfigScreen extends Screen {
         guiGraphics.fill(0, footerY - 1, this.width, footerY, 0xFF555555);
         for (GuiEventListener child : this.children()) {
             if (child != optionList && child instanceof net.minecraft.client.gui.components.AbstractWidget widget) {
-                widget.extractRenderState(guiGraphics, mouseX, mouseY, delta);
+                widget.extractRenderState(guiGraphics);
             }
         }
     }
@@ -237,7 +239,7 @@ public class BonusConfigScreen extends Screen {
             toggle.setX(x + ew - 25);
             toggle.setY(y + 2);
             toggle.setForceHover(hovered);
-            toggle.extractRenderState(g, mx, my, dt);
+            toggle.extractRenderState(g);
         }
 
         @Override
@@ -283,7 +285,7 @@ public class BonusConfigScreen extends Screen {
             button.setX(x + ew - (BUTTON_W + 2));
             button.setY(y + 2);
             button.setFocused(false);
-            button.extractRenderState(g, mx, my, dt);
+            button.extractRenderState(g);
         }
 
         @Override
@@ -402,7 +404,7 @@ public class BonusConfigScreen extends Screen {
             nameField.setY(y + 7);
             nameField.setWidth(NAME_BOX_W - 8);
             nameField.setHeight(12);
-            nameField.extractRenderState(g, mx, my, dt);
+            nameField.extractRenderState(g);
 
             int exprX = x + EXPR_X;
             drawFieldBox(g, expressionField, exprX, y + 2, exprWidth, 20, mx, my);
@@ -410,23 +412,23 @@ public class BonusConfigScreen extends Screen {
             expressionField.setY(y + 7);
             expressionField.setWidth(exprWidth - 8);
             expressionField.setHeight(12);
-            expressionField.extractRenderState(g, mx, my, dt);
+            expressionField.extractRenderState(g);
 
             enabledButton.setX(custom ? leftX : middleX);
             enabledButton.setY(y + 2);
             enabledButton.setFocused(false);
-            enabledButton.extractRenderState(g, mx, my, dt);
+            enabledButton.extractRenderState(g);
 
             resetButton.setX(custom ? middleX : rightEdge);
             resetButton.setY(y + 2);
             resetButton.setFocused(false);
-            resetButton.extractRenderState(g, mx, my, dt);
+            resetButton.extractRenderState(g);
 
             if (deleteButton != null) {
                 deleteButton.setX(rightEdge);
                 deleteButton.setY(y + 2);
                 deleteButton.setFocused(false);
-                deleteButton.extractRenderState(g, mx, my, dt);
+                deleteButton.extractRenderState(g);
             }
         }
 

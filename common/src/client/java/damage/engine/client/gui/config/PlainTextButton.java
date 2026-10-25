@@ -36,7 +36,7 @@ public class PlainTextButton extends AbstractWidget {
     }
 
     @Override
-    protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float d) {
+    protected void extractWidgetRenderState(GuiGraphicsExtractor g) {
         if (isHovered() || forceHover) g.requestCursor(DamageConfigScreen.CURSOR_HAND);
         int c = (isHovered() || forceHover) ? hoverColor : defaultColor;
         g.centeredText(Minecraft.getInstance().font, getMessage(),

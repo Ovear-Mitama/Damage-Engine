@@ -96,9 +96,10 @@ public class OptionListWidget extends ContainerObjectSelectionList<OptionEntry> 
     }
 
     @Override
-    public void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float delta) {
+    public void extractWidgetRenderState(GuiGraphicsExtractor g) {
+        int mx = g.mouseX(), my = g.mouseY();
         this.enableScissor(g);
-        this.extractListItems(g, mx, my, delta);
+        this.extractListItems(g);
         g.disableScissor();
         int sx = this.getScrollbarX(), sy = this.getY(), sh = this.getHeight();
         int ch = this.maxScrollAmount() + this.getHeight();

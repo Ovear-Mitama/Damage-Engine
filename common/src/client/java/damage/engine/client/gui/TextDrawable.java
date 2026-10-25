@@ -18,7 +18,7 @@ public class TextDrawable implements Renderable {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics) {
         guiGraphics.text(font, text, x, y, color);
     }
 }

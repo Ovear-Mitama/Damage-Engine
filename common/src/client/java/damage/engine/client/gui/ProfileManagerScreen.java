@@ -87,11 +87,11 @@ public class ProfileManagerScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics) {
         // 1.21.11: in-game background blur is applied once by the render pipeline;
         // calling renderBackground() here would blur twice and crash.
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.extractPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics);
         }
 
         String titleText = Component.translatable("title.damage-engine.profile_manager").getString();
@@ -101,7 +101,7 @@ public class ProfileManagerScreen extends Screen {
         // automatically by the widget system in 1.21.11
         for (var child : this.children()) {
             if (child instanceof AbstractWidget w) {
-                w.extractRenderState(guiGraphics, mouseX, mouseY, delta);
+                w.extractRenderState(guiGraphics);
             }
         }
     }
@@ -134,7 +134,7 @@ public class ProfileManagerScreen extends Screen {
         }
 
         @Override
-        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics) {
             if (isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
             int x = getX(); int y = getY(); int w = getWidth(); int h = getHeight();
 
@@ -184,7 +184,7 @@ public class ProfileManagerScreen extends Screen {
         }
 
         @Override
-        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+        protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics) {
             if (isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
             guiGraphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), 0x20000000);
 

@@ -62,7 +62,7 @@ public final class ClientDowngradeOverlay {
         } else {
             alpha = 1f;
         }
-        alpha = Mth.clamp(alpha, 0f, 1f);
+        alpha = Math.clamp(alpha, 0f, 1f);
         int a = (int) (alpha * 255f);
         if (a <= 0) return;
 
@@ -102,7 +102,7 @@ public final class ClientDowngradeOverlay {
 
     /** 平滑过渡曲线：两端变化更缓，避免开始/结束处出现突兀的亮度跳变。 */
     private static float smoothstep(float t) {
-        t = Mth.clamp(t, 0f, 1f);
+        t = Math.clamp(t, 0f, 1f);
         return t * t * (3f - 2f * t);
     }
 }

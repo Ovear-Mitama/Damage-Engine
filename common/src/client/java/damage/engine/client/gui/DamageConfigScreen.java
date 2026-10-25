@@ -730,10 +730,13 @@ public class DamageConfigScreen extends Screen {
     }
 
     @Override
-    public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
+    public void extractRenderState(GuiGraphicsExtractor guiGraphics) {
+        int mouseX = guiGraphics.mouseX();
+        int mouseY = guiGraphics.mouseY();
+        float delta = guiGraphics.partialTicks();
         // 游戏内背景模糊由渲染管线统一处理，这里只处理主菜单的全景背景
         if (this.minecraft != null && this.minecraft.level == null) {
-            this.extractPanorama(guiGraphics, delta);
+            this.extractPanorama(guiGraphics);
         }
         
         // 顶部条：搜索框在最左，tab 在右侧平滑滚动
@@ -798,13 +801,13 @@ public class DamageConfigScreen extends Screen {
 
         // 页面内容不再做滑动动画（顶部 tab 高亮仍保留动画）
         if (optionList != null) {
-            int listMx = mouseX, listMy = mouseY;
-            if (colorPicker != null && colorPicker.contains(mouseX, mouseY)) {
-                // 悬浮窗遮挡区域内的鼠标坐标置为远离，禁用背后列表条目的悬停高亮/光标
-                listMx = -100000;
-                listMy = -100000;
+            boolean pickerCoversMouse = colorPicker != null && colorPicker.contains(mouseX, mouseY);
+            if (pickerCoversMouse) {
+                // 悬浮窗遮挡区域内的鼠标坐标被抑制，禁用背后列表条目的悬停高亮/光标
+                guiGraphics.extractWithoutMouse(() -> optionList.extractRenderState(guiGraphics));
+            } else {
+                optionList.extractRenderState(guiGraphics);
             }
-            optionList.extractWidgetRenderState(guiGraphics, listMx, listMy, delta);
             optionList.updateSmoothScroll(delta);
         }
         
@@ -830,7 +833,7 @@ public class DamageConfigScreen extends Screen {
         // Render footer widgets (avoid super.render() blur)
         for (GuiEventListener child : this.children()) {
             if (child != optionList && child instanceof AbstractWidget w) {
-                w.extractRenderState(guiGraphics, mouseX, mouseY, delta);
+                w.extractRenderState(guiGraphics);
             }
         }
 
@@ -913,7 +916,7 @@ public class DamageConfigScreen extends Screen {
             int bc = (field.isFocused() || field.isMouseOver(mx, my)) ? 0xFFFFFFFF : 0xFFA0A0A0;
             g.fill(bx, by, bx + bw, by + 1, bc); g.fill(bx, by + bh - 1, bx + bw, by + bh, bc);
             g.fill(bx, by, bx + 1, by + bh, bc); g.fill(bx + bw - 1, by, bx + bw, by + bh, bc);
-            field.extractRenderState(g, mx, my, dt);
+            field.extractRenderState(g);
             int ps = 17, px = sx + 80, py = by + 1;
             swatchX = px - 1; swatchY = py - 1; swatchSize = ps + 2;
             boolean over = mx >= swatchX && mx <= swatchX + swatchSize && my >= swatchY && my <= swatchY + swatchSize;
@@ -967,7 +970,7 @@ public class DamageConfigScreen extends Screen {
             int color = isHov ? 0xFFFBFB54 : 0xFFFFFFFF;
             g.text(Minecraft.getInstance().font, label, x, y + 8, color);
             button.setX(x + ew - 25); button.setY(y + 2); button.setFocused(false); button.setForceHover(isHov);
-            button.extractRenderState(g, mx, my, dt);
+            button.extractRenderState(g);
         }
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             if (this.button.mouseClicked(event, bl)) return true;
@@ -1014,7 +1017,7 @@ public class DamageConfigScreen extends Screen {
             }
             g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFC887E);
             button.setX(x + ew - 110); button.setY(y + 2); button.setFocused(false);
-            button.extractRenderState(g, mx, my, dt);
+            button.extractRenderState(g);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
         public List<? extends NarratableEntry> narratables() { return Collections.singletonList(button); }
@@ -1054,8 +1057,8 @@ public class DamageConfigScreen extends Screen {
             g.text(Minecraft.getInstance().font, Component.translatable("text.damage-engine.damage_reach"), x + 10, y + 8, 0xFFFFFFFF);
             drawTextBox(g, vbx, vby, vbw, vbh, valField, mx, my);
             drawTextBox(g, cbx, cby, cbw, cbh, colField, mx, my);
-            valField.extractRenderState(g, mx, my, dt); colField.extractRenderState(g, mx, my, dt);
-            delBtn.extractRenderState(g, mx, my, dt);
+            valField.extractRenderState(g); colField.extractRenderState(g);
+            delBtn.extractRenderState(g);
             g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, overSwatch ? 0xFFB5F0C6 : 0xFFFFFFFF);
             g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
         }
@@ -1121,7 +1124,7 @@ public class DamageConfigScreen extends Screen {
             distField.setX(dbx + 4); distField.setY(by + 6); distField.setWidth(dbw - 8); distField.setHeight(12);
             drawBox(g, nx, by, nbw, bh, nameField, mx, my);
             drawBox(g, dbx, by, dbw, bh, distField, mx, my);
-            nameField.extractRenderState(g, mx, my, dt); distField.extractRenderState(g, mx, my, dt); delBtn.extractRenderState(g, mx, my, dt);
+            nameField.extractRenderState(g); distField.extractRenderState(g); delBtn.extractRenderState(g);
         }
         private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1175,7 +1178,7 @@ public class DamageConfigScreen extends Screen {
                     return;
                 }
                 try {
-                    entry.weight = Mth.clamp(Float.parseFloat(s), 0f, 10000f);
+                    entry.weight = Math.clamp(Float.parseFloat(s), 0f, 10000f);
                     markChanged();
                 } catch (Exception ignored) {
                 }
@@ -1222,7 +1225,7 @@ public class DamageConfigScreen extends Screen {
             // 三个输入框统一宽度：按可用宽度动态分配，窄窗口下也不会溢出
             int available = (rx - 25 - 5) - (x + 10);
             int fixed = textLblW + 4 + 10 + weightLblW + 4 + 8 + 4 + ps + 5;
-            int inputW = Mth.clamp((available - fixed) / 3, 40, 90);
+            int inputW = Math.clamp((available - fixed) / 3, 40, 90);
             int tx = x + 10 + textLblW + 4;
             int wlx = tx + inputW + 10;
             int wx = wlx + weightLblW + 4;
@@ -1242,10 +1245,10 @@ public class DamageConfigScreen extends Screen {
             drawBox(g, tx, by, inputW, bh, textField, mx, my);
             drawBox(g, wx, by, inputW, bh, weightField, mx, my);
             drawBox(g, cbx, by, inputW, bh, colorField, mx, my);
-            textField.extractRenderState(g, mx, my, dt);
-            weightField.extractRenderState(g, mx, my, dt);
-            colorField.extractRenderState(g, mx, my, dt);
-            delBtn.extractRenderState(g, mx, my, dt);
+            textField.extractRenderState(g);
+            weightField.extractRenderState(g);
+            colorField.extractRenderState(g);
+            delBtn.extractRenderState(g);
             g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize,
                 overSwatch ? 0xFFB5F0C6 : 0xFFFFFFFF);
             g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
@@ -1317,7 +1320,7 @@ public class DamageConfigScreen extends Screen {
         @Override public void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh, int mx, int my, boolean hovered, float dt) {
             boolean rowHov = mx >= x && mx <= x + ew && my >= y && my <= y + eh;
             button.setX(x + ew - 25); button.setY(y + 2); button.setFocused(false); button.setForceHover(rowHov && !disabled);
-            button.extractRenderState(g, mx, my, dt);
+            button.extractRenderState(g);
         }
         @Override public boolean mouseClicked(MouseButtonEvent event, boolean bl) {
             if (isMouseOver(event.x(), event.y())) {
@@ -1353,7 +1356,7 @@ public class DamageConfigScreen extends Screen {
             g.text(Minecraft.getInstance().font, Component.literal("≥"), x + 10, y + 8, 0xFFFFFFFF);
             drawBox(g, sbx, by, bw, bh, scoreField, mx, my);
             drawBox(g, tbx, by, bw, bh, textField, mx, my);
-            scoreField.extractRenderState(g, mx, my, dt); textField.extractRenderState(g, mx, my, dt); delBtn.extractRenderState(g, mx, my, dt);
+            scoreField.extractRenderState(g); textField.extractRenderState(g); delBtn.extractRenderState(g);
         }
         private void drawBox(GuiGraphicsExtractor g, int bx, int by, int bw, int bh, EditBox f, int mx, int my) {
             g.fill(bx, by, bx + bw, by + bh, 0x20000000);
@@ -1430,7 +1433,7 @@ public class DamageConfigScreen extends Screen {
                 int px = rx - 110 - 5 - tw - (hasImg ? 25 : 0) - 5;
                 if (px < x + 10) px = x + 10;
                 g.text(Minecraft.getInstance().font, Component.literal(pt), px, y + 8, 0xFFFFFFFF);
-                resetImageBtn.extractRenderState(g, mx, my, dt); selectImageBtn.extractRenderState(g, mx, my, dt);
+                resetImageBtn.extractRenderState(g); selectImageBtn.extractRenderState(g);
             } else {
                 selectImageBtn.setVisible(false);
                 int sx = x + ew - 110, ps = 17, px = sx + 80, py = by + 1;
@@ -1439,7 +1442,7 @@ public class DamageConfigScreen extends Screen {
                 colField.setX(sx + 4); colField.setY(by + 6); colField.setWidth(75 - 8); colField.setHeight(12); colField.setVisible(true);
                 g.text(Minecraft.getInstance().font, Component.literal(grade.text), x + 10, y + 8, 0xFFFFFFFF);
                 drawBox(g, sx, by, 75, 20, colField, mx, my);
-                colField.extractRenderState(g, mx, my, dt);
+                colField.extractRenderState(g);
                 g.fill(swatchX, swatchY, swatchX + swatchSize, swatchY + swatchSize, overSwatch ? 0xFFB5F0C6 : 0xFFFFFFFF);
                 g.fill(px, py, px + ps, py + ps, 0xFF000000 | (currentColor & 0xFFFFFF));
             }
@@ -1501,7 +1504,7 @@ public class DamageConfigScreen extends Screen {
                 }
                 return false;
             }
-            @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g, int mx, int my, float d) {
+            @Override protected void extractWidgetRenderState(GuiGraphicsExtractor g) {
                 int bc = isHovered() || isBinding() ? 0xFFFFFFFF : 0xFFA0A0A0;
                 int x = getX(), y = getY(), w = getWidth(), h = getHeight();
                 g.fill(x, y, x + w, y + 1, bc); g.fill(x, y + h - 1, x + w, y + h, bc);
@@ -1562,7 +1565,7 @@ public class DamageConfigScreen extends Screen {
             if (!binding) updateMessage();
             g.text(Minecraft.getInstance().font, label, x, y + 8, 0xFFFFFFFF);
             button.setX(x + ew - 110); button.setY(y + 2); button.setWidth(100); button.setFocused(false);
-            button.extractRenderState(g, mx, my, dt);
+            button.extractRenderState(g);
         }
         public List<? extends GuiEventListener> children() { return Collections.singletonList(button); }
         public List<? extends NarratableEntry> narratables() { return Collections.singletonList(button); }

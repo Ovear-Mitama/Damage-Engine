@@ -73,7 +73,7 @@ public abstract class OptionEntry extends ContainerObjectSelectionList.Entry<Opt
                                  int mx, int my, float dt) {
         control.setX(controlX(x, ew));
         control.setY(controlY(y));
-        control.extractRenderState(g, mx, my, dt);
+        control.extractRenderState(g);
     }
 
     /** 按钮类控件：每次绘制前清除焦点，避免残留焦点描边。 */
@@ -98,7 +98,7 @@ public abstract class OptionEntry extends ContainerObjectSelectionList.Entry<Opt
         g.fill(bx, by + CONTROL_HEIGHT - 1, bx + CONTROL_WIDTH, by + CONTROL_HEIGHT, bc);
         g.fill(bx, by, bx + 1, by + CONTROL_HEIGHT, bc);
         g.fill(bx + CONTROL_WIDTH - 1, by, bx + CONTROL_WIDTH, by + CONTROL_HEIGHT, bc);
-        field.extractRenderState(g, mx, my, dt);
+        field.extractRenderState(g);
     }
 
     protected void setHoverTooltip(Component tooltip) {
@@ -126,8 +126,7 @@ public abstract class OptionEntry extends ContainerObjectSelectionList.Entry<Opt
         lastY = y;
         lastW = ew;
         lastH = eh;
-        boolean isHov = mx >= x && mx <= x + ew && my >= y && my < y + eh;
-        if (isHov && shouldHighlight()) hoverAnim = Mth.lerp(0.1f, hoverAnim, 1.0f);
+        if (hovered && shouldHighlight()) hoverAnim = Mth.lerp(0.1f, hoverAnim, 1.0f);
         else hoverAnim = Mth.lerp(0.1f, hoverAnim, 0.0f);
         if (hoverAnim > 0.01 && shouldHighlight()) {
             // 行内容左右各留了 10px 内边距，高亮需要补回列表左右边缘
@@ -135,15 +134,16 @@ public abstract class OptionEntry extends ContainerObjectSelectionList.Entry<Opt
             int right = x + ew + 10;
             g.fill(left, y, right, y + eh + 2, ((int) (26 * hoverAnim) << 24) | 0xFFFFFF);
         }
-        renderContent(g, idx, y, x, ew, eh, mx, my, isHov, dt);
+        renderContent(g, idx, y, x, ew, eh, mx, my, hovered, dt);
     }
 
     public abstract void renderContent(GuiGraphicsExtractor g, int idx, int y, int x, int ew, int eh,
                                        int mx, int my, boolean hovered, float dt);
 
     @Override
-    public void extractContent(GuiGraphicsExtractor g, int mouseX, int mouseY, boolean hovered, float dt) {
-        this.render(g, 0, this.getY(), this.getX(), this.getWidth(), 24, mouseX, mouseY, hovered, dt);
+    public void extractContent(GuiGraphicsExtractor g, boolean hovered) {
+        this.render(g, 0, this.getY(), this.getX(), this.getWidth(), 24,
+            g.mouseX(), g.mouseY(), hovered, g.partialTicks());
     }
 
     public List<? extends GuiEventListener> children() { return Collections.emptyList(); }

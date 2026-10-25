@@ -7,7 +7,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.renderer.pipeline.RenderPipelines;
 import net.minecraft.client.renderer.texture.TextureResources;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -406,7 +406,7 @@ public class ColorPickerPopup {
         field.setY(y + 5);
         field.setWidth(FIELD_W - 6);
         field.setHeight(FIELD_H - 4);
-        field.extractRenderState(g, mx, my, 0f);
+        field.extractRenderState(g);
     }
 
     private void drawButton(GuiGraphicsExtractor g, int x, int y, int w, int h, Component text, int accent, int mx, int my) {
