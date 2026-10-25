@@ -32,6 +32,8 @@ public class NetworkSetup {
                 if (!DamageEngineClient.serverHasMod) {
                     DamageEngineClient.serverHasMod = true;
                     DamageEngineClient.serverModChecked = true;
+                    // 服务端确实装了本模组：撤掉可能已显示的降级警告
+                    damage.engine.client.ClientDowngradeOverlay.reset();
                 }
 
                 Minecraft mc = Minecraft.getInstance();

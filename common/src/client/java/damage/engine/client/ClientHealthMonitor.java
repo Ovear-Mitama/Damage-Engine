@@ -19,8 +19,10 @@ import java.util.concurrent.ConcurrentHashMap;
  * needed.</p>
  */
 public final class ClientHealthMonitor {
-    // Per-entity state: [lastHealth, lastAbsorption, lastDamageTime, initialized]
-    private static final Map<Integer, float[]> STATE = new ConcurrentHashMap<>();
+    // Per-entity state: [lastHealth, lastAbsorption, lastDamageTimeMs, initialized]
+    // 时间戳必须用 double 存：float 只有约 7 位有效数字，装不下 1.7e12 的毫秒时间戳，
+    // 差值会被量化到 ~131 秒，导致第一次伤害后长时间不再计数。
+    private static final Map<Integer, double[]> STATE = new ConcurrentHashMap<>();
 
     private ClientHealthMonitor() {}
 
@@ -34,14 +36,14 @@ public final class ClientHealthMonitor {
         int id = self.getId();
         float h = self.getHealth();
         float a = self.getAbsorptionAmount();
-        float[] st = STATE.get(id);
+        double[] st = STATE.get(id);
         if (st == null) {
-            STATE.put(id, new float[]{h, a, 0f, 1f});
+            STATE.put(id, new double[]{h, a, 0d, 1d});
             return;
         }
 
-        float lastHealth = st[0];
-        float lastAbsorption = st[1];
+        float lastHealth = (float) st[0];
+        float lastAbsorption = (float) st[1];
 
         float healthLost = lastHealth - h;
         float absorptionLost = lastAbsorption - a;
@@ -54,11 +56,18 @@ public final class ClientHealthMonitor {
         // double the indicators.
         if ((actualDamage > 0.001f || killed) && !DamageEngineClient.serverHasMod) {
             long now = System.currentTimeMillis();
-            if (now - st[2] > 50) { // dedupe rapid health syncs
+            long lastProcessed = (long) st[2];
+            if (killed || now - lastProcessed > 50) { // dedupe rapid health syncs
                 float reportedDamage = killed ? Math.max(actualDamage, 0) : actualDamage;
                 ClientHealthTracker.onEntityDamaged(self, reportedDamage, killed);
                 st[2] = now;
+                // 只有真正处理完才推进基线；50ms 内的掉血保留基线，
+                // 下一 tick 把累计差值一起结算，避免连续命中被永久丢弃。
+                st[0] = h;
+                st[1] = a;
+                return;
             }
+            return;
         }
 
         // Detect healing (health increase) - show globally for all entities

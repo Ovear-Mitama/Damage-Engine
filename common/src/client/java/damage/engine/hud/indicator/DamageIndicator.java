@@ -295,7 +295,10 @@ public class DamageIndicator {
         private int cachedDecimalPlaces = Integer.MIN_VALUE;
         private boolean cachedPrefixSign;
         private boolean cachedBold;
-        private String cachedKillText = "";
+        /** 本次击杀随机抽到的文本：在出生时定型，之后不再变化。 */
+        private final String killText;
+        /** 本次击杀文本的颜色：与文本一起在出生时定型。 */
+        private final int killColor;
         // 独立帧率上限的步进缓存：同一个动画步进内复用偏移 / 文本属性 / 逐字变换
         private int offsetStep = Integer.MIN_VALUE;
         private float cachedOffsetX;
@@ -326,6 +329,21 @@ public class DamageIndicator {
             this.isCrit = isCrit;
             this.isKill = isKill;
             this.isHeal = isHeal;
+            // 击杀文本与颜色按权重随机抽取一次：每条跳字各自固定，不会在显示过程中变脸
+            if (isKill) {
+                DamageEngineConfig killConfig = DamageEngineConfig.getInstance();
+                DamageEngineConfig.KillText entry = killConfig.pickKillTextEntry();
+                if (entry != null && entry.text != null) {
+                    this.killText = entry.text;
+                    this.killColor = entry.resolveColor(killConfig.killTextColor);
+                } else {
+                    this.killText = killConfig.pickKillText();
+                    this.killColor = killConfig.killTextColor;
+                }
+            } else {
+                this.killText = "";
+                this.killColor = 0;
+            }
             this.spawnTime = System.currentTimeMillis();
             // Random angle for both ring spawn and drift direction
             this.spawnAngle = RANDOM.nextFloat() * (float) (Math.PI * 2);
@@ -363,8 +381,6 @@ public class DamageIndicator {
         /** 渲染用文本：伤害 / 类型 / 数字格式不变时复用上一次的结果。 */
         Component label(DamageEngineConfig config) {
             boolean bold = config.indicatorBold;
-            String killText = config.killText == null ? "" : config.killText;
-            boolean killTextChanged = isKill && !killText.equals(cachedKillText);
             if (cachedLabel == null
                 || cachedDamage != damage
                 || cachedCrit != isCrit
@@ -372,8 +388,7 @@ public class DamageIndicator {
                 || cachedHeal != isHeal
                 || cachedDecimalPlaces != config.indicatorDecimalPlaces
                 || cachedPrefixSign != config.indicatorPrefixSign
-                || cachedBold != bold
-                || killTextChanged) {
+                || cachedBold != bold) {
                 String text;
                 if (isKill) {
                     text = killText;
@@ -391,7 +406,6 @@ public class DamageIndicator {
                 cachedDecimalPlaces = config.indicatorDecimalPlaces;
                 cachedPrefixSign = config.indicatorPrefixSign;
                 cachedBold = bold;
-                cachedKillText = isKill ? killText : "";
             }
             return cachedLabel;
         }
@@ -633,7 +647,7 @@ public class DamageIndicator {
                 // 文本 / Component 按需重建（伤害或格式变化时），平时直接复用
                 int argbColor;
                 if (ind.isKill) {
-                    argbColor = config.killTextColor;
+                    argbColor = ind.killColor != 0 ? ind.killColor : config.killTextColor;
                 } else if (ind.isHeal) {
                     argbColor = config.healIndicatorColor;
                 } else if (ind.isCrit) {

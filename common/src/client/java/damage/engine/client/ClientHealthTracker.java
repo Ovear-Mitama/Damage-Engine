@@ -14,7 +14,8 @@ import net.minecraft.world.phys.Vec3;
  * Only active when the server does NOT have Damage Engine installed (client-only mode).
  * 
  * Limitations in client-only mode:
- * - Cannot identify attacker (cannot filter for player's own damage)
+ * - Cannot identify the real attacker; only entities the player recently attacked
+ *   (tracked by {@link ClientAttackTracker}) are counted, other damage is ignored
  * - Cannot detect critical hits
  * - Cannot detect projectile vs. melee attacks
  * - Damage indicator position is approximate (entity position)
@@ -33,64 +34,10 @@ public class ClientHealthTracker {
         DamageEngineConfig config = DamageEngineConfig.getInstance();
         if (!config.showDamage) return;
 
-        // Check if player recently attacked this entity (melee via the
-        // MultiPlayerGameMode mixin; singleplayer also via Player.attack).
-        boolean isSelfDamage = ClientAttackTracker.getInstance().wasRecentlyAttacked(entity.getId());
-
-        // Client-only mode (server without Damage Engine): bows / TaCZ bullets are
-        // resolved on the SERVER, so the client cannot attribute projectile hits to
-        // the player. Treat every observed health drop as the player's own damage so
-        // damage floats work on training dummies and mobs; melee stays precisely
-        // tracked by the attack tracker above.
-        if (!isSelfDamage) {
-            isSelfDamage = true;
-        }
-
-        // Handle global damage indicators (damage caused by others)
-        if (!isSelfDamage && config.showGlobalDamageIndicator) {
-            // Calculate distance for culling
-            Minecraft client = Minecraft.getInstance();
-            if (client.player != null) {
-                // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All)
-                Float maxDist = config.resolveGlobalIndicatorDistance(entity);
-                if (maxDist == null) {
-                    return; // 该受害实体被屏蔽或未配置显示
-                }
-                double dx = entity.getX() - client.player.getX();
-                double dy = entity.getY() - client.player.getY();
-                double dz = entity.getZ() - client.player.getZ();
-                double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
-
-                if (maxDist <= 0 || distance <= maxDist) {
-                    Vec3 pos = DamageEngineClient.blendIndicatorPos(
-                        entity.getX(),
-                        entity.getY() + entity.getEyeHeight() * 0.6,
-                        entity.getZ(),
-                        entity.getId()
-                    );
-
-                    if (config.showDamageIndicator && damageAmount > 0) {
-                        DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
-                            damageAmount,
-                            false,  // Cannot detect crit in client-only mode
-                            false
-                        );
-                    }
-
-                    if (config.showKillIndicator && killed) {
-                        DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
-                            damageAmount,
-                            false,
-                            true
-                        );
-                    }
-                }
-            }
-            return; // Don't process further for global damage
-        }
-
-        // Only track damage for entities the player recently attacked (melee or projectile)
-        if (!isSelfDamage) {
+        // 客户端降级模式无法判断真实攻击者：玩家最近攻击过的实体计入自己的统计，
+        // 其余伤害只在开启「全图跳字」时显示跳字，不进入伤害会话/评分/信息面板。
+        if (!ClientAttackTracker.getInstance().wasRecentlyAttacked(entity.getId())) {
+            showGlobalIndicator(config, entity, damageAmount, killed);
             return;
         }
 
@@ -109,7 +56,7 @@ public class ClientHealthTracker {
         boolean unseen = killed && client.player != null
             && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(entity, client.player);
         DamageSessionManager.getInstance().addDamage(damageAmount, false, entity.getId(),
-            preferSwitchTarget, killed, distance, unseen);
+            preferSwitchTarget, killed, distance, unseen, true);
 
         // Blend indicator position toward crosshair hit point
         Vec3 pos = DamageEngineClient.blendIndicatorPos(
@@ -139,6 +86,36 @@ public class ClientHealthTracker {
                     );
                 }
             }
+        }
+    }
+
+    /**
+     * 全图跳字：非玩家造成的伤害只显示跳字，不进入伤害会话/评分/信息面板。
+     * 距离、实体规则与感知过滤与服务端模式保持一致（见 {@link GlobalDamageFilter}）。
+     */
+    private static void showGlobalIndicator(DamageEngineConfig config, LivingEntity entity,
+                                            float damageAmount, boolean killed) {
+        if (!config.showGlobalDamageIndicator) return;
+        Minecraft client = Minecraft.getInstance();
+        if (client.player == null || client.level == null) return;
+
+        Vec3 pos = DamageEngineClient.blendIndicatorPos(
+            entity.getX(), entity.getY() + entity.getEyeHeight() * 0.6, entity.getZ(), entity.getId());
+        if (!GlobalDamageFilter.shouldShow(config, client, entity, pos.x, pos.y, pos.z)) return;
+
+        if (config.showDamageIndicator && damageAmount > 0) {
+            DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
+                damageAmount,
+                false,  // Cannot detect crit in client-only mode
+                false
+            );
+        }
+        if (config.showKillIndicator && killed) {
+            DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
+                damageAmount,
+                false,
+                true
+            );
         }
     }
 }
