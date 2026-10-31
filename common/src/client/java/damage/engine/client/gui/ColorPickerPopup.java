@@ -3,11 +3,11 @@ package damage.engine.client.gui;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiPipeline;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
-import net.minecraft.client.renderer.pipeline.RenderPipelines;
 import net.minecraft.client.renderer.texture.TextureResources;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -360,7 +360,7 @@ public class ColorPickerPopup {
         // 饱和度/亮度大方块(纹理;不透明绘制,所见即所得)
         ensureSquareTexture();
         if (squareTexId != null) {
-            g.blit(RenderPipelines.GUI_TEXTURED, squareTexId, squareX, squareY, 0.0f, 0.0f,
+            g.blit(GuiPipeline.TEXTURED, squareTexId, squareX, squareY, 0.0f, 0.0f,
                 squareSize, squareSize, squareSize, squareSize, squareSize, squareSize, 0xFFFFFFFF);
             g.fill(squareX, squareY, squareX + squareSize, squareY + 1, 0xFF000000);
             g.fill(squareX, squareY + squareSize - 1, squareX + squareSize, squareY + squareSize, 0xFF000000);

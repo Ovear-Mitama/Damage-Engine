@@ -7,7 +7,7 @@ import damage.engine.hud.DamageHud;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.renderer.pipeline.RenderPipelines;
+import net.minecraft.client.gui.GuiPipeline;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
@@ -191,7 +191,7 @@ public final class RatingRenderer {
                 guiGraphics.pose().pushMatrix();
                 guiGraphics.pose().scale(0.15f, 0.15f);
                 int imgColor = (alpha << 24) | 0xFFFFFF;
-                guiGraphics.blit(RenderPipelines.GUI_TEXTURED, texture.id(),
+                guiGraphics.blit(GuiPipeline.TEXTURED, texture.id(),
                     -texture.width() / 2, -texture.height() / 2, 0.0f, 0.0f,
                     texture.width(), texture.height(), texture.width(), texture.height(),
                     texture.width(), texture.height(), imgColor);

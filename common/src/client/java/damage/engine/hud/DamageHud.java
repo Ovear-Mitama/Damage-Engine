@@ -14,6 +14,7 @@ import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.GuiPipeline;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.world.entity.player.PlayerSkin;
 import net.minecraft.world.phys.Vec3;
@@ -23,7 +24,6 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import net.minecraft.client.renderer.pipeline.RenderPipelines;
 import net.minecraft.util.Mth;
 import java.util.ArrayList;
 import java.util.List;
@@ -1425,8 +1425,8 @@ public class DamageHud {
             Component hpText = Component.literal(hp + "/" + maxHp);
             guiGraphics.text(font, hpText, textX + 10, textYHp, textColor);
         }
-        guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, Identifier.withDefaultNamespace("hud/heart/container"), textX, textYHp, 9, 9);
-        guiGraphics.blitSprite(RenderPipelines.GUI_TEXTURED, heartTexture, textX, textYHp, 9, 9);
+        guiGraphics.blitSprite(GuiPipeline.TEXTURED, Identifier.withDefaultNamespace("hud/heart/container"), textX, textYHp, 9, 9);
+        guiGraphics.blitSprite(GuiPipeline.TEXTURED, heartTexture, textX, textYHp, 9, 9);
     }
 
     private float oldAlphaMul() {
@@ -1499,9 +1499,9 @@ public class DamageHud {
     }
 
     private static void drawPlayerFace(GuiGraphicsExtractor guiGraphics, Identifier skinTexture, int x, int y, int size, boolean hatVisible, int color) {
-        guiGraphics.blit(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 8.0f, 8.0f, size, size, 8, 8, 64, 64, color);
+        guiGraphics.blit(GuiPipeline.TEXTURED, skinTexture, x, y, 8.0f, 8.0f, size, size, 8, 8, 64, 64, color);
         if (hatVisible) {
-            guiGraphics.blit(RenderPipelines.GUI_TEXTURED, skinTexture, x, y, 40.0f, 8.0f, size, size, 8, 8, 64, 64, color);
+            guiGraphics.blit(GuiPipeline.TEXTURED, skinTexture, x, y, 40.0f, 8.0f, size, size, 8, 8, 64, 64, color);
         }
     }
 }
