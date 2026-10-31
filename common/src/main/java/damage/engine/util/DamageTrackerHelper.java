@@ -177,6 +177,16 @@ public class DamageTrackerHelper {
      * @param hurtAccepted whether the entity's hurt() accepted the damage (returned true)
      */
     public static void broadcastPostDamage(LivingEntity self, DamageSource source, Snapshot snap, Logger logger, boolean hurtAccepted) {
+        broadcastPostDamage(self, source, snap, logger, hurtAccepted, snap.sourceAmount);
+    }
+
+    /**
+     * @param effectiveDamage 结算后的最终伤害（护甲/附魔/药水/减伤均已扣完，但未被剩余生命截断）。
+     *                        NeoForge 传入 LivingDamageEvent.Post#getNewDamage()；
+     *                        Fabric mixin 路径没有该事件，保持传 hurt() 的入伤以维持旧行为。
+     */
+    public static void broadcastPostDamage(LivingEntity self, DamageSource source, Snapshot snap, Logger logger,
+                                           boolean hurtAccepted, float effectiveDamage) {
         float currentHealth = self.getHealth();
         float currentAbsorption = self.getAbsorptionAmount();
 
@@ -186,15 +196,16 @@ public class DamageTrackerHelper {
 
         // Some entities (e.g. MmmMmmMmmMmm dummies) intercept setHealth and never
         // actually lose health, even though hurt() returned true. Fall back to the
-        // source amount so damage floats still appear for them.
+        // resolved damage so damage floats still appear for them.
         if (actualDamage <= 0f && hurtAccepted) {
-            actualDamage = snap.sourceAmount;
+            actualDamage = effectiveDamage;
         }
 
         // 原版会把伤害截断到目标剩余生命,所以满血打死一只 20 血的怪永远只显示 20。
-        // 开启"伤害溢出显示"后改用 hurt() 收到的入伤,便于测试武器伤害上限。
+        // 开启"伤害溢出显示"后改用结算后的最终伤害：不能用 hurt() 的原始入伤，
+        // 否则护甲/附魔/药水/韧性等减伤尚未生效，显示值会虚高。
         if (actualDamage > 0f && DamageEngineConfig.getInstance().showDamageOverflow) {
-            actualDamage = Math.max(snap.sourceAmount, actualDamage);
+            actualDamage = Math.max(effectiveDamage, actualDamage);
         }
 
         // Crit is determined server-side (melee crit). TaCZ headshots are consumed

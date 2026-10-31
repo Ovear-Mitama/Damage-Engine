@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.util.DamageTrackerHelper;
 import net.minecraft.world.entity.LivingEntity;
+import net.neoforged.bus.api.EventPriority;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
@@ -59,11 +60,13 @@ public class DamageEngine {
 				DamageTrackerHelper.capturePreDamage(event.getEntity(), event.getSource(), event.getAmount()));
 		});
 
-		NeoForge.EVENT_BUS.addListener((LivingDamageEvent.Post event) -> {
+		NeoForge.EVENT_BUS.addListener(EventPriority.LOWEST, false, (LivingDamageEvent.Post event) -> {
 			DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.remove(event.getEntity());
 			if (snap != null) {
-				// Post damage events only fire when the hurt() was accepted
-				DamageTrackerHelper.broadcastPostDamage(event.getEntity(), event.getSource(), snap, LOGGER, true);
+				// Post damage events only fire when the hurt() was accepted.
+				// LOWEST：等所有模组改完 newDamage 后再取值，得到护甲/附魔/药水/减伤后的最终伤害。
+				DamageTrackerHelper.broadcastPostDamage(event.getEntity(), event.getSource(), snap, LOGGER, true,
+					event.getNewDamage());
 			}
 		});
 
