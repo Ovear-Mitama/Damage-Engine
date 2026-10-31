@@ -10,6 +10,7 @@ import damage.engine.DamageEngineConfig;
 import damage.engine.hud.rating.RatingManager;
 import damage.engine.hud.rating.RatingRenderer;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.Camera;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -41,6 +42,8 @@ public class DamageHud {
     private boolean isRefilling = false;
     private int lastComboCount = 0;
     private int infoLastTargetId = -1;
+    /** 上一次记录的目标所在 ClientLevel。重生/跨维度会整体替换 level 实例，旧实体 id 随之失效。 */
+    private ClientLevel infoLastLevel = null;
     /** 非玩家追踪目标:用于直接渲染 3D 头像 */
     private LivingEntity infoAvatarEntity = null;
     /** 当前模块的屏幕变换(GUI 实体渲染状态与 scissor 都用屏幕坐标,不套用 pose) */
@@ -851,13 +854,37 @@ public class DamageHud {
         dt = Math.clamp(dt, 0.0f, 0.1f);
         infoLastUpdateMs = now;
 
+        ClientLevel currentLevel = client.level;
+        if (currentLevel != infoLastLevel) {
+            infoLastLevel = currentLevel;
+            // 重生/切换维度会创建新的 ClientLevel，旧目标 id 不再指向原实体。
+            // 清掉目标并保留最后一次真实血量直接淡出，不能当作“目标死亡”抽干到 0。
+            session.clearInfo();
+            infoLastTargetId = -1;
+            infoDeathDrain = false;
+            infoSwitching = false;
+            if (currentLevel == null) {
+                // 离开世界：直接清空，避免下次进入时闪出旧快照
+                infoHasSnapshot = false;
+                infoFading = false;
+                infoAlpha = 0.0f;
+                infoAvatarAlpha = 0.0f;
+                infoHealthLastUpdateMs = 0;
+            }
+            else if (infoHasSnapshot && !infoFading && infoAlpha > 0.01f) {
+                infoFading = true;
+                infoFadeStartMs = now;
+            }
+        }
+
         int candidateTargetId = session.isInfoActive() ? session.getLastTargetEntityId() : infoLastTargetId;
 
         // 准心指向生物时优先显示该生物（原版 crosshairPickEntity 已按实体交互距离拾取）
         LivingEntity crosshairTarget = null;
         if (DamageEngineConfig.getInstance().crosshairEntityInfo
             && client.crosshairPickEntity instanceof LivingEntity le
-            && le != client.player && le.isAlive()) {
+            && le != client.player && le.isAlive()
+            && le.level() == client.level) {
             crosshairTarget = le;
         }
         boolean crosshairActive = crosshairTarget != null;
@@ -915,7 +942,8 @@ public class DamageHud {
                 // 面板本来就没显示时，头像槽直接按最终状态展开：
                 // 非玩家实体在开启实体渲染时也应有头像，避免出现「左侧慢慢变宽」的入场动画。
                 boolean hasAvatar = targetAvatar
-                    || (DamageEngineConfig.getInstance().entityRenderEnabled && infoAvatarEntity != null);
+                    || (DamageEngineConfig.getInstance().entityRenderEnabled && infoAvatarEntity != null
+                        && infoAvatarEntity.level() == client.level);
                 infoAvatarFactor = hasAvatar ? 1.0f : 0.0f;
                 infoAvatarAlpha = infoAvatarFactor;
                 infoPrevPlayerSkin = null;
@@ -923,10 +951,19 @@ public class DamageHud {
             return;
         }
 
-        if (!infoDeathDrain && !infoFading && candidateTargetId != -1 && (target == null || !target.isAlive()) && (session.isInfoActive() || infoHasSnapshot)) {
-            if (target != null) {
+        if (!infoDeathDrain && !infoFading && candidateTargetId != -1 && (session.isInfoActive() || infoHasSnapshot)) {
+            if (target != null && !target.isAlive()) {
+                // 实体仍在当前世界，只是死亡：保留死亡抽干动画
                 captureInfoSnapshot(target);
-            } else if (!infoHasSnapshot) {
+                infoHealth = 0f;
+                infoAbsorption = 0f;
+                infoDeathDrain = true;
+                infoFading = false;
+                infoAlpha = 1.0f;
+                session.clearInfo();
+                return;
+            }
+            if (target == null && !infoHasSnapshot) {
                 // The target entity is already gone before any snapshot was captured
                 // (e.g. one-hit kill of an entity that was removed immediately, or an
                 // out-of-view kill). There is no real info to display, so keep the
@@ -934,12 +971,15 @@ public class DamageHud {
                 session.clearInfo();
                 return;
             }
-            infoHealth = 0f;
-            infoAbsorption = 0f;
-            infoDeathDrain = true;
-            infoFading = false;
-            infoAlpha = 1.0f;
+            // 目标已不在当前世界（重生/跨维度/区块卸载）：保持最后一次真实血量，
+            // 直接走淡出，不再把血量归零后播放抽干动画。
+            infoDeathDrain = false;
+            infoLastTargetId = -1;
             session.clearInfo();
+            if (!infoFading) {
+                infoFading = true;
+                infoFadeStartMs = now;
+            }
             return;
         }
 
@@ -1076,7 +1116,8 @@ public class DamageHud {
         // 玩家恒有头像(皮肤脸);非玩家实体在开启实体渲染且有目标时展开头像槽
         boolean entityRenderEnabled = DamageEngineConfig.getInstance().entityRenderEnabled;
         boolean reduceAnimations = DamageEngineConfig.getInstance().reduceAnimations;
-        float targetAvatar = (isPlayer || (entityRenderEnabled && infoAvatarEntity != null)) ? 1.0f : 0.0f;
+        float targetAvatar = (isPlayer || (entityRenderEnabled && infoAvatarEntity != null
+            && infoAvatarEntity.level() == client.level)) ? 1.0f : 0.0f;
         if (reduceAnimations) {
             // 减少动画：头像槽直接展开到最终宽度
             infoAvatarFactor = targetAvatar;
@@ -1187,7 +1228,8 @@ public class DamageHud {
                 }
 
                 guiGraphics.pose().popMatrix();
-            } else if (infoAvatarEntity != null && entityRenderEnabled) {
+            } else if (infoAvatarEntity != null && entityRenderEnabled
+                && infoAvatarEntity.level() == client.level) {
                 // 非玩家实体:交给 GUI 实体渲染管线按真实体型画 3D 模型。
                 // 该管线用屏幕坐标(不套用模块 pose),且画布只能是整数像素:把整数部分给画布、
                 // 不足 1 像素的余量交给 EntityIconRenderer 走模型位移,惯性让位时才能跟着面板平滑移动
