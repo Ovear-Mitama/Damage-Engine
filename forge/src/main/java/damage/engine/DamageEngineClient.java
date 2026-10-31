@@ -36,7 +36,10 @@ public class DamageEngineClient {
         IEventBus modEventBus = FMLJavaModLoadingContext.get().getModEventBus();
 
         // Set up handshake sender for multiplayer server mod detection
-        handshakeSender = () -> NetworkHandler.sendHandshakeToServer();
+        handshakeSender = damage.engine.network.ClientPacketHandler::sendHandshakeToServer;
+        // Route S2C damage packets to the client-only handler. NetworkHandler itself
+        // must stay free of client class references so it can load on a dedicated server.
+        NetworkHandler.clientPacketHandler = damage.engine.network.ClientPacketHandler::handleDamage;
 
         // Create keybindings directly
         configKeyBinding = new KeyMapping(

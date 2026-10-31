@@ -1,26 +1,17 @@
 package damage.engine.network;
 
 import damage.engine.DamageEngine;
-import damage.engine.DamageEngineClient;
-import damage.engine.DamageEngineConfig;
-import damage.engine.hud.indicator.DamageIndicator;
-import damage.engine.hud.session.DamageSessionManager;
-import damage.engine.hud.rating.RatingManager;
 import damage.engine.util.DamageTrackerHelper;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.FriendlyByteBuf;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.world.phys.EntityHitResult;
-import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.network.NetworkDirection;
 import net.minecraftforge.network.NetworkEvent;
 import net.minecraftforge.network.NetworkRegistry;
 import net.minecraftforge.network.simple.SimpleChannel;
 
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 public class NetworkHandler {
@@ -33,6 +24,12 @@ public class NetworkHandler {
     );
 
     private static int packetId = 0;
+
+    /**
+     * 客户端伤害包处理器。仅由客户端侧的 {@code DamageEngineClient} 注入；
+     * 服务端保持为 null，从而保证本类（服务端也会加载）不引用任何客户端类。
+     */
+    public static Consumer<DamagePayload> clientPacketHandler = null;
 
     public static void init() {
         // S2C: Damage packet
@@ -52,12 +49,9 @@ public class NetworkHandler {
         }
     }
 
-    /** Send a handshake packet from the client to check server mod presence. */
-    public static void sendHandshakeToServer() {
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.getConnection() != null) {
-            CHANNEL.sendToServer(new HandshakePacket());
-        }
+    /** 发送握手包到服务端。仅客户端调用，由 {@link ClientPacketHandler} 转发。 */
+    public static void sendHandshake() {
+        CHANNEL.sendToServer(new HandshakePacket());
     }
 
     // --- S2C Damage Packet Wrapper ---
@@ -97,110 +91,11 @@ public class NetworkHandler {
 
         public static void handle(DamagePacket msg, Supplier<NetworkEvent.Context> ctx) {
             ctx.get().enqueueWork(() -> {
-                DamagePayload payload = msg.getPayload();
-
-                if (!DamageEngineClient.serverHasMod) {
-                    DamageEngineClient.serverHasMod = true;
-                    DamageEngineClient.serverModChecked = true;
-                    // 服务端确实装了本模组：撤掉可能已显示的降级警告
-                    damage.engine.client.ClientDowngradeOverlay.reset();
-                }
-
-                Minecraft mc = Minecraft.getInstance();
-                if (mc.level == null || mc.player == null) return;
-
-                DamageEngineConfig config = DamageEngineConfig.getInstance();
-
-                if (config.debugShowDamageInfo) {
-                    if (payload.debugInfo() != null && !payload.debugInfo().isEmpty()) {
-                        mc.player.displayClientMessage(
-                            Component.literal("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
-                                .append(Component.literal(payload.debugInfo()).withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFFFF)))),
-                            false
-                        );
-                    }
-                    mc.player.displayClientMessage(
-                        Component.literal("[DE Debug] ").withStyle(style -> style.withColor(TextColor.fromRgb(0xB3EDC4)))
-                            .append(Component.literal("Dmg: " + String.format("%.1f", payload.amount())
-                            + (payload.isCrit() ? " Crit" : "") + " | Entity: " + payload.entityId()
-                            + " | Projectile: " + (payload.isProjectile() ? "Yes" : "No")).withStyle(style -> style.withColor(TextColor.fromRgb(0xFFFFFF)))),
-                        false
-                    );
-                }
-
-                boolean isSelfDamage = payload.attackerId() == mc.player.getId();
-
-                if (!isSelfDamage && config.showGlobalDamageIndicator) {
-                    // Damage floats on other entities (victim isn't me) follow the "record other players" toggle.
-                    // Only filter when an attacker was actually resolved (attackerId > 0): unresolved
-                    // attackers (e.g. TACZ bullets whose owner can't be resolved) may still be our own damage.
-                    if (payload.attackerId() > 0 && payload.entityId() != mc.player.getId() && !config.recordOtherPlayers) {
-                        ctx.get().setPacketHandled(true);
-                        return;
-                    }
-                    if (payload.attackerId() > 0 && mc.level != null) {
-                        net.minecraft.world.entity.Entity attackerEntity = mc.level.getEntity(payload.attackerId());
-                        if (attackerEntity instanceof net.minecraft.world.entity.LivingEntity le && le.isInvisible()) {
-                            ctx.get().setPacketHandled(true);
-                            return;
-                        }
-                    }
-
-                    // 分项设置:玩家使用玩家显示距离,非玩家实体按实体规则(注册名/All);
-                    // 智能隐藏开启时,由视觉(看不见则隐藏)决定
-                    net.minecraft.world.entity.Entity victim = payload.entityId() > 0 && mc.level != null
-                        ? mc.level.getEntity(payload.entityId()) : null;
-                    if (damage.engine.client.GlobalDamageFilter.shouldShow(config, mc, victim, payload.posX(), payload.posY(), payload.posZ())) {
-                        if (config.showDamageIndicator && payload.amount() > 0) {
-                            Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                            DamageIndicator.addIndicator(victim, pos.x, pos.y, pos.z, payload.amount(), payload.isCrit(), false);
-                        }
-                        if (config.showKillIndicator && payload.killed()) {
-                            Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                            DamageIndicator.addIndicator(victim, pos.x, pos.y, pos.z, payload.amount(), false, true);
-                        }
-                    }
-                }
-
-                if (!isSelfDamage) {
-                    if (config.recordOtherPlayers) {
-                        DamageSessionManager.getInstance().addOtherPlayerDamage(payload.amount(), payload.isCrit(), payload.attackerId());
-                    }
-                    ctx.get().setPacketHandled(true);
-                    return;
-                }
-
-                boolean preferSwitchTarget = false;
-                try {
-                    if (mc.hitResult instanceof EntityHitResult ehr) {
-                        preferSwitchTarget = ehr.getEntity() != null && ehr.getEntity().getId() == payload.entityId();
-                    }
-                } catch (Exception ignored) {}
-                // 远程命中通常超出准心拾取距离，准心命中的不是受害实体；
-                // 这类伤害直接切换信息面板目标，否则第二箭会一直停留在第一个目标上。
-                if (payload.isProjectile()) {
-                    preferSwitchTarget = true;
-                }
-
-                net.minecraft.world.entity.Entity selfVictim = payload.entityId() > 0 && mc.level != null
-                    ? mc.level.getEntity(payload.entityId()) : null;
-                float distance = (selfVictim != null && mc.player != null)
-                    ? (float) Math.sqrt(mc.player.distanceToSqr(selfVictim)) : 0f;
-                boolean unseen = payload.killed() && selfVictim != null && mc.player != null
-                    && damage.engine.hud.rating.CombatContext.isHiddenFromPlayer(selfVictim, mc.player);
-
-                DamageSessionManager.getInstance().addDamage(payload.amount(), payload.isCrit(), payload.entityId(),
-                    preferSwitchTarget, payload.killed(), distance, unseen);
-
-                Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
-                double maxDist = config.globalIndicatorMaxDistance;
-                if (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist) {
-                    if (config.showDamageIndicator && payload.amount() > 0) {
-                        DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z, payload.amount(), payload.isCrit(), false);
-                    }
-                    if (config.showKillIndicator && payload.killed()) {
-                        DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z, payload.amount(), false, true);
-                    }
+                // 该包只发给客户端；处理器由客户端在构造时注入，
+                // 服务端为 null，因此不会触发任何客户端类的加载。
+                Consumer<DamagePayload> handler = clientPacketHandler;
+                if (handler != null) {
+                    handler.accept(msg.getPayload());
                 }
             });
             ctx.get().setPacketHandled(true);
