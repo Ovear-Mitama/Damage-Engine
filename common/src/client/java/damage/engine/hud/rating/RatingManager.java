@@ -6,7 +6,11 @@ import damage.engine.api.DamageEngineApi;
 import damage.engine.api.DamageEngineStats;
 import damage.engine.api.Hit;
 import damage.engine.api.SessionStats;
+import net.minecraft.client.Minecraft;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -31,6 +35,10 @@ public class RatingManager {
     private long sessionStartTime = 0;
     private long lastHitTime = 0;
     private long lastKillTime = 0;
+    /** 本段连击内上一次命中时的主手物品 id；空串表示没有可比较的武器。 */
+    private String lastWeaponId = "";
+    /** 本段连击内切换武器的次数。 */
+    private int sessionWeaponSwitchCount = 0;
     private static final long RATING_FADE_MS = 2500;
     /** 单条加分提示的存活时间。 */
     private static final long GAIN_LIFETIME_MS = 2400;
@@ -147,6 +155,8 @@ public class RatingManager {
         }
         if (sessionActive && comboTimeoutMs > 0f && now - lastHitTime > (long) comboTimeoutMs) {
             sessionComboCount = 0;
+            lastWeaponId = "";
+            sessionWeaponSwitchCount = 0;
         }
         sessionComboCount++;
         sessionHitCount++;
@@ -161,6 +171,13 @@ public class RatingManager {
         }
         sessionTotalDamage += damage;
         lastHitTime = now;
+
+        // 连击内换武器：只比较同段连击里前后两次命中的主手物品
+        String weaponId = heldWeaponId();
+        boolean weaponSwitch = !lastWeaponId.isEmpty() && !weaponId.isEmpty()
+            && !weaponId.equals(lastWeaponId);
+        if (weaponSwitch) sessionWeaponSwitchCount++;
+        if (!weaponId.isEmpty()) lastWeaponId = weaponId;
 
         Map<String, Float> vars = new HashMap<>();
         vars.put("combo", (float) sessionComboCount);
@@ -178,6 +195,10 @@ public class RatingManager {
         vars.put("hit_count", (float) sessionHitCount);
         vars.put("crit_count", (float) sessionCritCount);
         vars.put("total_damage", sessionTotalDamage);
+        vars.put("mace", isVanillaMace(weaponId) ? 1f : 0f);
+        vars.put("spear", isVanillaSpear(weaponId) ? 1f : 0f);
+        vars.put("weapon_switch", weaponSwitch ? 1f : 0f);
+        vars.put("weapon_switch_count", (float) sessionWeaponSwitchCount);
 
         if (config.bonusRules != null) {
             for (DamageEngineConfig.BonusRule rule : config.bonusRules) {
@@ -246,6 +267,28 @@ public class RatingManager {
             if (!translated.equals(key)) return translated;
         }
         return rule.id;
+    }
+
+    /** 本地玩家当前主手物品的注册名；未持物品时返回空串。 */
+    private static String heldWeaponId() {
+        Minecraft minecraft = Minecraft.getInstance();
+        if (minecraft.player == null) return "";
+        ItemStack stack = minecraft.player.getMainHandItem();
+        if (stack.isEmpty()) return "";
+        Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+        return id == null ? "" : id.toString();
+    }
+
+    /** 原版重锤。 */
+    private static boolean isVanillaMace(String id) {
+        return "minecraft:mace".equals(id);
+    }
+
+    /** 原版长矛：minecraft:spear 或 minecraft:*_spear。 */
+    private static boolean isVanillaSpear(String id) {
+        if (!id.startsWith("minecraft:")) return false;
+        String path = id.substring("minecraft:".length());
+        return path.equals("spear") || path.endsWith("_spear");
     }
 
     /** 只保留最近的若干条加分提示；被挤出的条目短暂淡出后再移除。 */
@@ -389,6 +432,8 @@ public class RatingManager {
         sessionScore = 0f;
         sessionStartTime = 0;
         lastKillTime = 0;
+        lastWeaponId = "";
+        sessionWeaponSwitchCount = 0;
         nextGainTime = 0;
         long now = System.currentTimeMillis();
         for (ScoreGain gain : recentGains) gain.forceFade(now);
