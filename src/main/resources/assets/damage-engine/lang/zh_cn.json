@@ -217,8 +217,10 @@
   "rating.bonus.unseen": "不见其人",
   "rating.bonus.distance": "距离击杀",
   "rating.bonus.killstreak": "连杀",
+  "rating.bonus.mace": "重锤",
+  "rating.bonus.weapon_switch": "切换武器",
   "text.damage-engine.bonus_help": "加分表达式说明",
-  "hint.damage-engine.bonus_syntax": "变量：\n{combo} 连击数\n{combo_time} 连击重置时间（毫秒）\n{killstreak} 连杀数\n{crit} 暴击（0/1）\n{damage} 本次伤害\n{kill} 击杀（0/1）\n{kill_meter} 击杀距离（米）\n{unseen} 看不见目标（0/1）\n运算符：+ - * / ( ) > >= < <= == != ? :\n示例：{kill:25}\n示例：{combo} * 0.2\n示例：{kill_meter} > 5 ? {kill_meter} * 2 : 0",
+  "hint.damage-engine.bonus_syntax": "变量：\n{combo} 连击数\n{combo_time} 连击重置时间（毫秒）\n{killstreak} 连杀数\n{crit} 暴击（0/1）\n{damage} 本次伤害\n{kill} 击杀（0/1）\n{kill_meter} 击杀距离（米）\n{unseen} 看不见目标（0/1）\n{mace} 重锤命中（0/1）\n{weapon_switch} 连击内切换武器（0/1）\n{weapon_switch_count} 本段连击切换武器次数\n运算符：+ - * / ( ) > >= < <= == != ? :\n示例：{kill:25}\n示例：{combo} * 0.2\n示例：{kill_meter} > 5 ? {kill_meter} * 2 : 0",
   "option.damage-engine.comboResetTime": "连击重置时间（秒）",
   "command.damage-engine.cleared": "已清除伤害与评分数据。"
 }
