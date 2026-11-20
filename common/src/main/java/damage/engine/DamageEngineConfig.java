@@ -264,6 +264,9 @@ public class DamageEngineConfig {
         list.add(new BonusRule("kill", "", "{kill:25}", true, false));
         list.add(new BonusRule("unseen", "", "{unseen:20}", true, false));
         list.add(new BonusRule("distance", "", "{kill_meter} > 5 ? {kill_meter} * 2 : 0", true, false));
+        list.add(new BonusRule("mace", "", "{mace:10}", true, false));
+        list.add(new BonusRule("spear", "", "{spear:10}", true, false));
+        list.add(new BonusRule("weapon_switch", "", "{weapon_switch:5}", true, false));
         return list;
     }
 
@@ -304,18 +307,22 @@ public class DamageEngineConfig {
                 }
             }
         }
-        // 旧配置没有“连杀”时补上默认项
-        boolean hasKillstreak = false;
+        // 旧配置补上后来新增的内置项
+        ensureBuiltinRule("killstreak", "{killstreak,time:20000} * 10", true);
+        ensureBuiltinRule("mace", "{mace:10}", false);
+        ensureBuiltinRule("spear", "{spear:10}", false);
+        ensureBuiltinRule("weapon_switch", "{weapon_switch:5}", false);
+    }
+
+    /** 补齐缺失的内置加分项；已存在时只同步“持续项”标记。 */
+    private void ensureBuiltinRule(String id, String expression, boolean continuous) {
         for (BonusRule rule : bonusRules) {
-            if (rule != null && "killstreak".equals(rule.id)) {
-                hasKillstreak = true;
-                rule.continuous = true;
-                break;
+            if (rule != null && id.equals(rule.id)) {
+                if (continuous) rule.continuous = true;
+                return;
             }
         }
-        if (!hasKillstreak) {
-            bonusRules.add(new BonusRule("killstreak", "", "{killstreak,time:20000} * 10", true, true));
-        }
+        bonusRules.add(new BonusRule(id, "", expression, true, continuous));
     }
 
     /**
