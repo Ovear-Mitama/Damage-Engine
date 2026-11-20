@@ -538,7 +538,8 @@ public final class RatingRenderer {
             net.minecraft.client.renderer.texture.TextureResources texture =
                 net.minecraft.client.renderer.texture.TextureResources.from2dImage(
                     () -> "damage-engine/rating_" + imagePath, nativeImage);
-            client.getTextureManager().register(id, texture);
+            client.getTextureManager().registerProvider(id,
+                new net.minecraft.client.renderer.texture.ExternalTextureProvider(texture));
             RatingTexture ratingTexture = new RatingTexture(id, nativeImage.getWidth(), nativeImage.getHeight());
             nativeImage.close();
             TEXTURES.put(imagePath, ratingTexture);

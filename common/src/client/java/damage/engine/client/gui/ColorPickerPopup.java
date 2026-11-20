@@ -3,11 +3,12 @@ package damage.engine.client.gui;
 import com.mojang.blaze3d.platform.NativeImage;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.GuiPipeline;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.input.CharacterEvent;
 import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.gui.GuiPipeline;
+import net.minecraft.client.renderer.texture.ExternalTextureProvider;
 import net.minecraft.client.renderer.texture.TextureResources;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -431,7 +432,7 @@ public class ColorPickerPopup {
             squareImage = new NativeImage(256, 256, true);
             squareTexId = Identifier.fromNamespaceAndPath("damage-engine", "color_square_" + System.nanoTime());
             squareTexture = TextureResources.from2dImage(() -> "damage-engine/color_square", squareImage);
-            client.getTextureManager().register(squareTexId, squareTexture);
+            client.getTextureManager().registerProvider(squareTexId, new ExternalTextureProvider(squareTexture));
             squareHueCache = -1;
         }
         if (h != squareHueCache) {
@@ -447,7 +448,7 @@ public class ColorPickerPopup {
                 }
             }
             squareTexture = TextureResources.from2dImage(() -> "damage-engine/color_square", squareImage);
-            client.getTextureManager().register(squareTexId, squareTexture);
+            client.getTextureManager().registerProvider(squareTexId, new ExternalTextureProvider(squareTexture));
         }
     }
 
