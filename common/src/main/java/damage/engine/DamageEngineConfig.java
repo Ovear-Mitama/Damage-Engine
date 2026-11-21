@@ -560,6 +560,29 @@ public class DamageEngineConfig {
         return allRule != null ? allRule.distance : DEFAULT_NON_PLAYER_DISTANCE;
     }
 
+    /**
+     * 伤害跳字黑名单：屏蔽模式下列表内的非玩家实体命中时不显示伤害/击杀跳字。
+     * <p>与 {@link #resolveGlobalIndicatorDistance} 不同，该判定同时作用于玩家自己造成的伤害，
+     * 用于屏蔽训练假人等自带跳字的实体。</p>
+     */
+    public boolean isEntityBlocked(Entity victim) {
+        if (!globalEntityBlockMode || victim == null) return false;
+        if (victim instanceof Player) return false;
+        if (globalEntityRules == null || globalEntityRules.isEmpty()) return false;
+        String regName = null;
+        try {
+            net.minecraft.resources.Identifier key = BuiltInRegistries.ENTITY_TYPE.getKey(victim.getType());
+            regName = key == null ? null : key.toString();
+        } catch (Exception ignored) {
+        }
+        for (GlobalEntityRule r : globalEntityRules) {
+            if (r == null || r.registryName == null || r.registryName.trim().isEmpty()) continue;
+            if (r.isAll()) return true;
+            if (regName != null && r.registryName.trim().equalsIgnoreCase(regName)) return true;
+        }
+        return false;
+    }
+
     public static Path getProfilesDir() {
         return PROFILES_DIR;
     }
