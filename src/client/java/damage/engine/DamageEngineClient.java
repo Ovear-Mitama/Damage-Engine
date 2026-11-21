@@ -173,7 +173,9 @@ public class DamageEngineClient implements ClientModInitializer {
 
                     Vec3 pos = blendIndicatorPos(posX, posY, posZ, entityId);
                     double maxDist = config.globalIndicatorMaxDistance;
-                    if (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist) {
+                    // 黑名单命中(如训练假人)时不再显示自身伤害跳字
+                    if (!config.isEntityBlocked(selfVictim)
+                        && (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist)) {
                         if (config.showDamageIndicator && amount > 0) {
                             DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z, amount, isCrit, false);
                         }

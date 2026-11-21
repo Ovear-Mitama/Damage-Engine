@@ -43,6 +43,9 @@ public final class DummyDamageCompat {
                 || hit.getEntity() == null || hit.getEntity().getId() == entityId;
             DamageSessionManager.getInstance().addDamage(amount, crit, entityId, preferSwitchTarget);
 
+            // 黑名单命中时只跳过跳字，统计照常累计
+            if (config.isEntityBlocked(dummy)) return;
+
             Vec3 pos = DamageEngineClient.blendIndicatorPos(
                 dummy.getX(), dummy.getY() + dummy.getEyeHeight() * 0.6, dummy.getZ(), entityId);
             DamageIndicator.addIndicator(dummy, pos.x, pos.y, pos.z, amount, crit, false);
