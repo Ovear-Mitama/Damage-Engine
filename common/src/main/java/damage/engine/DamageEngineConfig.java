@@ -1,4 +1,4 @@
-﻿package damage.engine;
+package damage.engine;
 
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.entity.Entity;
