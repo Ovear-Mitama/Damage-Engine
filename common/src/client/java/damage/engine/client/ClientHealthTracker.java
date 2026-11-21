@@ -111,7 +111,9 @@ public class ClientHealthTracker {
         // Add damage indicator using blended position, capped by the configured max distance
         if (client.player != null) {
             double maxDist = config.globalIndicatorMaxDistance;
-            if (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist) {
+            // 黑名单命中(如训练假人)时不再显示自身伤害跳字
+            if (!config.isEntityBlocked(entity)
+                && (maxDist <= 0 || pos.distanceToSqr(client.player.position()) <= maxDist * maxDist)) {
                 if (config.showDamageIndicator && damageAmount > 0) {
                     DamageIndicator.addIndicator(entity, pos.x, pos.y, pos.z,
                         damageAmount,
