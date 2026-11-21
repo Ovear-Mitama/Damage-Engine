@@ -121,7 +121,9 @@ public class NetworkSetup {
 
                     Vec3 pos = DamageEngineClient.blendIndicatorPos(payload.posX(), payload.posY(), payload.posZ(), payload.entityId());
                     double maxDist = config.globalIndicatorMaxDistance;
-                    if (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist) {
+                    // 黑名单命中(如训练假人)时不再显示自身伤害跳字
+                    if (!config.isEntityBlocked(selfVictim)
+                        && (maxDist <= 0 || pos.distanceToSqr(mc.player.position()) <= maxDist * maxDist)) {
                         if (config.showDamageIndicator && payload.amount() > 0) {
                             DamageIndicator.addIndicator(selfVictim, pos.x, pos.y, pos.z,
                                 payload.amount(), payload.isCrit(), false);
