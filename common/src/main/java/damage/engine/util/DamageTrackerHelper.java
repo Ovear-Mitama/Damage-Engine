@@ -144,22 +144,37 @@ public class DamageTrackerHelper {
      * Calculates actual damage and broadcasts the payload after damage is applied.
      */
     public static void broadcastPostDamage(LivingEntity self, DamageSource source, Snapshot snap, Logger logger) {
-        broadcastPostDamage(self, source, snap, logger, snap.sourceAmount);
+        broadcastPostDamage(self, source, snap, logger, true, snap.sourceAmount);
     }
 
     /**
      * @param effectiveDamage 结算后的最终伤害（护甲/附魔/药水/减伤均已扣完，但未被剩余生命截断）。
-     *                        NeoForge 传入 LivingDamageEvent.Post#getInflictedDamage()；
-     *                        Fabric mixin 路径没有该事件，保持传 hurt() 的入伤以维持旧行为。
+     *                        NeoForge 传入 LivingDamageEvent.Post#getInflictedDamage()。
      */
     public static void broadcastPostDamage(LivingEntity self, DamageSource source, Snapshot snap, Logger logger,
         float effectiveDamage) {
+        broadcastPostDamage(self, source, snap, logger, true, effectiveDamage);
+    }
+
+    /**
+     * @param hurtAccepted    hurtServer() 是否接受了本次伤害；被无敌帧等拦下的攻击不做回退。
+     * @param effectiveDamage 结算后的最终伤害（护甲/附魔/药水/减伤均已扣完，但未被剩余生命截断）。
+     */
+    public static void broadcastPostDamage(LivingEntity self, DamageSource source, Snapshot snap, Logger logger,
+        boolean hurtAccepted, float effectiveDamage) {
         float currentHealth = self.getHealth();
         float currentAbsorption = self.getAbsorptionAmount();
 
         float healthLost = snap.prevHealth - currentHealth;
         float absorptionLost = snap.prevAbsorption - currentAbsorption;
         float actualDamage = healthLost + absorptionLost;
+
+        // Some entities (e.g. MmmMmmMmmMmm dummies) intercept setHealth and never
+        // actually lose health, even though hurtServer() returned true. Fall back to
+        // the resolved damage so damage floats still appear for them.
+        if (actualDamage <= 0f && hurtAccepted) {
+            actualDamage = effectiveDamage;
+        }
 
         // Crit is determined server-side (melee crit).
         boolean crit = snap.wasCrit;
