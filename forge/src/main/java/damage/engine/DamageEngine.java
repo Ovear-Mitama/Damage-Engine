@@ -5,6 +5,7 @@ import damage.engine.compat.tacz.TaczCompat;
 import damage.engine.network.NetworkHandler;
 import damage.engine.util.DamageTrackerHelper;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.event.entity.living.LivingDamageEvent;
 import net.minecraftforge.event.entity.living.LivingHurtEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
 import net.minecraftforge.fml.DistExecutor;
@@ -29,6 +30,8 @@ public class DamageEngine {
 	// Level per pending snapshot so the delayed end-of-tick broadcast can resolve
 	// the (possibly dead) victim entity from its id.
 	private static final Map<Integer, net.minecraft.server.level.ServerLevel> PRE_DAMAGE_LEVELS = new ConcurrentHashMap<>();
+	// 结算后的最终伤害（护甲/附魔/药水/减伤已生效），按实体 id 累计到 tick 末。
+	private static final Map<Integer, Float> EFFECTIVE_DAMAGE = new ConcurrentHashMap<>();
 
 	public DamageEngine() {
 		LOGGER.info("Initializing Damage Engine (Forge 1.20.1)...");
@@ -116,6 +119,18 @@ public class DamageEngine {
 			}
 		});
 
+		// LivingDamageEvent 在护甲/附魔/药水减伤结算之后触发；LOWEST 等待其他模组
+		// 改完最终伤害再取值。假人拦截 setHealth 不损失生命时，用它作为回退显示值，
+		// 避免回退到 hurt() 的原始入伤（未计护甲）而显示虚高伤害。
+		MinecraftForge.EVENT_BUS.addListener(net.minecraftforge.eventbus.api.EventPriority.LOWEST,
+			(LivingDamageEvent event) -> {
+			if (!(event.getEntity().level() instanceof net.minecraft.server.level.ServerLevel)) return;
+			int id = event.getEntity().getId();
+			if (PRE_DAMAGE_SNAPS.containsKey(id)) {
+				EFFECTIVE_DAMAGE.merge(id, event.getAmount(), Float::sum);
+			}
+		});
+
 		// Broadcast pending damage at the end of each server tick, after the victim's
 		// health was actually reduced, then flush any merged payload.
 		MinecraftForge.EVENT_BUS.addListener((net.minecraftforge.event.TickEvent.ServerTickEvent event) -> {
@@ -124,10 +139,12 @@ public class DamageEngine {
 				for (Integer id : new java.util.ArrayList<>(PRE_DAMAGE_SNAPS.keySet())) {
 					DamageTrackerHelper.Snapshot snap = PRE_DAMAGE_SNAPS.remove(id);
 					net.minecraft.server.level.ServerLevel level = PRE_DAMAGE_LEVELS.remove(id);
+					Float effective = EFFECTIVE_DAMAGE.remove(id);
 					if (snap == null || level == null) continue;
 					net.minecraft.world.entity.Entity e = level.getEntity(id);
 					if (e instanceof net.minecraft.world.entity.LivingEntity le) {
-						DamageTrackerHelper.broadcastPostDamage(le, null, snap, LOGGER, true);
+						DamageTrackerHelper.broadcastPostDamage(le, null, snap, LOGGER, true,
+							effective != null ? effective : snap.sourceAmount());
 					}
 				}
 			}

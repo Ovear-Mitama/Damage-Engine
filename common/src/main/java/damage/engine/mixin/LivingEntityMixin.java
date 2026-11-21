@@ -13,6 +13,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(LivingEntity.class)
@@ -21,6 +22,10 @@ public abstract class LivingEntityMixin extends Entity {
 
     @Unique
     private DamageTrackerHelper.Snapshot damageEngine$snap;
+
+    /** actuallyHurt 收到的结算后伤害（护甲/附魔/减伤已生效）。 */
+    @Unique
+    private float damageEngine$effectiveDamage = Float.NaN;
 
     public LivingEntityMixin(EntityType<?> type, Level world) {
         super(type, world);
@@ -31,7 +36,16 @@ public abstract class LivingEntityMixin extends Entity {
         if (this.level().isClientSide()) return;
         if ((Object) this instanceof Player) return;
 
+        damageEngine$effectiveDamage = Float.NaN;
         damageEngine$snap = DamageTrackerHelper.capturePreDamage((LivingEntity) (Object) this, source, amount);
+    }
+
+    @Inject(method = "actuallyHurt", at = @At("HEAD"), require = 0)
+    private void onActuallyHurt(DamageSource source, float amount, CallbackInfo ci) {
+        if (this.level().isClientSide()) return;
+        if ((Object) this instanceof Player) return;
+
+        damageEngine$effectiveDamage = amount;
     }
 
     @Inject(method = "hurt", at = @At("RETURN"), require = 0)
@@ -41,8 +55,12 @@ public abstract class LivingEntityMixin extends Entity {
 
         if (damageEngine$snap != null) {
             boolean accepted = ci.getReturnValue() != null && ci.getReturnValue();
-            DamageTrackerHelper.broadcastPostDamage((LivingEntity) (Object) this, source, damageEngine$snap, LOGGER, accepted);
+            float effective = Float.isNaN(damageEngine$effectiveDamage)
+                ? damageEngine$snap.sourceAmount() : damageEngine$effectiveDamage;
+            DamageTrackerHelper.broadcastPostDamage((LivingEntity) (Object) this, source, damageEngine$snap, LOGGER,
+                accepted, effective);
             damageEngine$snap = null;
+            damageEngine$effectiveDamage = Float.NaN;
         }
     }
 }
