@@ -987,11 +987,13 @@ public class DamageHud {
                 infoFading = true;
                 infoFadeStartMs = now;
                 infoLastTargetId = -1;
-            } else {
+            }
+            else {
                 infoFading = false;
                 infoAlpha = 1.0f;
             }
-        } else if (infoHasSnapshot && !infoFading && infoAlpha > 0.01f) {
+        }
+        else if (infoHasSnapshot && !infoFading && infoAlpha > 0.01f) {
             infoFading = true;
             infoFadeStartMs = now;
         }
@@ -1021,9 +1023,11 @@ public class DamageHud {
                 infoPrevDamageTailActive = false;
                 infoHealthLastUpdateMs = 0;
             }
-        } else if (infoDeathDrain) {
+        }
+        else if (infoDeathDrain) {
             infoAlpha = 1.0f;
-        } else {
+        }
+        else {
             infoAlpha = 0.0f;
         }
     }
@@ -1035,7 +1039,8 @@ public class DamageHud {
         if (infoIsPlayer) {
             infoPlayerSkin = ((AbstractClientPlayer) target).getSkin().body().texturePath();
             infoAvatarEntity = null;
-        } else {
+        }
+        else {
             infoPlayerSkin = null;
             // 非玩家实体:保留引用以便直接渲染 3D 头像(死亡淡出期间仍可绘制)
             infoAvatarEntity = target;
@@ -1087,7 +1092,8 @@ public class DamageHud {
             playerSkin = getPreviewSkin(client);
             infoAvatarFactor = 1.0f;
             infoAvatarAlpha = 1.0f;
-        } else {
+        } 
+        else {
             if (!infoHasSnapshot) return;
             health = infoHealth;
             maxHealth = infoMaxHealth;
@@ -1118,7 +1124,8 @@ public class DamageHud {
             // 减少动画：头像槽直接展开到最终宽度
             infoAvatarFactor = targetAvatar;
             infoAvatarAlpha = targetAvatar;
-        } else {
+        } 
+        else {
             float avatarSmoothing = 1.0f - (float)Math.pow(0.0001, layoutDt);
             infoAvatarFactor += (targetAvatar - infoAvatarFactor) * avatarSmoothing;
             infoAvatarFactor = Mth.clamp(infoAvatarFactor, 0.0f, 1.0f);
@@ -1160,7 +1167,8 @@ public class DamageHud {
         int baseY = -panelH / 2;
         if (DamageEngineConfig.getInstance().infoNoRoundedBorder) {
             guiGraphics.fill(baseX - 2, baseY - 2, baseX + panelW + 2, baseY + panelH + 2, bg);
-        } else {
+        }
+        else {
             drawRoundedRect(guiGraphics, baseX - 2, baseY - 2, panelW + 4, panelH + 4, 3, bg);
         }
 
@@ -1180,17 +1188,20 @@ public class DamageHud {
                 // 减少动画：切换目标时不做过场，直接显示新目标
                 infoSwitching = false;
                 infoPrevPlayerSkin = null;
-            } else {
+            } 
+            else {
                 switchT = (hudTimeMs - infoSwitchStartMs) / (float)INFO_SWITCH_MS;
                 if (switchT >= 1.0f) {
                     switchT = 1.0f;
                     infoSwitching = false;
                     infoPrevPlayerSkin = null;
-                } else if (switchT < 0.0f) {
+                } 
+                else if (switchT < 0.0f) {
                     switchT = 0.0f;
                 }
             }
-        } else {
+        } 
+        else {
             switchT = 1.0f;
         }
 
@@ -1346,9 +1357,10 @@ public class DamageHud {
                     infoHealHold = false;
                     infoHealRatio = infoSmoothRatio;
                 }
-            } else {
-                infoHealRatio = infoSmoothRatio;
-            }
+                } 
+                else {
+                    infoHealRatio = infoSmoothRatio;
+                }
         }
 
         infoSmoothRatio = Mth.clamp(infoSmoothRatio, 0.0f, 1.0f);
