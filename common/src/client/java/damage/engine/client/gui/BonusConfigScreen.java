@@ -1,10 +1,7 @@
 package damage.engine.client.gui;
 
 import damage.engine.DamageEngineConfig;
-import damage.engine.client.gui.config.OptionEntry;
-import damage.engine.client.gui.config.OptionListWidget;
-import damage.engine.client.gui.config.PlainTextButton;
-import damage.engine.client.gui.config.StyledButton;
+import mitama.configlib.client.gui.*;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -186,7 +183,7 @@ public class BonusConfigScreen extends Screen {
             if (tip != null) {
                 guiGraphics.pose().pushPose();
                 guiGraphics.pose().translate(0f, 0f, 400f);
-                damage.engine.client.gui.config.ConfigTooltips.draw(
+                ConfigTooltips.draw(
                     guiGraphics, this.font, tip, mouseX, mouseY, this.width, this.height);
                 guiGraphics.pose().popPose();
             }

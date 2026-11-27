@@ -52,3 +52,10 @@ clientOnly=true
     versionRange="[1.0.0,)"
     ordering="NONE"
     side="CLIENT"
+
+[[dependencies.${mod_id}]]
+    modId="mitama_configlib"
+    type="required"
+    versionRange="[1.0.0,)"
+    ordering="NONE"
+    side="CLIENT"

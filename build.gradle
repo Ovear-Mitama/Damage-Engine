@@ -125,6 +125,13 @@ dependencies {
         throw new GradleException("Anima dev jar 不存在: ${animaJar}\n请先在 texture-animation-library 执行 ./gradlew build")
     }
     modImplementation files(animaJar)
+
+    // Mitama's Config Lib: 配置界面框架,本地产物来自同级仓库 Mitama-s-Config-Lib。
+    def configlibJar = file("../Mitama-s-Config-Lib/build/devlibs/mitama-config-lib-${configlib_version}-dev.jar")
+    if (!configlibJar.exists()) {
+        throw new GradleException("Mitama's Config Lib dev jar 不存在: ${configlibJar}\n请先在 Mitama-s-Config-Lib 执行 ./gradlew build")
+    }
+    modImplementation files(configlibJar)
 }
 
 // 把库内置进产物（Jar-in-Jar）：Anima 还没上传 Modrinth，玩家不需要单独安装。
@@ -141,15 +148,27 @@ tasks.named('jar') {
         into 'META-INF/jars'
         rename { animaNestedName }
     }
+
+    def configlibProdJar = file("../Mitama-s-Config-Lib/build/libs/mitama-config-lib-${configlib_version}-Fabric-${project.minecraft_version}.jar")
+    if (!configlibProdJar.exists()) {
+        throw new GradleException("Mitama's Config Lib 正式 jar 不存在: ${configlibProdJar}\n请先在 Mitama-s-Config-Lib 执行 ./gradlew build")
+    }
+    def configlibNestedName = "mitama-config-lib-${configlib_version}.jar"
+    from(configlibProdJar) {
+        into 'META-INF/jars'
+        rename { configlibNestedName }
+    }
 }
 
 processResources {
 	inputs.property "version", project.version
 	inputs.property "anima_version", project.anima_version
+	inputs.property "configlib_version", project.configlib_version
 
 	filesMatching("fabric.mod.json") {
 		expand "version": inputs.properties.version,
-		       "anima_version": inputs.properties.anima_version
+		       "anima_version": inputs.properties.anima_version,
+		       "configlib_version": inputs.properties.configlib_version
 	}
 }
 

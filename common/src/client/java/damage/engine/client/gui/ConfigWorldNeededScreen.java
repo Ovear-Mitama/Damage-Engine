@@ -1,6 +1,6 @@
 package damage.engine.client.gui;
 
-import damage.engine.client.gui.config.StyledButton;
+import mitama.configlib.client.gui.*;
 
 import anima.api.AnimaApi;
 import net.minecraft.client.Minecraft;

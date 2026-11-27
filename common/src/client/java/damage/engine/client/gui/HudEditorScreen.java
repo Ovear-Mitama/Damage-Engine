@@ -2,7 +2,7 @@ package damage.engine.client.gui;
 
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
-import damage.engine.client.gui.config.StyledButton;
+import mitama.configlib.client.gui.*;
 import damage.engine.hud.session.DamageSessionManager;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 
-public class HudEditorScreen extends Screen {
+public class HudEditorScreen extends Screen implements ClickSoundHost {
     private final Screen parent;
     private final DamageEngineConfig config;
     private final DamageHud damageHud;

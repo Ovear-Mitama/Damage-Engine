@@ -46,11 +46,17 @@
 		"fabric-api": "*",
 		"minecraft": ">=1.21 <=1.21.1",
 		"java": ">=21",
+		"mitama-config-lib": ">=${configlib_version}"
+	},
+	"recommends": {
 		"anima": ">=${anima_version}"
 	},
 	"jars": [
 		{
 			"file": "META-INF/jars/anima-${anima_version}.jar"
+		},
+		{
+			"file": "META-INF/jars/mitama-config-lib-${configlib_version}.jar"
 		}
 	],
 	"suggests": {
