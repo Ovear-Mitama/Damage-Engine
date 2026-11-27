@@ -1,10 +1,11 @@
 package damage.engine.client.gui;
 
 import damage.engine.DamageEngineConfig;
-import damage.engine.client.gui.config.OptionEntry;
-import damage.engine.client.gui.config.OptionListWidget;
-import damage.engine.client.gui.config.PlainTextButton;
-import damage.engine.client.gui.config.StyledButton;
+import mitama.configlib.client.gui.ConfigTooltips;
+import mitama.configlib.client.gui.OptionEntry;
+import mitama.configlib.client.gui.OptionListWidget;
+import mitama.configlib.client.gui.PlainTextButton;
+import mitama.configlib.client.gui.StyledButton;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
@@ -189,7 +190,7 @@ public class BonusConfigScreen extends Screen {
             optionList.updateSmoothScroll(delta);
             net.minecraft.network.chat.Component tip = optionList.getTooltipAt(mouseX, mouseY);
             if (tip != null) {
-                damage.engine.client.gui.config.ConfigTooltips.draw(
+                ConfigTooltips.draw(
                     guiGraphics, this.font, tip, mouseX, mouseY, this.width, this.height);
             }
         }

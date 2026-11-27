@@ -11,6 +11,18 @@
       },
       "path": "META-INF/jarjar/anima-${anima_version}.jar",
       "isObfuscated": false
+    },
+    {
+      "identifier": {
+        "group": "mitama.configlib",
+        "artifact": "mitama-config-lib"
+      },
+      "version": {
+        "range": "[1.0.0,)",
+        "artifactVersion": "${configlib_version}"
+      },
+      "path": "META-INF/jarjar/mitama-config-lib-${configlib_version}.jar",
+      "isObfuscated": false
     }
   ]
 }

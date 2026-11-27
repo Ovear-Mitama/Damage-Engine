@@ -2,7 +2,8 @@ package damage.engine.client.gui;
 
 import damage.engine.DamageEngineConfig;
 import damage.engine.hud.DamageHud;
-import damage.engine.client.gui.config.StyledButton;
+import mitama.configlib.client.gui.ConfigCursors;
+import mitama.configlib.client.gui.StyledButton;
 import damage.engine.hud.session.DamageSessionManager;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
@@ -200,13 +201,13 @@ public class HudEditorScreen extends Screen {
         // 1.21.11 cursor styles:
         // resize handle -> diagonal resize; selected module -> move; unselected module hover -> select
         if (selectedModule != null && isOverHandle(mouseX, mouseY, selectedModule)) {
-            guiGraphics.requestCursor(DamageConfigScreen.CURSOR_NWSE);
+            guiGraphics.requestCursor(ConfigCursors.NWSE);
         } else if (selectedModule != null && isOverModule(mouseX, mouseY, selectedModule)) {
-            guiGraphics.requestCursor(DamageConfigScreen.CURSOR_MOVE);
+            guiGraphics.requestCursor(ConfigCursors.MOVE);
         } else {
             for (EditorModule m : modules) {
                 if (isOverModule(mouseX, mouseY, m)) {
-                    guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
+                    guiGraphics.requestCursor(ConfigCursors.HAND);
                     break;
                 }
             }

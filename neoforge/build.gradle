@@ -48,6 +48,17 @@ tasks.named('jar') {
         into 'META-INF/jarjar'
         rename { animaNestedName }
     }
+
+    // 配置界面框架库同样内置（Jar-in-Jar）
+    def configlibProdJar = file("../../Mitama-s-Config-Lib-26.1.x/neoforge/build/libs/mitama-config-lib-${configlib_version}-NeoForge-${minecraft_version}.jar")
+    if (!configlibProdJar.exists()) {
+        throw new GradleException("Mitama's Config Lib NeoForge jar 不存在: ${configlibProdJar}\n请先在 Mitama-s-Config-Lib-26.1.x/neoforge 执行 ./gradlew build")
+    }
+    def configlibNestedName = "mitama-config-lib-${configlib_version}.jar"
+    from(configlibProdJar) {
+        into 'META-INF/jarjar'
+        rename { configlibNestedName }
+    }
 }
 
 // Include common shared sources
@@ -126,6 +137,13 @@ dependencies {
     }
     implementation files(animaJar)
 
+    // Mitama's Config Lib: 配置界面框架，由同级 26.1.x 仓库的 neoforge 工程构建产出
+    def configlibJar = file("../../Mitama-s-Config-Lib-26.1.x/neoforge/build/libs/mitama-config-lib-${configlib_version}-NeoForge-${minecraft_version}.jar")
+    if (!configlibJar.exists()) {
+        throw new GradleException("Mitama's Config Lib NeoForge jar 不存在: ${configlibJar}\n请先在 Mitama-s-Config-Lib-26.1.x/neoforge 执行 ./gradlew build")
+    }
+    implementation files(configlibJar)
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
@@ -164,6 +182,7 @@ tasks.withType(ProcessResources).configureEach {
             mod_license            : mod_license,
             mod_version            : mod_version,
             anima_version          : anima_version,
+            configlib_version      : configlib_version,
     ]
     inputs.properties replaceProperties
 

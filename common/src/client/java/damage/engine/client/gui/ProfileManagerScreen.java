@@ -134,7 +134,7 @@ public class ProfileManagerScreen extends Screen {
 
         @Override
         protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
-            if (isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
+            if (isHovered()) guiGraphics.requestCursor(mitama.configlib.client.gui.ConfigCursors.HAND);
             int x = getX(); int y = getY(); int w = getWidth(); int h = getHeight();
 
             int bgColor = isHovered() ? 0x30FFFFFF : 0x10000000;
@@ -184,7 +184,7 @@ public class ProfileManagerScreen extends Screen {
 
         @Override
         protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
-            if (isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
+            if (isHovered()) guiGraphics.requestCursor(mitama.configlib.client.gui.ConfigCursors.HAND);
             guiGraphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), 0x20000000);
 
             int borderColor = isHovered() ? 0xFFFFFFFF : 0xFFA0A0A0;

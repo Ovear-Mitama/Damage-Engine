@@ -273,7 +273,7 @@ public class HomeScreen extends Screen {
 
         @Override
         protected void extractWidgetRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float delta) {
-            if (this.active && isHovered()) guiGraphics.requestCursor(DamageConfigScreen.CURSOR_HAND);
+            if (this.active && isHovered()) guiGraphics.requestCursor(mitama.configlib.client.gui.ConfigCursors.HAND);
             int bgColor = this.active ? 0x20000000 : 0x10000000;
             guiGraphics.fill(getX(), getY(), getX() + getWidth(), getY() + getHeight(), bgColor);
 
